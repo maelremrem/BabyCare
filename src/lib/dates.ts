@@ -63,3 +63,11 @@ export function relativeTime(value: string) {
   if (hours < 24) return `il y a ${hours} h`
   return `il y a ${Math.floor(hours / 24)} j`
 }
+
+export function groupEventsByDay<T extends { started_at: string }>(events: T[]) {
+  return events.reduce<Record<string, T[]>>((groups, event) => {
+    const key = dateKey(event.started_at)
+    ;(groups[key] ||= []).push(event)
+    return groups
+  }, {})
+}

@@ -1,0 +1,302 @@
+# BabyCare
+
+BabyCare est une application web locale, tactile et installable conçue pour enregistrer rapidement les soins quotidiens d’un bébé : tétées, couches, température, bain, soins du visage et du cordon, changements de vêtements et irritations.
+
+L’application privilégie un minimum d’interactions, une lecture immédiate sur tablette et la conservation locale des données. Elle ne nécessite aucun service cloud et ne comporte pas d’authentification dans sa version MVP.
+
+## Public et usage cible
+
+BabyCare s’adresse principalement aux parents et aux personnes qui participent aux soins d’un bébé dans un même foyer.
+
+- appareil principal : tablette tactile en mode portrait ou paysage ;
+- appareils complémentaires : téléphone ou ordinateur ;
+- réseau : réseau local privé du domicile ;
+- hébergement cible : conteneur Debian LXC léger ;
+- stockage : fichier SQLite local ;
+- accès : sans compte utilisateur pour le MVP.
+
+> [!IMPORTANT]
+> L’application contient des informations privées et ne possède pas encore d’authentification. Ne l’exposez pas directement sur Internet. Limitez son accès au réseau local ou ajoutez une couche d’authentification devant le service.
+
+## Fonctionnalités actuelles
+
+- actions rapides pour les soins fréquents ;
+- chronomètres persistants pour les tétées, bains et soins chronométrés ;
+- passage rapide d’un sein à l’autre ;
+- sélecteur tactile de température ;
+- observations sur les événements ;
+- checklist des soins quotidiens ;
+- historique filtrable et recherchable ;
+- modification et suppression des événements ;
+- export de l’historique au format Excel ;
+- interface responsive et installable comme PWA ;
+- stockage permanent des événements dans SQLite.
+
+La conception complète et les critères du MVP se trouvent dans [la documentation fonctionnelle](./docs/BabyCare%20—%20Documentation%20de%20conception%20&%20développement.md).
+
+## Stack technique
+
+| Partie | Technologies |
+|---|---|
+| Interface | React, TypeScript, Vite |
+| Design | Tailwind CSS, shadcn/ui, Radix UI, Lucide |
+| Serveur | Node.js, Express |
+| Base de données | SQLite avec `better-sqlite3` |
+| Export | ExcelJS |
+| Installation tablette | PWA avec `vite-plugin-pwa` |
+
+En développement, Vite sert l’interface sur le port `5173` et redirige les appels `/api` vers Express sur le port `3000`. En production, Express sert à la fois l’interface compilée et l’API sur un seul port.
+
+## Démarrer le développement sur macOS
+
+### Prérequis
+
+- macOS ;
+- Git ;
+- Node.js 22 ou plus récent ;
+- npm ;
+- VS Code, recommandé mais non obligatoire.
+
+Si l’installation de `better-sqlite3` nécessite une compilation native, installez les outils Apple :
+
+```bash
+xcode-select --install
+```
+
+### Installation
+
+```bash
+git clone https://github.com/maelremrem/BabyCare.git
+cd BabyCare
+npm install
+npm run dev
+```
+
+Ouvrez ensuite [http://localhost:5173](http://localhost:5173).
+
+Pour tester depuis une tablette connectée au même Wi-Fi, utilisez l’adresse réseau affichée par Vite. Vous pouvez également obtenir l’adresse du Mac avec :
+
+```bash
+ipconfig getifaddr en0
+```
+
+Puis ouvrez, par exemple, `http://192.168.1.20:5173` sur la tablette.
+
+La base de développement est créée automatiquement dans `data/babycare.db`. Ce fichier est ignoré par Git.
+
+### Commandes utiles
+
+```bash
+# Interface et API ensemble
+npm run dev
+
+# Interface uniquement
+npm run dev:client
+
+# API uniquement
+npm run dev:server
+
+# Vérification TypeScript
+npm run typecheck
+
+# Tests du serveur
+npm test
+
+# Build de production
+npm run build
+
+# Lancer le build de production
+npm start
+```
+
+Vite recharge automatiquement les modifications de l’interface. Après une modification du serveur Express, redémarrez `npm run dev`.
+
+## Organisation du projet
+
+```text
+BabyCare/
+├── docs/                   Documentation fonctionnelle
+├── public/                 Icônes et ressources PWA
+├── server/
+│   ├── app.js              API REST et serveur de production
+│   ├── database.js         Initialisation et entretien de SQLite
+│   └── app.test.js         Tests d’intégration de l’API
+├── src/
+│   ├── components/         Composants métier et shadcn/ui
+│   ├── hooks/              Horloge et chargement des événements
+│   ├── lib/                API cliente, dates, types et utilitaires
+│   ├── pages/              Suivi, Soins et Historique
+│   ├── App.tsx             Navigation et état principal
+│   └── main.tsx            Entrée React
+├── data/                   Base SQLite locale, non versionnée
+├── package.json
+└── vite.config.ts
+```
+
+## Configuration
+
+Le serveur accepte les variables d’environnement suivantes :
+
+| Variable | Valeur par défaut | Description |
+|---|---|---|
+| `PORT` | `3000` | Port HTTP du serveur Express |
+| `DATABASE_PATH` | `./data/babycare.db` | Emplacement de la base SQLite |
+| `TZ` | `Europe/Paris` | Fuseau utilisé pour les routines quotidiennes |
+
+Exemple :
+
+```bash
+PORT=3000 \
+DATABASE_PATH=/opt/babycare/data/babycare.db \
+TZ=Europe/Paris \
+npm start
+```
+
+## Hébergement recommandé dans un LXC Debian
+
+Le mode de production le plus simple consiste à compiler l’interface puis à laisser Express servir le dossier `dist/` et l’API. Un seul service Node.js est alors nécessaire.
+
+### 1. Préparer le conteneur
+
+Configuration minimale recommandée : Debian 13, 1 vCPU, 512 Mo de RAM et 4 Go de disque.
+
+Installez Git, Node.js 22 ou plus récent, npm et les outils nécessaires aux dépendances natives :
+
+```bash
+sudo apt update
+sudo apt install -y git build-essential python3
+```
+
+Installez Node.js depuis une source de paquets maintenue pour Debian, puis vérifiez :
+
+```bash
+node --version
+npm --version
+```
+
+### 2. Installer BabyCare
+
+```bash
+sudo git clone https://github.com/maelremrem/BabyCare.git /opt/babycare
+cd /opt/babycare
+sudo npm ci
+sudo npm run build
+sudo mkdir -p /opt/babycare/data
+```
+
+Créez un compte système dédié et donnez-lui uniquement l’accès en écriture aux données :
+
+```bash
+sudo useradd --system --home /opt/babycare --shell /usr/sbin/nologin babycare
+sudo chown -R babycare:babycare /opt/babycare/data
+```
+
+### 3. Installer le service systemd
+
+Créez `/etc/systemd/system/babycare.service` :
+
+```ini
+[Unit]
+Description=BabyCare
+After=network.target
+
+[Service]
+Type=simple
+User=babycare
+Group=babycare
+WorkingDirectory=/opt/babycare
+ExecStart=/usr/bin/node /opt/babycare/server/app.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=DATABASE_PATH=/opt/babycare/data/babycare.db
+Environment=TZ=Europe/Paris
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Activez ensuite le service :
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now babycare
+sudo systemctl status babycare
+```
+
+L’application est alors accessible sur `http://ADRESSE_DU_LXC:3000` depuis le réseau local.
+
+### 4. Mise à jour
+
+```bash
+cd /opt/babycare
+sudo git pull --ff-only
+sudo npm ci
+sudo npm run build
+sudo systemctl restart babycare
+```
+
+### 5. HTTPS et installation PWA
+
+Le mode PWA complet, notamment le service worker, nécessite un contexte sécurisé. `localhost` est accepté pendant le développement, mais un accès par adresse IP sur le réseau local doit idéalement passer en HTTPS.
+
+Pour une installation durable sur tablette, placez BabyCare derrière un reverse proxy local comme Caddy ou Nginx, utilisez un nom DNS local et un certificat approuvé par la tablette. Le reverse proxy doit transmettre les requêtes vers `http://127.0.0.1:3000`.
+
+### 6. Sauvegarde
+
+La donnée importante se trouve dans un seul fichier :
+
+```text
+/opt/babycare/data/babycare.db
+```
+
+Sauvegardez régulièrement ce fichier vers un autre emplacement. Pour garantir une copie cohérente pendant que l’application fonctionne, utilisez la commande de sauvegarde SQLite ou arrêtez brièvement le service avant la copie.
+
+## Reprendre le développement
+
+Pour reprendre le projet après une interruption :
+
+1. lire la [documentation fonctionnelle](./docs/BabyCare%20—%20Documentation%20de%20conception%20&%20développement.md) ;
+2. vérifier l’état Git avec `git status` et récupérer les changements avec `git pull --ff-only` ;
+3. installer les dépendances avec `npm install` ou `npm ci` ;
+4. lancer `npm run dev` ;
+5. valider les changements avec `npm run typecheck`, `npm test` et `npm run build`.
+
+Les prochains chantiers identifiés sont notamment :
+
+- connecter complètement la checklist de bain à l’interface ;
+- ajouter les intervalles personnalisés dans l’historique ;
+- terminer les scripts d’installation et de sauvegarde LXC ;
+- compléter les tests des parcours tactiles ;
+- renforcer la sécurité avant tout accès hors du réseau local.
+
+## Contribuer
+
+Les contributions sont les bienvenues, en particulier sur l’ergonomie tactile, l’accessibilité, les tests et la fiabilité de la conservation des données.
+
+### Workflow conseillé
+
+1. créer une branche depuis `main` : `git switch -c feature/nom-court` ;
+2. garder les changements ciblés et respecter l’architecture existante ;
+3. utiliser en priorité les composants présents dans `src/components/ui` ;
+4. vérifier l’interface sur tablette et téléphone ;
+5. lancer les trois contrôles avant de proposer le changement :
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
+6. décrire clairement le besoin, la solution et la méthode de test dans la pull request.
+
+Pour toute modification de la base ou de l’API, préserver la compatibilité avec les bases existantes et ajouter un test dans `server/app.test.js`. Ne versionnez jamais une base réelle, un export Excel contenant des données privées ou un fichier de configuration comportant des secrets.
+
+## État du projet
+
+BabyCare est en développement actif. L’interface et les principaux parcours du MVP sont utilisables, mais le projet n’est pas encore considéré comme prêt pour une exposition publique ou un usage médical critique.
+
+## Licence
+
+Aucune licence n’est encore définie. Tant qu’un fichier `LICENSE` n’est pas ajouté, le code reste soumis au droit d’auteur de son propriétaire et sa réutilisation n’est pas implicitement autorisée.
