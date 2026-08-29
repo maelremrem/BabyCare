@@ -13,13 +13,12 @@ export default defineConfig({
         name: "BabyCare",
         short_name: "BabyCare",
         description: "Suivi local des soins quotidiens de bébé",
-        theme_color: "#000000",
+        theme_color: "#FD6D01",
         background_color: "#000000",
         display: "standalone",
         start_url: "/",
         icons: [
-          { src: "/pwa-192x192.svg", sizes: "192x192", type: "image/svg+xml" },
-          { src: "/pwa-512x512.svg", sizes: "512x512", type: "image/svg+xml" }
+          { src: "/babycare-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
         ]
       }
     })

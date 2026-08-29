@@ -21,13 +21,20 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 ## Fonctionnalités actuelles
 
 - actions rapides pour les soins fréquents ;
-- chronomètres persistants pour les tétées, bains et soins chronométrés ;
+- profil local du bébé avec son nom, sa date de naissance et son âge exact ;
+- topbar avec date et horloge à la seconde ;
+- chronomètres persistants pour les tétées et les soins chronométrés ;
+- compteur des tétées réalisées dans la journée ;
+- suivi médical avec courbes du poids et de la taille ;
+- saisie tactile des mesures par pas de 50 g et 0,1 cm ;
+- historique médical modifiable ;
 - passage rapide d’un sein à l’autre ;
 - sélecteur tactile de température ;
 - irritations associées à une ou plusieurs zones ;
 - observations libres ajoutées directement à l’historique ;
 - observations sur les événements ;
 - checklist des soins quotidiens ;
+- validation de la checklist complète dans l’historique ;
 - historique filtrable et recherchable ;
 - modification et suppression des événements ;
 - export de l’historique au format Excel ;
@@ -49,17 +56,16 @@ La conception complète et les critères du MVP se trouvent dans [la documentati
 
 En développement, Vite sert l’interface sur le port `5173` et redirige les appels `/api` vers Express sur le port `3000`. En production, Express sert à la fois l’interface compilée et l’API sur un seul port.
 
-## Démarrer le développement sur macOS
+## Démarrer le développement
 
 ### Prérequis
 
-- macOS ;
 - Git ;
 - Node.js 22 ou plus récent ;
 - npm ;
 - VS Code, recommandé mais non obligatoire.
 
-Si l’installation de `better-sqlite3` nécessite une compilation native, installez les outils Apple :
+Si l’installation de `better-sqlite3` nécessite une compilation native, installez les outils Apple si vous êtes sur macOS :
 
 ```bash
 xcode-select --install
@@ -76,7 +82,7 @@ npm run dev
 
 Ouvrez ensuite [http://localhost:5173](http://localhost:5173).
 
-Pour tester depuis une tablette connectée au même Wi-Fi, utilisez l’adresse réseau affichée par Vite. Vous pouvez également obtenir l’adresse du Mac avec :
+Pour tester depuis une tablette connectée au même Wi-Fi, utilisez l’adresse réseau affichée par Vite.
 
 ```bash
 ipconfig getifaddr en0
@@ -125,6 +131,7 @@ Relancez ensuite `npm run dev` et ouvrez exactement l’adresse `Local` affiché
 BabyCare/
 ├── docs/                   Documentation fonctionnelle
 ├── public/                 Icônes et ressources PWA
+├── scripts/                Installateur Debian et service systemd
 ├── server/
 │   ├── app.js              API REST et serveur de production
 │   ├── database.js         Initialisation et entretien de SQLite
@@ -164,94 +171,45 @@ npm start
 
 Le mode de production le plus simple consiste à compiler l’interface puis à laisser Express servir le dossier `dist/` et l’API. Un seul service Node.js est alors nécessaire.
 
-### 1. Préparer le conteneur
+### Installation automatique
 
 Configuration minimale recommandée : Debian 13, 1 vCPU, 512 Mo de RAM et 4 Go de disque.
 
-Installez Git, Node.js 22 ou plus récent, npm et les outils nécessaires aux dépendances natives :
+Dans le conteneur Debian, une seule commande suffit :
 
 ```bash
-sudo apt update
-sudo apt install -y git build-essential python3
+curl -fsSL https://raw.githubusercontent.com/maelremrem/BabyCare/main/scripts/install.sh | sudo bash
 ```
 
-Installez Node.js depuis une source de paquets maintenue pour Debian, puis vérifiez :
+Le script :
 
-```bash
-node --version
-npm --version
-```
-
-### 2. Installer BabyCare
-
-```bash
-sudo git clone https://github.com/maelremrem/BabyCare.git /opt/babycare
-cd /opt/babycare
-sudo npm ci
-sudo npm run build
-sudo mkdir -p /opt/babycare/data
-```
-
-Créez un compte système dédié et donnez-lui uniquement l’accès en écriture aux données :
-
-```bash
-sudo useradd --system --home /opt/babycare --shell /usr/sbin/nologin babycare
-sudo chown -R babycare:babycare /opt/babycare/data
-```
-
-### 3. Installer le service systemd
-
-Créez `/etc/systemd/system/babycare.service` :
-
-```ini
-[Unit]
-Description=BabyCare
-After=network.target
-
-[Service]
-Type=simple
-User=babycare
-Group=babycare
-WorkingDirectory=/opt/babycare
-ExecStart=/usr/bin/node /opt/babycare/server/app.js
-Restart=always
-RestartSec=3
-Environment=NODE_ENV=production
-Environment=PORT=3000
-Environment=DATABASE_PATH=/opt/babycare/data/babycare.db
-Environment=TZ=Europe/Paris
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Activez ensuite le service :
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now babycare
-sudo systemctl status babycare
-```
+- installe Git, Node.js 22 et les dépendances système nécessaires ;
+- clone et compile BabyCare dans `/opt/babycare` ;
+- crée l’utilisateur système limité `babycare` ;
+- préserve le contenu de `/opt/babycare/data` lors d’une réinstallation ;
+- installe, active et démarre le service `babycare.service` ;
+- configure le redémarrage automatique du serveur après un redémarrage de Debian.
 
 L’application est alors accessible sur `http://ADRESSE_DU_LXC:3000` depuis le réseau local.
 
-### 4. Mise à jour
+Commandes de diagnostic utiles :
 
 ```bash
-cd /opt/babycare
-sudo git pull --ff-only
-sudo npm ci
-sudo npm run build
-sudo systemctl restart babycare
+sudo systemctl status babycare
+sudo journalctl -u babycare -f
 ```
 
-### 5. HTTPS et installation PWA
+### Mise à jour
+
+Relancez exactement la même commande. Le script détecte l’installation, récupère la branche `main` avec `git pull --ff-only`, reconstruit l’application et redémarre le service. Les données de `/opt/babycare/data` sont conservées.
+
+### HTTPS et installation PWA
 
 Le mode PWA complet, notamment le service worker, nécessite un contexte sécurisé. `localhost` est accepté pendant le développement, mais un accès par adresse IP sur le réseau local doit idéalement passer en HTTPS.
 
 Pour une installation durable sur tablette, placez BabyCare derrière un reverse proxy local comme Caddy ou Nginx, utilisez un nom DNS local et un certificat approuvé par la tablette. Le reverse proxy doit transmettre les requêtes vers `http://127.0.0.1:3000`.
 
-### 6. Sauvegarde
+### Sauvegarde
 
 La donnée importante se trouve dans un seul fichier :
 
@@ -275,7 +233,7 @@ Les prochains chantiers identifiés sont notamment :
 
 - connecter complètement la checklist de bain à l’interface ;
 - ajouter les intervalles personnalisés dans l’historique ;
-- terminer les scripts d’installation et de sauvegarde LXC ;
+- ajouter un script de sauvegarde vérifiée pour SQLite ;
 - compléter les tests des parcours tactiles ;
 - renforcer la sécurité avant tout accès hors du réseau local.
 

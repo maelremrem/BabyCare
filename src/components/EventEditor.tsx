@@ -32,7 +32,11 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
     if (!event) return
     setNotes(event.notes || "")
     setStartedAt(toLocalInput(event.started_at))
-    setValue(event.value_real?.toFixed(1) || event.value_text || "")
+    setValue(event.value_real == null
+      ? event.value_text || ""
+      : event.type === "weight"
+        ? event.value_real.toFixed(3)
+        : event.value_real.toFixed(1))
     setDetail(typeof event.metadata?.diaper_type === "string" ? event.metadata.diaper_type : "")
     const storedLocations = event.metadata?.locations
     const legacyLocation = event.metadata?.location
@@ -48,6 +52,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
   if (!event) return null
 
   const save = async () => {
+    const isNumericMeasurement = event.type === "temperature" || event.type === "weight" || event.type === "height"
     const metadata = event.type === "diaper"
       ? { ...event.metadata, diaper_type: detail }
       : event.type === "irritation"
@@ -56,8 +61,8 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
     await api.updateEvent(event.id, {
       notes,
       started_at: new Date(startedAt).toISOString(),
-      value_real: event.type === "temperature" ? Number(value) : event.value_real,
-      value_text: event.type !== "temperature" && event.value_text != null ? value : event.value_text,
+      value_real: isNumericMeasurement ? Number(value) : event.value_real,
+      value_text: !isNumericMeasurement && event.value_text != null ? value : event.value_text,
       metadata
     })
     toast.success("Événement mis à jour")
@@ -81,6 +86,18 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
             <label className="grid gap-2 text-sm font-medium">
               Température (°C)
               <Input type="number" min="34" max="44" step="0.1" value={value} onChange={(e) => setValue(e.target.value)} />
+            </label>
+          )}
+          {event.type === "weight" && (
+            <label className="grid gap-2 text-sm font-medium">
+              Poids (kg)
+              <Input type="number" min="0.3" max="30" step="0.05" value={value} onChange={(e) => setValue(e.target.value)} />
+            </label>
+          )}
+          {event.type === "height" && (
+            <label className="grid gap-2 text-sm font-medium">
+              Taille (cm)
+              <Input type="number" min="20" max="200" step="0.1" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
           )}
           {event.type === "diaper" && (

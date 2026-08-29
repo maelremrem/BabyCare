@@ -17,6 +17,10 @@ export function EventRow({ event, onClick }: EventRowProps) {
       : []
   const detail = event.type === "temperature" && event.value_real != null
     ? `${event.value_real.toFixed(1)} °C`
+    : event.type === "weight" && event.value_real != null
+      ? `${event.value_real.toFixed(3)} kg`
+      : event.type === "height" && event.value_real != null
+        ? `${event.value_real.toFixed(1)} cm`
     : diaperType
       ? { urine: "Urine", stool: "Selles", mixed: "Mixte" }[diaperType]
       : irritationLocations.length > 0

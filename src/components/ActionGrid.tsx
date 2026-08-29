@@ -84,10 +84,10 @@ export function ActionGrid({ onChanged, onOpenCare }: ActionGridProps) {
           <Bath className="size-6" /> Bain
         </Button>
         <Button variant="outline" className={actionClass} onClick={() => start("breast_left", "Sein gauche")}>
-          <Milk className="size-6" /> Sein G
+          <Milk className="size-6" /> Sein Gauche
         </Button>
         <Button variant="outline" className={actionClass} onClick={() => start("breast_right", "Sein droit")}>
-          <Milk className="size-6" /> Sein D
+          <Milk className="size-6" /> Sein Droit
         </Button>
 
         <Popover open={careOpen} onOpenChange={setCareOpen}>

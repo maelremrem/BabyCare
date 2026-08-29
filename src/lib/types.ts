@@ -1,6 +1,7 @@
 export const EVENT_LABELS = {
   temperature: "Température",
   weight: "Poids",
+  height: "Taille",
   diaper: "Couche",
   breast_left: "Sein gauche",
   breast_right: "Sein droit",
@@ -11,6 +12,7 @@ export const EVENT_LABELS = {
   clothes_change: "Vêtements",
   irritation: "Irritation",
   observation: "Observation",
+  daily_care: "Soins quotidiens",
   eye_care: "Yeux",
   nose_care: "Nez"
 } as const
@@ -20,17 +22,19 @@ export type EventType = keyof typeof EVENT_LABELS
 export const IRRITATION_LOCATIONS = ["Visage", "Cou", "Torse", "Dos", "Bras", "Jambes", "Fesses", "Autre"] as const
 
 export const ACCENT_OPTIONS = [
-  { id: "orange", label: "Orange", value: "oklch(0.7 0.19 48)" },
-  { id: "blue", label: "Bleu", value: "oklch(0.68 0.18 250)" },
-  { id: "green", label: "Vert", value: "oklch(0.72 0.18 145)" },
-  { id: "pink", label: "Rose", value: "oklch(0.7 0.2 350)" },
-  { id: "purple", label: "Violet", value: "oklch(0.68 0.18 300)" }
+  { id: "orange", label: "Orange", value: "#FD6D01" },
+  { id: "blue", label: "Bleu", value: "#2F80ED" },
+  { id: "green", label: "Vert", value: "#34C759" },
+  { id: "pink", label: "Rose", value: "#FF2D92" },
+  { id: "purple", label: "Violet", value: "#AF52DE" }
 ] as const
 
 export type AccentColor = typeof ACCENT_OPTIONS[number]["id"]
 
 export interface AppSettings {
   accent_color: AccentColor
+  baby_name: string
+  birth_date: string
 }
 
 export interface BabyEvent {
@@ -54,6 +58,7 @@ export interface DailyCare {
   care_type: "eyes" | "nose" | "cord" | "face"
   completed: 0 | 1
   completed_at: string | null
+  validated_at: string | null
 }
 
 export interface EventList {

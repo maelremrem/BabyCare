@@ -1,0 +1,25 @@
+[Unit]
+Description=BabyCare local baby tracking server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=babycare
+Group=babycare
+WorkingDirectory=/opt/babycare
+ExecStart=/usr/bin/node /opt/babycare/server/app.js
+Restart=on-failure
+RestartSec=3
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=DATABASE_PATH=/opt/babycare/data/babycare.db
+Environment=TZ=Europe/Paris
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/babycare/data
+
+[Install]
+WantedBy=multi-user.target

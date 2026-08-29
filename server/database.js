@@ -38,6 +38,13 @@ export function createDatabase(databasePath = process.env.DATABASE_PATH || path.
       UNIQUE(date, care_type)
     );
 
+    CREATE TABLE IF NOT EXISTS daily_care_validations (
+      date TEXT PRIMARY KEY,
+      event_id INTEGER,
+      validated_at TEXT NOT NULL,
+      FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE SET NULL
+    );
+
     CREATE TABLE IF NOT EXISTS bath_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       event_id INTEGER,
@@ -63,6 +70,12 @@ export function createDatabase(databasePath = process.env.DATABASE_PATH || path.
 
     INSERT OR IGNORE INTO app_settings (key, value, updated_at)
     VALUES ('accent_color', 'orange', datetime('now'));
+
+    INSERT OR IGNORE INTO app_settings (key, value, updated_at)
+    VALUES ('baby_name', '', datetime('now'));
+
+    INSERT OR IGNORE INTO app_settings (key, value, updated_at)
+    VALUES ('birth_date', '', datetime('now'));
 
     CREATE INDEX IF NOT EXISTS idx_events_started_at ON events(started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);

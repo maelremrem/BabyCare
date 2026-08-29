@@ -8,6 +8,7 @@ import { cleanupTemporaryData, createDatabase } from "./database.js"
 const EVENT_TYPES = new Set([
   "temperature",
   "weight",
+  "height",
   "diaper",
   "breast_left",
   "breast_right",
@@ -18,6 +19,7 @@ const EVENT_TYPES = new Set([
   "clothes_change",
   "irritation",
   "observation",
+  "daily_care",
   "eye_care",
   "nose_care"
 ])
@@ -43,6 +45,34 @@ const localDate = () => new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
   day: "2-digit"
 }).format(new Date())
+
+function isValidDateOnly(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return false
+  const [, yearValue, monthValue, dayValue] = match
+  const date = new Date(Date.UTC(Number(yearValue), Number(monthValue) - 1, Number(dayValue)))
+  return date.getUTCFullYear() === Number(yearValue)
+    && date.getUTCMonth() === Number(monthValue) - 1
+    && date.getUTCDate() === Number(dayValue)
+}
+
+function readSettings(db) {
+  const rows = db.prepare("SELECT key, value FROM app_settings").all()
+  const values = Object.fromEntries(rows.map(({ key, value }) => [key, value]))
+  return {
+    accent_color: ACCENT_COLORS.has(values.accent_color) ? values.accent_color : "orange",
+    baby_name: values.baby_name || "",
+    birth_date: values.birth_date || ""
+  }
+}
+
+function saveSetting(db, key, value) {
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(key, value, nowIso())
+}
 
 function parseEvent(row) {
   if (!row) return row
@@ -90,6 +120,7 @@ function displayType(type) {
   return {
     temperature: "Température",
     weight: "Poids",
+    height: "Taille",
     diaper: "Couche",
     breast_left: "Sein gauche",
     breast_right: "Sein droit",
@@ -100,6 +131,7 @@ function displayType(type) {
     clothes_change: "Vêtements",
     irritation: "Irritation",
     observation: "Observation",
+    daily_care: "Soins quotidiens",
     eye_care: "Yeux",
     nose_care: "Nez"
   }[type] || type
@@ -115,8 +147,7 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.get("/api/settings", (_request, response) => {
-    const accent = db.prepare("SELECT value FROM app_settings WHERE key = 'accent_color'").get()
-    response.json({ accent_color: accent?.value || "orange" })
+    response.json(readSettings(db))
   })
 
   app.put("/api/settings/accent", (request, response) => {
@@ -124,12 +155,25 @@ export function createApp({ db = createDatabase() } = {}) {
     if (!ACCENT_COLORS.has(color)) {
       return response.status(400).json({ error: "Couleur d’accent invalide." })
     }
-    db.prepare(`
-      INSERT INTO app_settings (key, value, updated_at)
-      VALUES ('accent_color', ?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-    `).run(color, nowIso())
-    response.json({ accent_color: color })
+    saveSetting(db, "accent_color", color)
+    response.json(readSettings(db))
+  })
+
+  app.put("/api/settings/profile", (request, response) => {
+    const { baby_name: babyName, birth_date: birthDate } = request.body
+    if (typeof babyName !== "string" || babyName.trim().length > 80) {
+      return response.status(400).json({ error: "Le nom du bébé ne peut pas dépasser 80 caractères." })
+    }
+    if (typeof birthDate !== "string" || (birthDate && (!isValidDateOnly(birthDate) || birthDate > localDate()))) {
+      return response.status(400).json({ error: "La date de naissance est invalide ou située dans le futur." })
+    }
+
+    const updateProfile = db.transaction(() => {
+      saveSetting(db, "baby_name", babyName.trim())
+      saveSetting(db, "birth_date", birthDate)
+    })
+    updateProfile()
+    response.json(readSettings(db))
   })
 
   app.get("/api/events", (request, response) => {
@@ -161,6 +205,9 @@ export function createApp({ db = createDatabase() } = {}) {
     }
     if (type === "weight" && (!Number.isFinite(value_real) || value_real < 0.3 || value_real > 30)) {
       return response.status(400).json({ error: "Le poids doit être compris entre 0,3 et 30 kg." })
+    }
+    if (type === "height" && (!Number.isFinite(value_real) || value_real < 20 || value_real > 200)) {
+      return response.status(400).json({ error: "La taille doit être comprise entre 20 et 200 cm." })
     }
     const timestamp = nowIso()
     const start = started_at ? new Date(started_at).toISOString() : timestamp
@@ -237,6 +284,12 @@ export function createApp({ db = createDatabase() } = {}) {
         return response.status(400).json({ error: "Le poids doit être compris entre 0,3 et 30 kg." })
       }
     }
+    if (updatedType === "height" && request.body.value_real !== undefined) {
+      const height = Number(request.body.value_real)
+      if (!Number.isFinite(height) || height < 20 || height > 200) {
+        return response.status(400).json({ error: "La taille doit être comprise entre 20 et 200 cm." })
+      }
+    }
     if (!updates.length) return response.json(parseEvent(event))
 
     const set = updates.map(([key]) => `${key} = @${key}`).concat("updated_at = @updated_at").join(", ")
@@ -259,7 +312,58 @@ export function createApp({ db = createDatabase() } = {}) {
     const insert = db.prepare("INSERT OR IGNORE INTO daily_care (date, care_type) VALUES (?, ?)")
     const ensure = db.transaction(() => DAILY_CARE_TYPES.forEach((type) => insert.run(date, type)))
     ensure()
-    response.json(db.prepare("SELECT * FROM daily_care WHERE date = ? ORDER BY id").all(date))
+    response.json(db.prepare(`
+      SELECT daily_care.*,
+        CASE WHEN events.id IS NOT NULL THEN daily_care_validations.validated_at ELSE NULL END AS validated_at
+      FROM daily_care
+      LEFT JOIN daily_care_validations ON daily_care_validations.date = daily_care.date
+      LEFT JOIN events ON events.id = daily_care_validations.event_id
+      WHERE daily_care.date = ?
+      ORDER BY daily_care.id
+    `).all(date))
+  })
+
+  app.post("/api/routines/daily/validate", (request, response) => {
+    const date = request.body?.date || localDate()
+    const insertCare = db.prepare("INSERT OR IGNORE INTO daily_care (date, care_type) VALUES (?, ?)")
+    const validate = db.transaction(() => {
+      DAILY_CARE_TYPES.forEach((type) => insertCare.run(date, type))
+      const incomplete = db.prepare("SELECT COUNT(*) AS count FROM daily_care WHERE date = ? AND completed = 0").get(date).count
+      if (incomplete > 0) return { incomplete: true }
+
+      const existing = db.prepare(`
+        SELECT events.id
+        FROM daily_care_validations
+        JOIN events ON events.id = daily_care_validations.event_id
+        WHERE daily_care_validations.date = ?
+      `).get(date)
+      if (existing) return { eventId: existing.id, created: false }
+
+      const timestamp = nowIso()
+      const event = db.prepare(`
+        INSERT INTO events (type, status, started_at, ended_at, duration_seconds, value_text, notes, metadata, created_at, updated_at)
+        VALUES ('daily_care', 'completed', ?, ?, 0, '4 / 4', ?, ?, ?, ?)
+      `).run(
+        timestamp,
+        timestamp,
+        "Yeux, nez, cordon et visage effectués",
+        JSON.stringify({ date, care_types: DAILY_CARE_TYPES }),
+        timestamp,
+        timestamp
+      )
+      db.prepare(`
+        INSERT INTO daily_care_validations (date, event_id, validated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(date) DO UPDATE SET event_id = excluded.event_id, validated_at = excluded.validated_at
+      `).run(date, event.lastInsertRowid, timestamp)
+      return { eventId: event.lastInsertRowid, created: true }
+    })
+
+    const result = validate()
+    if (result.incomplete) {
+      return response.status(409).json({ error: "Terminez la checklist avant de valider les soins." })
+    }
+    response.status(result.created ? 201 : 200).json(parseEvent(db.prepare("SELECT * FROM events WHERE id = ?").get(result.eventId)))
   })
 
   app.put("/api/routines/daily/:careType", (request, response) => {
@@ -268,6 +372,15 @@ export function createApp({ db = createDatabase() } = {}) {
       return response.status(400).json({ error: "Soin quotidien invalide." })
     }
     const date = request.body.date || localDate()
+    const validation = db.prepare(`
+      SELECT events.id
+      FROM daily_care_validations
+      JOIN events ON events.id = daily_care_validations.event_id
+      WHERE daily_care_validations.date = ?
+    `).get(date)
+    if (validation) {
+      return response.status(409).json({ error: "Les soins du jour ont déjà été validés." })
+    }
     const completed = request.body.completed ? 1 : 0
     db.prepare(`
       INSERT INTO daily_care (date, care_type, completed, completed_at)
@@ -344,6 +457,8 @@ export function createApp({ db = createDatabase() } = {}) {
             ? `${event.value_real.toFixed(1)} °C`
             : event.type === "weight" && event.value_real != null
               ? `${event.value_real.toFixed(3)} kg`
+              : event.type === "height" && event.value_real != null
+                ? `${event.value_real.toFixed(1)} cm`
               : event.value_real ?? event.value_text ?? "",
           detail: event.metadata?.diaper_type
             || (Array.isArray(event.metadata?.locations) ? event.metadata.locations.join(", ") : "")

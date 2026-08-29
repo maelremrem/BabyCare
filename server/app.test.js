@@ -131,3 +131,98 @@ test("limite les températures entre 34 et 44 degrés", () => withServer(async (
   })
   assert.equal(maximum.status, 201)
 }))
+
+test("conserve le profil du bébé et refuse une naissance future", () => withServer(async (baseUrl) => {
+  const initial = await fetch(`${baseUrl}/api/settings`).then((response) => response.json())
+  assert.equal(initial.accent_color, "orange")
+  assert.equal(initial.baby_name, "")
+  assert.equal(initial.birth_date, "")
+
+  const saved = await fetch(`${baseUrl}/api/settings/profile`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03" })
+  }).then((response) => response.json())
+  assert.equal(saved.baby_name, "Lou")
+  assert.equal(saved.birth_date, "2025-12-03")
+
+  const future = await fetch(`${baseUrl}/api/settings/profile`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2999-01-01" })
+  })
+  assert.equal(future.status, 400)
+
+  const color = await fetch(`${baseUrl}/api/settings/accent`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ color: "green" })
+  }).then((response) => response.json())
+  assert.equal(color.accent_color, "green")
+  assert.equal(color.baby_name, "Lou")
+}))
+
+test("enregistre les mesures de poids et de taille", () => withServer(async (baseUrl) => {
+  const weight = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "weight", value_real: 3.55 })
+  }).then((response) => response.json())
+  assert.equal(weight.value_real, 3.55)
+
+  const height = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "height", value_real: 50.1 })
+  }).then((response) => response.json())
+  assert.equal(height.value_real, 50.1)
+
+  const invalidHeight = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "height", value_real: 201 })
+  })
+  assert.equal(invalidHeight.status, 400)
+
+  const medicalHistory = await fetch(`${baseUrl}/api/events?type=height`).then((response) => response.json())
+  assert.equal(medicalHistory.total, 1)
+  assert.equal(medicalHistory.events[0].type, "height")
+}))
+
+test("valide une seule fois la checklist complète dans les logs", () => withServer(async (baseUrl) => {
+  const tooEarly = await fetch(`${baseUrl}/api/routines/daily/validate`, { method: "POST" })
+  assert.equal(tooEarly.status, 409)
+
+  for (const careType of ["eyes", "nose", "cord", "face"]) {
+    const response = await fetch(`${baseUrl}/api/routines/daily/${careType}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ completed: true })
+    })
+    assert.equal(response.status, 200)
+  }
+
+  const validatedResponse = await fetch(`${baseUrl}/api/routines/daily/validate`, { method: "POST" })
+  assert.equal(validatedResponse.status, 201)
+  const validated = await validatedResponse.json()
+  assert.equal(validated.type, "daily_care")
+
+  const care = await fetch(`${baseUrl}/api/routines/daily`).then((response) => response.json())
+  assert.equal(care.length, 4)
+  assert.ok(care.every((item) => item.validated_at))
+
+  const duplicateResponse = await fetch(`${baseUrl}/api/routines/daily/validate`, { method: "POST" })
+  assert.equal(duplicateResponse.status, 200)
+  const duplicate = await duplicateResponse.json()
+  assert.equal(duplicate.id, validated.id)
+
+  const locked = await fetch(`${baseUrl}/api/routines/daily/eyes`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ completed: false })
+  })
+  assert.equal(locked.status, 409)
+
+  const logs = await fetch(`${baseUrl}/api/events?type=daily_care`).then((response) => response.json())
+  assert.equal(logs.total, 1)
+}))

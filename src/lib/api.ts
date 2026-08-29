@@ -37,9 +37,14 @@ export const api = {
     method: "PUT",
     body: JSON.stringify({ color })
   }),
+  updateProfile: (babyName: string, birthDate: string) => request<AppSettings>("/api/settings/profile", {
+    method: "PUT",
+    body: JSON.stringify({ baby_name: babyName, birth_date: birthDate })
+  }),
   dailyCare: () => request<DailyCare[]>("/api/routines/daily"),
   updateDailyCare: (careType: DailyCare["care_type"], completed: boolean) => request<DailyCare>(`/api/routines/daily/${careType}`, {
     method: "PUT",
     body: JSON.stringify({ completed })
-  })
+  }),
+  validateDailyCare: () => request<BabyEvent>("/api/routines/daily/validate", { method: "POST" })
 }
