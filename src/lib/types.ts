@@ -61,6 +61,13 @@ export interface DailyCare {
   validated_at: string | null
 }
 
+export interface StoolAlert {
+  overdue: boolean
+  last_stool_at: string | null
+  hours_since: number | null
+  threshold_hours: number
+}
+
 export interface EventList {
   events: BabyEvent[]
   total: number

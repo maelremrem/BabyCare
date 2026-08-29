@@ -176,6 +176,27 @@ export function createApp({ db = createDatabase() } = {}) {
     response.json(readSettings(db))
   })
 
+  app.get("/api/alerts/stool", (_request, response) => {
+    const lastStool = db.prepare(`
+      SELECT started_at
+      FROM events
+      WHERE type = 'diaper'
+        AND json_valid(metadata)
+        AND json_extract(metadata, '$.diaper_type') IN ('stool', 'mixed')
+      ORDER BY datetime(started_at) DESC
+      LIMIT 1
+    `).get()
+    const thresholdHours = 48
+    const elapsedMilliseconds = lastStool ? Math.max(0, Date.now() - Date.parse(lastStool.started_at)) : null
+    const hoursSince = elapsedMilliseconds == null ? null : Math.floor(elapsedMilliseconds / (60 * 60 * 1000))
+    response.json({
+      overdue: elapsedMilliseconds == null || elapsedMilliseconds > thresholdHours * 60 * 60 * 1000,
+      last_stool_at: lastStool?.started_at || null,
+      hours_since: hoursSince,
+      threshold_hours: thresholdHours
+    })
+  })
+
   app.get("/api/events", (request, response) => {
     const limit = Math.min(Math.max(Number(request.query.limit) || 100, 1), 250)
     const offset = Math.max(Number(request.query.offset) || 0, 0)

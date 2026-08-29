@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Toaster } from "@/components/ui/sonner"
 import { useEvents } from "@/hooks/useEvents"
 import { api } from "@/lib/api"
-import { ACCENT_OPTIONS, type AppSettings, type BabyEvent, type DailyCare } from "@/lib/types"
+import { ACCENT_OPTIONS, type AppSettings, type BabyEvent, type DailyCare, type StoolAlert } from "@/lib/types"
 import { CarePage } from "@/pages/CarePage"
 import { HistoryPage } from "@/pages/HistoryPage"
 import { MedicalPage } from "@/pages/MedicalPage"
@@ -26,18 +26,21 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [activeTab, setActiveTab] = useState("tracking")
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
+  const [stoolAlert, setStoolAlert] = useState<StoolAlert | null>(null)
 
   const refreshAll = useCallback(async () => {
-    const [, daily] = await Promise.all([refresh(), api.dailyCare()])
+    const [, daily, alert] = await Promise.all([refresh(), api.dailyCare(), api.stoolAlert()])
     setCare(daily)
+    setStoolAlert(alert)
     setRefreshKey((value) => value + 1)
   }, [refresh])
 
   useEffect(() => {
-    Promise.all([api.dailyCare(), api.settings()])
-      .then(([daily, settings]) => {
+    Promise.all([api.dailyCare(), api.settings(), api.stoolAlert()])
+      .then(([daily, settings, alert]) => {
         setCare(daily)
         setSettings(settings)
+        setStoolAlert(alert)
       })
       .catch((error) => toast.error(error.message))
   }, [])
@@ -77,6 +80,7 @@ export default function App() {
             events={events}
             running={running}
             loading={loading}
+            stoolAlert={stoolAlert}
             onChanged={refreshAll}
             onEdit={setEditing}
             onOpenCare={() => setActiveTab("care")}

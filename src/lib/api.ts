@@ -1,4 +1,4 @@
-import type { AccentColor, AppSettings, BabyEvent, DailyCare, EventList, EventPayload, EventType } from "./types"
+import type { AccentColor, AppSettings, BabyEvent, DailyCare, EventList, EventPayload, EventType, StoolAlert } from "./types"
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -15,6 +15,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   events: (params = new URLSearchParams()) => request<EventList>(`/api/events?${params}`),
   running: () => request<BabyEvent[]>("/api/events/running"),
+  stoolAlert: () => request<StoolAlert>("/api/alerts/stool"),
   createEvent: (payload: EventPayload) => request<BabyEvent>("/api/events", {
     method: "POST",
     body: JSON.stringify(payload)

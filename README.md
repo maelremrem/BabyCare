@@ -25,11 +25,13 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - topbar avec date et horloge à la seconde ;
 - chronomètres persistants pour les tétées et les soins chronométrés ;
 - compteur des tétées réalisées dans la journée ;
+- alerte automatique lorsqu’aucune selle n’a été enregistrée depuis plus de 48 heures ;
+- aperçu graphique de l’évolution récente de la température ;
 - suivi médical avec courbes du poids et de la taille ;
-- saisie tactile des mesures par pas de 50 g et 0,1 cm ;
+- saisie tactile des mesures par pas de 50 g et 0,1 cm, avec accélération au maintien et saisie clavier au double-clic ;
 - historique médical modifiable ;
 - passage rapide d’un sein à l’autre ;
-- sélecteur tactile de température ;
+- sélecteur tactile de température limité de 34 à 44 °C, avec saisie clavier au double-clic ;
 - irritations associées à une ou plusieurs zones ;
 - observations libres ajoutées directement à l’historique ;
 - observations sur les événements ;

@@ -132,6 +132,32 @@ test("limite les températures entre 34 et 44 degrés", () => withServer(async (
   assert.equal(maximum.status, 201)
 }))
 
+test("signale une absence de selles de plus de 48 heures", () => withServer(async (baseUrl) => {
+  const initial = await fetch(`${baseUrl}/api/alerts/stool`).then((response) => response.json())
+  assert.equal(initial.overdue, true)
+  assert.equal(initial.last_stool_at, null)
+  assert.equal(initial.threshold_hours, 48)
+
+  const oldStoolAt = new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString()
+  await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "diaper", started_at: oldStoolAt, metadata: { diaper_type: "stool" } })
+  })
+  const overdue = await fetch(`${baseUrl}/api/alerts/stool`).then((response) => response.json())
+  assert.equal(overdue.overdue, true)
+  assert.ok(overdue.hours_since >= 49)
+
+  await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "diaper", metadata: { diaper_type: "mixed" } })
+  })
+  const current = await fetch(`${baseUrl}/api/alerts/stool`).then((response) => response.json())
+  assert.equal(current.overdue, false)
+  assert.ok(current.last_stool_at)
+}))
+
 test("conserve le profil du bébé et refuse une naissance future", () => withServer(async (baseUrl) => {
   const initial = await fetch(`${baseUrl}/api/settings`).then((response) => response.json())
   assert.equal(initial.accent_color, "orange")
