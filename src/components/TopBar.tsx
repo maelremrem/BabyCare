@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Check, LoaderCircle, Mars, Settings, Trash2, Venus } from "lucide-react"
+import { Calendar, Check, ChevronLeft, ChevronRight, LoaderCircle, Mars, Settings, Trash2, Venus } from "lucide-react"
 import { toast } from "sonner"
 import { BabyCareIcon } from "@/components/BabyCareIcon"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -23,6 +23,9 @@ const SEX_OPTIONS = [
   { value: "girl", label: "Fille", icon: Venus },
   { value: "boy", label: "Garçon", icon: Mars }
 ] as const
+
+const WEEKDAYS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
+const MONTH_FORMATTER = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
 
 function formatFrenchDateInput(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
@@ -53,11 +56,45 @@ function parseFrenchDateInput(value: string) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
 }
 
+function dateOnly(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate(), 12)
+}
+
+function parseIsoDateOnly(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return null
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day, 12)
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null
+}
+
+function formatIsoDateOnly(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`
+}
+
+function monthDays(month: Date) {
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1, 12)
+  const mondayOffset = (firstDay.getDay() + 6) % 7
+  const start = new Date(firstDay)
+  start.setDate(firstDay.getDate() - mondayOffset)
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start)
+    date.setDate(start.getDate() + index)
+    return date
+  })
+}
+
 export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: TopBarProps) {
   const now = useClock()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [babyName, setBabyName] = useState(settings.baby_name)
   const [birthDateInput, setBirthDateInput] = useState(() => formatFrenchDateInput(settings.birth_date))
+  const [birthDatePickerOpen, setBirthDatePickerOpen] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => parseIsoDateOnly(settings.birth_date) ?? dateOnly(new Date()))
   const [babySex, setBabySex] = useState<BabySex>(settings.baby_sex)
   const [saving, setSaving] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
@@ -65,8 +102,15 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
   const age = getAgeParts(settings.birth_date, now)
 
   useEffect(() => setBabyName(settings.baby_name), [settings.baby_name])
-  useEffect(() => setBirthDateInput(formatFrenchDateInput(settings.birth_date)), [settings.birth_date])
+  useEffect(() => {
+    const parsedBirthDate = parseIsoDateOnly(settings.birth_date)
+    setBirthDateInput(formatFrenchDateInput(settings.birth_date))
+    if (parsedBirthDate) setCalendarMonth(parsedBirthDate)
+  }, [settings.birth_date])
   useEffect(() => setBabySex(settings.baby_sex), [settings.baby_sex])
+
+  const today = dateOnly(now)
+  const selectedBirthDate = parseIsoDateOnly(parseFrenchDateInput(birthDateInput) || "")
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -146,7 +190,7 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
             </DialogHeader>
 
             <div className="grid gap-5 md:grid-cols-2">
-              <form onSubmit={saveProfile} className="space-y-4 rounded-2xl border bg-card/60 p-4">
+              <form onSubmit={saveProfile} autoComplete="off" className="space-y-4 rounded-2xl border bg-card/60 p-4">
                 <div>
                   <p className="font-semibold">Profil du bébé</p>
                   <p className="text-xs text-muted-foreground">Ces informations restent dans la base locale.</p>
@@ -159,6 +203,8 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                     value={babyName}
                     maxLength={80}
                     autoComplete="off"
+                    data-1p-ignore="true"
+                    data-lpignore="true"
                     placeholder="Ex. Emma"
                     onChange={(event) => setBabyName(event.target.value)}
                   />
@@ -166,15 +212,81 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
 
                 <div className="space-y-2">
                   <label htmlFor="birth-date" className="text-sm font-medium">Date de naissance</label>
-                  <Input
-                    id="birth-date"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="bday"
-                    placeholder="jj/mm/aaaa"
-                    value={birthDateInput}
-                    onChange={(event) => setBirthDateInput(formatFrenchDateDraft(event.target.value))}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="birth-date"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      data-1p-ignore="true"
+                      data-lpignore="true"
+                      placeholder="jj/mm/aaaa"
+                      value={birthDateInput}
+                      onChange={(event) => setBirthDateInput(formatFrenchDateDraft(event.target.value))}
+                    />
+                    <Popover open={birthDatePickerOpen} onOpenChange={setBirthDatePickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" size="icon" className="shrink-0" aria-label="Choisir la date de naissance">
+                          <Calendar className="size-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-80 p-3">
+                        <div className="mb-3 flex items-center justify-between">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Mois précédent"
+                            onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1, 12))}
+                          >
+                            <ChevronLeft className="size-4" />
+                          </Button>
+                          <p className="text-sm font-medium capitalize">{MONTH_FORMATTER.format(calendarMonth)}</p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Mois suivant"
+                            disabled={new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1, 12) > today}
+                            onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1, 12))}
+                          >
+                            <ChevronRight className="size-4" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted-foreground">
+                          {WEEKDAYS.map((weekday) => (
+                            <span key={weekday}>{weekday}</span>
+                          ))}
+                        </div>
+                        <div className="mt-2 grid grid-cols-7 gap-1">
+                          {monthDays(calendarMonth).map((date) => {
+                            const isoDate = formatIsoDateOnly(date)
+                            const isSelected = selectedBirthDate?.toDateString() === date.toDateString()
+                            const isOutsideMonth = date.getMonth() !== calendarMonth.getMonth()
+                            const isFuture = date > today
+
+                            return (
+                              <Button
+                                key={isoDate}
+                                type="button"
+                                variant={isSelected ? "default" : "ghost"}
+                                size="icon-sm"
+                                className={isOutsideMonth ? "text-muted-foreground/45" : ""}
+                                disabled={isFuture}
+                                aria-label={`Choisir le ${formatFrenchDateInput(isoDate)}`}
+                                onClick={() => {
+                                  setBirthDateInput(formatFrenchDateInput(isoDate))
+                                  setBirthDatePickerOpen(false)
+                                }}
+                              >
+                                {date.getDate()}
+                              </Button>
+                            )
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                   <p className="text-xs text-muted-foreground">L’âge reste masqué tant que ce champ est vide.</p>
                 </div>
 
