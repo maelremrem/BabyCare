@@ -55,6 +55,15 @@ export function createDatabase(databasePath = process.env.DATABASE_PATH || path.
       FOREIGN KEY(bath_session_id) REFERENCES bath_sessions(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    INSERT OR IGNORE INTO app_settings (key, value, updated_at)
+    VALUES ('accent_color', 'orange', datetime('now'));
+
     CREATE INDEX IF NOT EXISTS idx_events_started_at ON events(started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
     CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);

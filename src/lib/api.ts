@@ -1,4 +1,4 @@
-import type { BabyEvent, DailyCare, EventList, EventPayload, EventType } from "./types"
+import type { AccentColor, AppSettings, BabyEvent, DailyCare, EventList, EventPayload, EventType } from "./types"
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -32,6 +32,11 @@ export const api = {
     body: JSON.stringify(payload)
   }),
   deleteEvent: (id: number) => request<void>(`/api/events/${id}`, { method: "DELETE" }),
+  settings: () => request<AppSettings>("/api/settings"),
+  updateAccent: (color: AccentColor) => request<AppSettings>("/api/settings/accent", {
+    method: "PUT",
+    body: JSON.stringify({ color })
+  }),
   dailyCare: () => request<DailyCare[]>("/api/routines/daily"),
   updateDailyCare: (careType: DailyCare["care_type"], completed: boolean) => request<DailyCare>(`/api/routines/daily/${careType}`, {
     method: "PUT",

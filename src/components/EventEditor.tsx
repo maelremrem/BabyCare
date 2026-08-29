@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
-import { EVENT_LABELS, type BabyEvent } from "@/lib/types"
+import { EVENT_LABELS, IRRITATION_LOCATIONS, type BabyEvent } from "@/lib/types"
 
 interface EventEditorProps {
   event: BabyEvent | null
@@ -26,13 +26,23 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
   const [startedAt, setStartedAt] = useState("")
   const [value, setValue] = useState("")
   const [detail, setDetail] = useState("")
+  const [irritationLocations, setIrritationLocations] = useState<string[]>([])
 
   useEffect(() => {
     if (!event) return
     setNotes(event.notes || "")
     setStartedAt(toLocalInput(event.started_at))
     setValue(event.value_real?.toFixed(1) || event.value_text || "")
-    setDetail(event.metadata?.diaper_type || event.metadata?.location || "")
+    setDetail(typeof event.metadata?.diaper_type === "string" ? event.metadata.diaper_type : "")
+    const storedLocations = event.metadata?.locations
+    const legacyLocation = event.metadata?.location
+    setIrritationLocations(
+      Array.isArray(storedLocations)
+        ? storedLocations
+        : typeof legacyLocation === "string"
+          ? [legacyLocation]
+          : []
+    )
   }, [event])
 
   if (!event) return null
@@ -41,7 +51,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
     const metadata = event.type === "diaper"
       ? { ...event.metadata, diaper_type: detail }
       : event.type === "irritation"
-        ? { ...event.metadata, location: detail }
+        ? { locations: irritationLocations }
         : event.metadata
     await api.updateEvent(event.id, {
       notes,
@@ -70,7 +80,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
           {event.type === "temperature" && (
             <label className="grid gap-2 text-sm font-medium">
               Température (°C)
-              <Input type="number" min="34" max="42" step="0.1" value={value} onChange={(e) => setValue(e.target.value)} />
+              <Input type="number" min="34" max="44" step="0.1" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
           )}
           {event.type === "diaper" && (
@@ -86,10 +96,28 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
             </div>
           )}
           {event.type === "irritation" && (
-            <label className="grid gap-2 text-sm font-medium">
-              Zone
-              <Input value={detail} onChange={(e) => setDetail(e.target.value)} />
-            </label>
+            <div className="grid gap-2 text-sm font-medium">
+              Zones
+              <div className="grid grid-cols-2 gap-2">
+                {IRRITATION_LOCATIONS.map((label) => {
+                  const location = label.toLowerCase()
+                  const selected = irritationLocations.includes(location)
+                  return (
+                    <Button
+                      key={location}
+                      type="button"
+                      aria-pressed={selected}
+                      variant={selected ? "default" : "outline"}
+                      onClick={() => setIrritationLocations((current) => current.includes(location)
+                        ? current.filter((item) => item !== location)
+                        : [...current, location])}
+                    >
+                      {label}
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
           )}
           <label className="grid gap-2 text-sm font-medium">
             Observation

@@ -264,9 +264,9 @@ Grille tablette :
 │    SEIN G    │ │    SEIN D    │ │VISAGE/CORDON │
 └──────────────┘ └──────────────┘ └──────────────┘
 
-┌──────────────┐ ┌──────────────┐
-│  VÊTEMENTS   │ │  IRRITATION  │
-└──────────────┘ └──────────────┘
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  VÊTEMENTS   │ │  IRRITATION  │ │ OBSERVATION  │
+└──────────────┘ └──────────────┘ └──────────────┘
 ```
 
 ---
@@ -528,7 +528,7 @@ Pas :
 Plage proposée :
 
 ```text
-34.0 °C → 42.0 °C
+34.0 °C → 44.0 °C
 ```
 
 Valeur sélectionnée au lancement :
@@ -586,6 +586,7 @@ Un `Popover` permet de choisir :
 ```text
 VISAGE
 CORDON
+LES DEUX
 ```
 
 Exemple :
@@ -594,6 +595,7 @@ Exemple :
       ┌───────────────────┐
       │      VISAGE       │
       │      CORDON       │
+      │     LES DEUX      │
       └───────────────────┘
               ▲
       ┌───────────────────┐
@@ -608,9 +610,10 @@ Types :
 ```text
 face_care
 cord_care
+face_cord_care
 ```
 
-Les deux acceptent une observation.
+Les trois choix acceptent une observation. Le choix `LES DEUX` crée un seul chrono combiné.
 
 ---
 
@@ -618,7 +621,7 @@ Les deux acceptent une observation.
 
 Le bouton ouvre un `Dialog`.
 
-Zones proposées :
+Zones proposées, avec sélection multiple :
 
 ```text
 Visage
@@ -643,7 +646,7 @@ Exemple stockage :
 {
   "type": "irritation",
   "metadata": {
-    "location": "fesses"
+    "locations": ["fesses", "jambes"]
   },
   "notes": "Rougeur légère"
 }
@@ -975,6 +978,8 @@ SOINS QUOTIDIENS
 BAIN
 ```
 
+Le bouton `BAIN` de l’onglet Suivi ouvre directement l’onglet Soins. Il ne démarre pas de chronomètre. Aucun bouton de démarrage de chrono n’est affiché dans la carte Bain.
+
 ---
 
 # 33. Checklist quotidienne
@@ -1144,8 +1149,10 @@ breast_right
 bath
 face_care
 cord_care
+face_cord_care
 clothes_change
 irritation
+observation
 eye_care
 nose_care
 ```
@@ -1596,9 +1603,9 @@ ACTIONS
 │            │ │            │ │   CORDON   │
 └────────────┘ └────────────┘ └────────────┘
 
-┌────────────┐ ┌────────────┐
-│ VÊTEMENTS  │ │ IRRITATION │
-└────────────┘ └────────────┘
+┌────────────┐ ┌────────────┐ ┌────────────┐
+│ VÊTEMENTS  │ │ IRRITATION │ │OBSERVATION │
+└────────────┘ └────────────┘ └────────────┘
 
 
 ACTIVITÉ RÉCENTE
@@ -1661,6 +1668,8 @@ HIER — 28 AOÛT
 - [ ] sélecteur scrollable ;
 - [ ] swipe tactile ;
 - [ ] pas de 0.1 °C ;
+- [ ] plage de 34.0 à 44.0 °C ;
+- [ ] cliquer-glisser à la souris ;
 - [ ] observation ;
 - [ ] édition.
 
@@ -1670,8 +1679,21 @@ HIER — 28 AOÛT
 - [ ] popover ;
 - [ ] Visage ;
 - [ ] Cordon ;
+- [ ] Les deux ;
 - [ ] chrono ;
 - [ ] observations.
+
+## Irritation
+
+- [ ] sélection de plusieurs zones ;
+- [ ] observation ;
+- [ ] édition multi-zones.
+
+## Observation libre
+
+- [ ] bouton d’ajout rapide ;
+- [ ] enregistrement dans l’historique ;
+- [ ] modification et suppression.
 
 ## Historique
 

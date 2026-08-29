@@ -24,6 +24,8 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - chronomètres persistants pour les tétées, bains et soins chronométrés ;
 - passage rapide d’un sein à l’autre ;
 - sélecteur tactile de température ;
+- irritations associées à une ou plusieurs zones ;
+- observations libres ajoutées directement à l’historique ;
 - observations sur les événements ;
 - checklist des soins quotidiens ;
 - historique filtrable et recherchable ;
@@ -110,6 +112,12 @@ npm start
 ```
 
 Vite recharge automatiquement les modifications de l’interface. Après une modification du serveur Express, redémarrez `npm run dev`.
+
+### Port déjà utilisé
+
+BabyCare utilise les ports `3000` pour l’API et `5173` pour l’interface. Si un ancien lancement est encore actif, recherchez son processus :
+
+Relancez ensuite `npm run dev` et ouvrez exactement l’adresse `Local` affichée par Vite.
 
 ## Organisation du projet
 

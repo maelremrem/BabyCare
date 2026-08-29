@@ -7,18 +7,22 @@ import { cleanupTemporaryData, createDatabase } from "./database.js"
 
 const EVENT_TYPES = new Set([
   "temperature",
+  "weight",
   "diaper",
   "breast_left",
   "breast_right",
   "bath",
   "face_care",
   "cord_care",
+  "face_cord_care",
   "clothes_change",
   "irritation",
+  "observation",
   "eye_care",
   "nose_care"
 ])
-const TIMER_TYPES = new Set(["breast_left", "breast_right", "bath", "face_care", "cord_care"])
+const TIMER_TYPES = new Set(["breast_left", "breast_right", "face_care", "cord_care", "face_cord_care"])
+const ACCENT_COLORS = new Set(["orange", "blue", "green", "pink", "purple"])
 const DAILY_CARE_TYPES = ["eyes", "nose", "cord", "face"]
 const BATH_ITEMS = ["Serviette préparée", "Température vérifiée", "Sécher les plis"]
 const EDITABLE_FIELDS = new Set([
@@ -85,14 +89,17 @@ function formatDuration(seconds) {
 function displayType(type) {
   return {
     temperature: "Température",
+    weight: "Poids",
     diaper: "Couche",
     breast_left: "Sein gauche",
     breast_right: "Sein droit",
     bath: "Bain",
     face_care: "Visage",
     cord_care: "Cordon",
+    face_cord_care: "Visage et cordon",
     clothes_change: "Vêtements",
     irritation: "Irritation",
+    observation: "Observation",
     eye_care: "Yeux",
     nose_care: "Nez"
   }[type] || type
@@ -105,6 +112,24 @@ export function createApp({ db = createDatabase() } = {}) {
 
   app.get("/api/health", (_request, response) => {
     response.json({ status: "ok" })
+  })
+
+  app.get("/api/settings", (_request, response) => {
+    const accent = db.prepare("SELECT value FROM app_settings WHERE key = 'accent_color'").get()
+    response.json({ accent_color: accent?.value || "orange" })
+  })
+
+  app.put("/api/settings/accent", (request, response) => {
+    const { color } = request.body
+    if (!ACCENT_COLORS.has(color)) {
+      return response.status(400).json({ error: "Couleur d’accent invalide." })
+    }
+    db.prepare(`
+      INSERT INTO app_settings (key, value, updated_at)
+      VALUES ('accent_color', ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `).run(color, nowIso())
+    response.json({ accent_color: color })
   })
 
   app.get("/api/events", (request, response) => {
@@ -130,6 +155,12 @@ export function createApp({ db = createDatabase() } = {}) {
     const { type, started_at, value_real, value_text, notes, metadata } = request.body
     if (!EVENT_TYPES.has(type)) {
       return response.status(400).json({ error: "Type d’événement invalide." })
+    }
+    if (type === "temperature" && (!Number.isFinite(value_real) || value_real < 34 || value_real > 44)) {
+      return response.status(400).json({ error: "La température doit être comprise entre 34 et 44 °C." })
+    }
+    if (type === "weight" && (!Number.isFinite(value_real) || value_real < 0.3 || value_real > 30)) {
+      return response.status(400).json({ error: "Le poids doit être compris entre 0,3 et 30 kg." })
     }
     const timestamp = nowIso()
     const start = started_at ? new Date(started_at).toISOString() : timestamp
@@ -193,6 +224,19 @@ export function createApp({ db = createDatabase() } = {}) {
     if (updates.some(([key, value]) => key === "type" && !EVENT_TYPES.has(value))) {
       return response.status(400).json({ error: "Type d’événement invalide." })
     }
+    const updatedType = request.body.type || event.type
+    if (updatedType === "temperature" && request.body.value_real !== undefined) {
+      const temperature = Number(request.body.value_real)
+      if (!Number.isFinite(temperature) || temperature < 34 || temperature > 44) {
+        return response.status(400).json({ error: "La température doit être comprise entre 34 et 44 °C." })
+      }
+    }
+    if (updatedType === "weight" && request.body.value_real !== undefined) {
+      const weight = Number(request.body.value_real)
+      if (!Number.isFinite(weight) || weight < 0.3 || weight > 30) {
+        return response.status(400).json({ error: "Le poids doit être compris entre 0,3 et 30 kg." })
+      }
+    }
     if (!updates.length) return response.json(parseEvent(event))
 
     const set = updates.map(([key]) => `${key} = @${key}`).concat("updated_at = @updated_at").join(", ")
@@ -239,10 +283,10 @@ export function createApp({ db = createDatabase() } = {}) {
     const timestamp = nowIso()
     const transaction = db.transaction(() => {
       const event = db.prepare(`
-        INSERT INTO events (type, status, started_at, created_at, updated_at)
-        VALUES ('bath', 'running', ?, ?, ?)
-      `).run(timestamp, timestamp, timestamp)
-      const session = db.prepare("INSERT INTO bath_sessions (event_id, started_at) VALUES (?, ?)").run(event.lastInsertRowid, timestamp)
+        INSERT INTO events (type, status, started_at, ended_at, duration_seconds, created_at, updated_at)
+        VALUES ('bath', 'completed', ?, ?, 0, ?, ?)
+      `).run(timestamp, timestamp, timestamp, timestamp)
+      const session = db.prepare("INSERT INTO bath_sessions (event_id, started_at, completed_at) VALUES (?, ?, ?)").run(event.lastInsertRowid, timestamp, timestamp)
       const insert = db.prepare("INSERT INTO bath_checks (bath_session_id, item) VALUES (?, ?)")
       BATH_ITEMS.forEach((item) => insert.run(session.lastInsertRowid, item))
       return session.lastInsertRowid
@@ -296,8 +340,15 @@ export function createApp({ db = createDatabase() } = {}) {
           end: end?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) || "",
           duration: formatDuration(event.duration_seconds),
           type: displayType(event.type),
-          value: event.value_real != null ? `${event.value_real.toFixed(1)} °C` : event.value_text || "",
-          detail: event.metadata?.diaper_type || event.metadata?.location || "",
+          value: event.type === "temperature" && event.value_real != null
+            ? `${event.value_real.toFixed(1)} °C`
+            : event.type === "weight" && event.value_real != null
+              ? `${event.value_real.toFixed(3)} kg`
+              : event.value_real ?? event.value_text ?? "",
+          detail: event.metadata?.diaper_type
+            || (Array.isArray(event.metadata?.locations) ? event.metadata.locations.join(", ") : "")
+            || event.metadata?.location
+            || "",
           notes: event.notes || ""
         })
       })
@@ -343,7 +394,14 @@ if (isMainModule) {
   cleanupTimer.unref()
 
   const port = Number(process.env.PORT) || 3000
-  createApp({ db }).listen(port, "0.0.0.0", () => {
+  const server = createApp({ db }).listen(port, "0.0.0.0", () => {
     console.log(`BabyCare API disponible sur http://localhost:${port}`)
+  })
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(`Le port ${port} est déjà utilisé. Arrêtez l’ancien serveur BabyCare puis relancez npm run dev.`)
+      process.exit(1)
+    }
+    throw error
   })
 }

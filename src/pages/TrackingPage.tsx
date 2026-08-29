@@ -13,14 +13,16 @@ interface TrackingPageProps {
   loading: boolean
   onChanged: () => Promise<void>
   onEdit: (event: BabyEvent) => void
+  onOpenCare: () => void
 }
 
-export function TrackingPage({ events, running, loading, onChanged, onEdit }: TrackingPageProps) {
+export function TrackingPage({ events, running, loading, onChanged, onEdit, onOpenCare }: TrackingPageProps) {
   const lastFeeding = events.find((event) => event.type === "breast_left" || event.type === "breast_right")
   const lastDiaper = events.find((event) => event.type === "diaper")
   const lastBath = events.find((event) => event.type === "bath")
   const recent = events.slice(0, 8)
   const groups = groupEventsByDay(recent)
+  const lastDiaperType = typeof lastDiaper?.metadata?.diaper_type === "string" ? lastDiaper.metadata.diaper_type : null
 
   const info = [
     {
@@ -32,7 +34,7 @@ export function TrackingPage({ events, running, loading, onChanged, onEdit }: Tr
     {
       label: "Couche",
       icon: PackageCheck,
-      primary: lastDiaper?.metadata?.diaper_type ? ({ urine: "Urine", stool: "Selles", mixed: "Mixte" }[lastDiaper.metadata.diaper_type] || lastDiaper.metadata.diaper_type) : "Aucune",
+      primary: lastDiaperType ? ({ urine: "Urine", stool: "Selles", mixed: "Mixte" }[lastDiaperType] || lastDiaperType) : "Aucune",
       secondary: lastDiaper ? relativeTime(lastDiaper.started_at) : ""
     },
     {
@@ -65,11 +67,11 @@ export function TrackingPage({ events, running, loading, onChanged, onEdit }: Tr
 
       <section>
         <SectionTitle>Actions rapides</SectionTitle>
-        <ActionGrid onChanged={onChanged} />
+        <ActionGrid onChanged={onChanged} onOpenCare={onOpenCare} />
       </section>
 
       {running.length > 0 && (
-        <section className="space-y-3">
+        <section id="active-timers" className="scroll-mt-40 space-y-3">
           <SectionTitle>Chrono actif</SectionTitle>
           {running.map((event) => <ActiveTimer key={event.id} event={event} onChanged={onChanged} />)}
         </section>

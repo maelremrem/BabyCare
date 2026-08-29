@@ -1,6 +1,5 @@
 import { Check, Droplets } from "lucide-react"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
@@ -10,12 +9,11 @@ import type { DailyCare } from "@/lib/types"
 interface CarePageProps {
   care: DailyCare[]
   onChanged: () => Promise<void>
-  onStartBath: () => Promise<void>
 }
 
 const careLabels = { eyes: "Yeux", nose: "Nez", cord: "Cordon", face: "Visage" }
 
-export function CarePage({ care, onChanged, onStartBath }: CarePageProps) {
+export function CarePage({ care, onChanged }: CarePageProps) {
   const completed = care.filter((item) => item.completed).length
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -51,15 +49,14 @@ export function CarePage({ care, onChanged, onStartBath }: CarePageProps) {
         <CardHeader>
           <div className="mb-3 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary"><Droplets /></div>
           <CardTitle>Bain</CardTitle>
-          <CardDescription>Démarrez le chrono depuis ici ou les actions rapides.</CardDescription>
+          <CardDescription>Les étapes utiles pour préparer et terminer le bain.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-5 space-y-2 text-sm text-muted-foreground">
+          <div className="space-y-2 text-sm text-muted-foreground">
             <p>• Serviette préparée</p>
             <p>• Température vérifiée</p>
             <p>• Sécher soigneusement les plis</p>
           </div>
-          <Button className="h-14 w-full" onClick={() => onStartBath().catch((error) => toast.error(error.message))}>Démarrer le bain</Button>
         </CardContent>
       </Card>
     </div>

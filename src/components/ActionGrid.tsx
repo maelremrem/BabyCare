@@ -1,6 +1,6 @@
 import { useState } from "react"
 import {
-  Bath, CircleDot, HeartPulse, Milk, PackageCheck, Shirt, Smile, Thermometer
+  Bath, CircleDot, HeartPulse, MessageSquarePlus, Milk, PackageCheck, Shirt, Smile, Thermometer
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -9,28 +9,39 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea"
 import { TemperaturePicker } from "@/components/TemperaturePicker"
 import { api } from "@/lib/api"
-import type { EventType } from "@/lib/types"
+import { IRRITATION_LOCATIONS, type EventType } from "@/lib/types"
 
 interface ActionGridProps {
   onChanged: () => Promise<void>
+  onOpenCare: () => void
 }
 
 const actionClass = "h-24 flex-col gap-2 rounded-2xl border-border bg-card text-sm font-semibold tracking-wide shadow-none active:scale-[.97] sm:h-28"
 
-export function ActionGrid({ onChanged }: ActionGridProps) {
+export function ActionGrid({ onChanged, onOpenCare }: ActionGridProps) {
   const [temperatureOpen, setTemperatureOpen] = useState(false)
   const [irritationOpen, setIrritationOpen] = useState(false)
+  const [observationOpen, setObservationOpen] = useState(false)
   const [diaperOpen, setDiaperOpen] = useState(false)
   const [careOpen, setCareOpen] = useState(false)
   const [temperature, setTemperature] = useState(37)
-  const [notes, setNotes] = useState("")
-  const [location, setLocation] = useState("Visage")
+  const [temperatureNotes, setTemperatureNotes] = useState("")
+  const [irritationNotes, setIrritationNotes] = useState("")
+  const [observationNotes, setObservationNotes] = useState("")
+  const [locations, setLocations] = useState<string[]>([])
+
+  const scrollToActiveTimer = () => {
+    window.setTimeout(() => {
+      document.getElementById("active-timers")?.scrollIntoView({ behavior: "smooth", block: "center" })
+    }, 80)
+  }
 
   const start = async (type: EventType, label: string) => {
     try {
       await api.startEvent(type)
       toast.success(`${label} démarré`)
       await onChanged()
+      scrollToActiveTimer()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Action impossible")
     }
@@ -40,7 +51,6 @@ export function ActionGrid({ onChanged }: ActionGridProps) {
     try {
       await api.createEvent({ ...payload, type })
       toast.success(`${label} enregistré`)
-      setNotes("")
       await onChanged()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Action impossible")
@@ -70,7 +80,7 @@ export function ActionGrid({ onChanged }: ActionGridProps) {
           </PopoverContent>
         </Popover>
 
-        <Button variant="outline" className={actionClass} onClick={() => start("bath", "Bain")}>
+        <Button variant="outline" className={actionClass} onClick={onOpenCare}>
           <Bath className="size-6" /> Bain
         </Button>
         <Button variant="outline" className={actionClass} onClick={() => start("breast_left", "Sein gauche")}>
@@ -87,6 +97,7 @@ export function ActionGrid({ onChanged }: ActionGridProps) {
           <PopoverContent className="w-56 p-2">
             <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await start("face_care", "Soin du visage"); setCareOpen(false) }}>Visage</Button>
             <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await start("cord_care", "Soin du cordon"); setCareOpen(false) }}>Cordon</Button>
+            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await start("face_cord_care", "Soin du visage et du cordon"); setCareOpen(false) }}>Les deux</Button>
           </PopoverContent>
         </Popover>
 
@@ -95,6 +106,9 @@ export function ActionGrid({ onChanged }: ActionGridProps) {
         </Button>
         <Button variant="outline" className={actionClass} onClick={() => setIrritationOpen(true)}>
           <HeartPulse className="size-6" /> Irritation
+        </Button>
+        <Button variant="outline" className={actionClass} onClick={() => setObservationOpen(true)}>
+          <MessageSquarePlus className="size-6" /> Ajouter une observation
         </Button>
       </div>
 
@@ -105,34 +119,77 @@ export function ActionGrid({ onChanged }: ActionGridProps) {
             <DialogDescription>Sélectionnez la valeur mesurée.</DialogDescription>
           </DialogHeader>
           <TemperaturePicker value={temperature} onChange={setTemperature} />
-          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observation (facultative)" />
+          <Textarea value={temperatureNotes} onChange={(event) => setTemperatureNotes(event.target.value)} placeholder="Observation (facultative)" />
           <DialogFooter>
             <Button className="h-12" onClick={async () => {
-              await create("temperature", { type: "temperature", value_real: temperature, notes }, `Température · ${temperature.toFixed(1)} °C`)
+              await create("temperature", { type: "temperature", value_real: temperature, notes: temperatureNotes }, `Température · ${temperature.toFixed(1)} °C`)
+              setTemperatureNotes("")
               setTemperatureOpen(false)
             }}>Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={irritationOpen} onOpenChange={setIrritationOpen}>
+      <Dialog open={irritationOpen} onOpenChange={(open) => {
+        setIrritationOpen(open)
+        if (!open) {
+          setLocations([])
+          setIrritationNotes("")
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Irritation</DialogTitle>
-            <DialogDescription>Indiquez la zone et ajoutez une observation.</DialogDescription>
+            <DialogDescription>Sélectionnez une ou plusieurs zones, puis ajoutez une observation.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2">
-            {["Visage", "Cou", "Torse", "Dos", "Bras", "Jambes", "Fesses", "Autre"].map((item) => (
-              <Button key={item} type="button" variant={location === item ? "default" : "outline"} className="h-11" onClick={() => setLocation(item)}>
+            {IRRITATION_LOCATIONS.map((item) => (
+              <Button
+                key={item}
+                type="button"
+                aria-pressed={locations.includes(item)}
+                variant={locations.includes(item) ? "default" : "outline"}
+                className="h-11"
+                onClick={() => setLocations((current) => current.includes(item) ? current.filter((location) => location !== item) : [...current, item])}
+              >
                 <CircleDot /> {item}
               </Button>
             ))}
           </div>
-          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observation" />
+          <Textarea value={irritationNotes} onChange={(event) => setIrritationNotes(event.target.value)} placeholder="Observation" />
           <DialogFooter>
-            <Button className="h-12" onClick={async () => {
-              await create("irritation", { type: "irritation", metadata: { location: location.toLowerCase() }, notes }, `Irritation · ${location}`)
+            <Button className="h-12" disabled={locations.length === 0} onClick={async () => {
+              await create("irritation", {
+                type: "irritation",
+                metadata: { locations: locations.map((location) => location.toLowerCase()) },
+                notes: irritationNotes
+              }, `Irritation · ${locations.join(", ")}`)
               setIrritationOpen(false)
+            }}>Enregistrer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={observationOpen} onOpenChange={(open) => {
+        setObservationOpen(open)
+        if (!open) setObservationNotes("")
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><MessageSquarePlus className="text-primary" /> Ajouter une observation</DialogTitle>
+            <DialogDescription>Enregistrez une information libre dans l’historique.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            autoFocus
+            className="min-h-32"
+            value={observationNotes}
+            onChange={(event) => setObservationNotes(event.target.value)}
+            placeholder="Votre observation…"
+          />
+          <DialogFooter>
+            <Button className="h-12" disabled={!observationNotes.trim()} onClick={async () => {
+              await create("observation", { type: "observation", notes: observationNotes }, "Observation")
+              setObservationOpen(false)
             }}>Enregistrer</Button>
           </DialogFooter>
         </DialogContent>

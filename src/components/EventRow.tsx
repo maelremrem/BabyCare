@@ -9,12 +9,18 @@ interface EventRowProps {
 }
 
 export function EventRow({ event, onClick }: EventRowProps) {
+  const diaperType = typeof event.metadata?.diaper_type === "string" ? event.metadata.diaper_type : null
+  const irritationLocations = Array.isArray(event.metadata?.locations)
+    ? event.metadata.locations
+    : typeof event.metadata?.location === "string"
+      ? [event.metadata.location]
+      : []
   const detail = event.type === "temperature" && event.value_real != null
     ? `${event.value_real.toFixed(1)} °C`
-    : event.metadata?.diaper_type
-      ? { urine: "Urine", stool: "Selles", mixed: "Mixte" }[event.metadata.diaper_type]
-      : event.metadata?.location
-        ? event.metadata.location
+    : diaperType
+      ? { urine: "Urine", stool: "Selles", mixed: "Mixte" }[diaperType]
+      : irritationLocations.length > 0
+        ? irritationLocations.map((location) => location.charAt(0).toUpperCase() + location.slice(1)).join(", ")
         : formatDuration(event.duration_seconds)
 
   return (
@@ -24,7 +30,7 @@ export function EventRow({ event, onClick }: EventRowProps) {
         <div className="font-medium">{EVENT_LABELS[event.type]}</div>
         {event.notes && <p className="truncate text-xs text-muted-foreground">{event.notes}</p>}
       </div>
-      {detail && <Badge variant="secondary" className="max-w-28 truncate">{detail}</Badge>}
+      {detail && <Badge variant="secondary" className="max-w-40 truncate">{detail}</Badge>}
       {onClick && <ChevronRight className="hidden size-4 text-muted-foreground sm:block" />}
     </button>
   )

@@ -27,6 +27,7 @@ export default defineConfig({
   resolve: { alias: { "@": new URL("./src", import.meta.url).pathname } },
   server: {
     host: true,
+    strictPort: true,
     proxy: { "/api": "http://localhost:3000" }
   }
 })

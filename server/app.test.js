@@ -80,3 +80,54 @@ test("génère un export Excel filtrable", () => withServer(async (baseUrl) => {
   assert.match(response.headers.get("content-type"), /spreadsheetml/)
   assert.ok((await response.arrayBuffer()).byteLength > 1000)
 }))
+
+test("gère le soin combiné, les irritations multiples et les observations", () => withServer(async (baseUrl) => {
+  const combined = await fetch(`${baseUrl}/api/events/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "face_cord_care" })
+  })
+  assert.equal(combined.status, 201)
+
+  const bathTimer = await fetch(`${baseUrl}/api/events/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "bath" })
+  })
+  assert.equal(bathTimer.status, 400)
+
+  const irritation = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      type: "irritation",
+      metadata: { locations: ["visage", "cou", "torse"] },
+      notes: "Rougeur légère"
+    })
+  }).then((response) => response.json())
+  assert.deepEqual(irritation.metadata.locations, ["visage", "cou", "torse"])
+
+  const observation = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "observation", notes: "Bébé semble fatigué" })
+  }).then((response) => response.json())
+  assert.equal(observation.type, "observation")
+  assert.equal(observation.notes, "Bébé semble fatigué")
+}))
+
+test("limite les températures entre 34 et 44 degrés", () => withServer(async (baseUrl) => {
+  const tooLow = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "temperature", value_real: 33.9 })
+  })
+  assert.equal(tooLow.status, 400)
+
+  const maximum = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "temperature", value_real: 44 })
+  })
+  assert.equal(maximum.status, 201)
+}))
