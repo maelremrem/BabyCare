@@ -4,11 +4,12 @@ import { toast } from "sonner"
 import { BabyCareIcon } from "@/components/BabyCareIcon"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import { useClock } from "@/hooks/useClock"
-import { dateKey, formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, formatShortDate, getAgeParts } from "@/lib/dates"
+import { formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, formatShortDate, getAgeParts } from "@/lib/dates"
 import { ACCENT_OPTIONS, type AccentColor, type AppSettings, type BabySex } from "@/lib/types"
 
 interface TopBarProps {
@@ -23,11 +24,40 @@ const SEX_OPTIONS = [
   { value: "boy", label: "Garçon", icon: Mars }
 ] as const
 
+function formatFrenchDateInput(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return ""
+  return `${match[3]}/${match[2]}/${match[1]}`
+}
+
+function formatFrenchDateDraft(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+}
+
+function parseFrenchDateInput(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return ""
+
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed)
+  if (!match) return null
+
+  const day = Number(match[1])
+  const month = Number(match[2])
+  const year = Number(match[3])
+  const date = new Date(year, month - 1, day, 12)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
 export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: TopBarProps) {
   const now = useClock()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [babyName, setBabyName] = useState(settings.baby_name)
-  const [birthDate, setBirthDate] = useState(settings.birth_date)
+  const [birthDateInput, setBirthDateInput] = useState(() => formatFrenchDateInput(settings.birth_date))
   const [babySex, setBabySex] = useState<BabySex>(settings.baby_sex)
   const [saving, setSaving] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
@@ -35,14 +65,24 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
   const age = getAgeParts(settings.birth_date, now)
 
   useEffect(() => setBabyName(settings.baby_name), [settings.baby_name])
-  useEffect(() => setBirthDate(settings.birth_date), [settings.birth_date])
+  useEffect(() => setBirthDateInput(formatFrenchDateInput(settings.birth_date)), [settings.birth_date])
   useEffect(() => setBabySex(settings.baby_sex), [settings.baby_sex])
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const parsedBirthDate = parseFrenchDateInput(birthDateInput)
+    if (parsedBirthDate === null) {
+      toast.error("Utilisez le format jj/mm/aaaa pour la date de naissance.")
+      return
+    }
+    if (parsedBirthDate && getAgeParts(parsedBirthDate, now) === null) {
+      toast.error("La date de naissance ne peut pas être dans le futur.")
+      return
+    }
+
     setSaving(true)
     try {
-      await onProfileChange(babyName.trim(), birthDate, babySex)
+      await onProfileChange(babyName.trim(), parsedBirthDate, babySex)
       setSettingsOpen(false)
       toast.success("Profil du bébé enregistré")
     } catch (error) {
@@ -93,102 +133,114 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
         <p className="ml-auto hidden whitespace-nowrap text-sm text-muted-foreground md:block">{formatLongDate(now)}</p>
         <time className="whitespace-nowrap font-mono text-xs font-medium tabular-nums sm:text-lg">{formatClock(now)}</time>
 
-        <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <PopoverTrigger asChild>
+        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <DialogTrigger asChild>
             <Button variant="ghost" size="icon" className="size-9 shrink-0 rounded-xl sm:size-10" aria-label="Ouvrir les paramètres">
               <Settings className="size-5" />
             </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-4">
-            <form onSubmit={saveProfile} className="space-y-4">
-              <div>
-                <p className="font-semibold">Profil du bébé</p>
-                <p className="text-xs text-muted-foreground">Ces informations restent dans la base locale.</p>
-              </div>
+          </DialogTrigger>
+          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Paramètres de BabyCare</DialogTitle>
+              <DialogDescription>Gérez le profil du bébé, l’apparence de l’application et les données locales.</DialogDescription>
+            </DialogHeader>
 
-              <div className="space-y-2">
-                <label htmlFor="baby-name" className="text-sm font-medium">Nom du bébé</label>
-                <Input
-                  id="baby-name"
-                  value={babyName}
-                  maxLength={80}
-                  autoComplete="off"
-                  placeholder="Ex. Emma"
-                  onChange={(event) => setBabyName(event.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="birth-date" className="text-sm font-medium">Date de naissance</label>
-                <Input
-                  id="birth-date"
-                  type="date"
-                  value={birthDate}
-                  max={dateKey(now.toISOString())}
-                  onChange={(event) => setBirthDate(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">L’âge reste masqué tant que ce champ est vide.</p>
-              </div>
-
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-medium">Sexe</legend>
-                <div className="grid grid-cols-2 gap-2">
-                  {SEX_OPTIONS.map(({ value, label, icon: Icon }) => (
-                    <Button
-                      key={value}
-                      type="button"
-                      variant={babySex === value ? "default" : "outline"}
-                      aria-pressed={babySex === value}
-                      onClick={() => setBabySex((current) => current === value ? "" : value)}
-                    >
-                      <Icon aria-hidden="true" /> {label}
-                    </Button>
-                  ))}
+            <div className="grid gap-5 md:grid-cols-2">
+              <form onSubmit={saveProfile} className="space-y-4 rounded-2xl border bg-card/60 p-4">
+                <div>
+                  <p className="font-semibold">Profil du bébé</p>
+                  <p className="text-xs text-muted-foreground">Ces informations restent dans la base locale.</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Nécessaire avec la date de naissance pour afficher les références OMS.</p>
-              </fieldset>
 
-              <Button type="submit" className="w-full" disabled={saving}>
-                {saving ? <LoaderCircle className="animate-spin" /> : null}
-                Enregistrer le profil
-              </Button>
-            </form>
+                <div className="space-y-2">
+                  <label htmlFor="baby-name" className="text-sm font-medium">Nom du bébé</label>
+                  <Input
+                    id="baby-name"
+                    value={babyName}
+                    maxLength={80}
+                    autoComplete="off"
+                    placeholder="Ex. Emma"
+                    onChange={(event) => setBabyName(event.target.value)}
+                  />
+                </div>
 
-            <Separator className="my-4" />
+                <div className="space-y-2">
+                  <label htmlFor="birth-date" className="text-sm font-medium">Date de naissance</label>
+                  <Input
+                    id="birth-date"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="bday"
+                    placeholder="jj/mm/aaaa"
+                    value={birthDateInput}
+                    onChange={(event) => setBirthDateInput(formatFrenchDateDraft(event.target.value))}
+                  />
+                  <p className="text-xs text-muted-foreground">L’âge reste masqué tant que ce champ est vide.</p>
+                </div>
 
-            <div>
-              <p className="font-semibold">Couleur d’accent</p>
-              <p className="mb-3 text-xs text-muted-foreground">L’icône et l’interface restent synchronisées.</p>
-              <div className="grid grid-cols-5 gap-2">
-                {ACCENT_OPTIONS.map((option) => (
-                  <Button
-                    key={option.id}
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="relative size-10 rounded-xl p-0"
-                    aria-label={`Utiliser la couleur ${option.label}`}
-                    aria-pressed={settings.accent_color === option.id}
-                    onClick={() => onAccentChange(option.id).catch((error) => toast.error(error.message))}
-                  >
-                    <span className="size-6 rounded-full" style={{ backgroundColor: option.value }} />
-                    {settings.accent_color === option.id ? <Check className="absolute size-3 text-white drop-shadow" /> : null}
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">Sexe</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {SEX_OPTIONS.map(({ value, label, icon: Icon }) => (
+                      <Button
+                        key={value}
+                        type="button"
+                        variant={babySex === value ? "default" : "outline"}
+                        aria-pressed={babySex === value}
+                        onClick={() => setBabySex((current) => current === value ? "" : value)}
+                      >
+                        <Icon aria-hidden="true" /> {label}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Nécessaire avec la date de naissance pour afficher les références OMS.</p>
+                </fieldset>
+
+                <Button type="submit" className="w-full" disabled={saving}>
+                  {saving ? <LoaderCircle className="animate-spin" /> : null}
+                  Enregistrer le profil
+                </Button>
+              </form>
+
+              <div className="rounded-2xl border bg-card/60 p-4">
+                <div>
+                  <p className="font-semibold">Couleur d’accent</p>
+                  <p className="mb-3 text-xs text-muted-foreground">L’icône et l’interface restent synchronisées.</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {ACCENT_OPTIONS.map((option) => (
+                      <Button
+                        key={option.id}
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="relative size-10 rounded-xl p-0"
+                        aria-label={`Utiliser la couleur ${option.label}`}
+                        aria-pressed={settings.accent_color === option.id}
+                        onClick={() => onAccentChange(option.id).catch((error) => toast.error(error.message))}
+                      >
+                        <span className="size-6 rounded-full" style={{ backgroundColor: option.value }} />
+                        {settings.accent_color === option.id ? <Check className="absolute size-3 text-white drop-shadow" /> : null}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-5" />
+
+                <div>
+                  <p className="font-semibold text-destructive">Zone de danger</p>
+                  <p className="mb-3 text-xs text-muted-foreground">Supprime définitivement le profil, les mesures, les soins et tout l’historique.</p>
+                  <Button type="button" variant="destructive" className="w-full" onClick={() => {
+                    setSettingsOpen(false)
+                    setResetOpen(true)
+                  }}>
+                    <Trash2 /> Réinitialiser toute la base
                   </Button>
-                ))}
+                </div>
               </div>
             </div>
-
-            <Separator className="my-4" />
-
-            <div>
-              <p className="font-semibold text-destructive">Zone de danger</p>
-              <p className="mb-3 text-xs text-muted-foreground">Supprime définitivement le profil, les mesures, les soins et tout l’historique.</p>
-              <Button type="button" variant="destructive" className="w-full" onClick={() => setResetOpen(true)}>
-                <Trash2 /> Réinitialiser toute la base
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>

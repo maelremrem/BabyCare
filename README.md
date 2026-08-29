@@ -216,7 +216,7 @@ Le script :
 - installe, active et démarre le service `babycare.service` ;
 - configure le redémarrage automatique du serveur après un redémarrage de Debian.
 
-L’application est alors accessible sur `http://ADRESSE_DU_LXC:3000` depuis le réseau local.
+À la fin de l’installation, le script affiche directement l’adresse à ouvrir, par exemple `http://192.168.1.42:3000`.
 
 Commandes de diagnostic utiles :
 

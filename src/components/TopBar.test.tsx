@@ -17,13 +17,19 @@ describe("TopBar", () => {
     )
 
     await user.click(screen.getByRole("button", { name: "Ouvrir les paramètres" }))
+    expect(screen.getByRole("dialog", { name: "Paramètres de BabyCare" })).toBeInTheDocument()
+    const birthDateInput = screen.getByLabelText("Date de naissance")
+    expect(birthDateInput).toHaveValue("01/01/2026")
+    await user.clear(birthDateInput)
+    await user.type(birthDateInput, "02012026")
+    expect(birthDateInput).toHaveValue("02/01/2026")
     const girlButton = screen.getByRole("button", { name: "Fille" })
     expect(girlButton.querySelector(".lucide-venus")).toBeInTheDocument()
     await user.click(girlButton)
     expect(girlButton).toHaveAttribute("aria-pressed", "true")
     await user.click(screen.getByRole("button", { name: "Enregistrer le profil" }))
 
-    await waitFor(() => expect(onProfileChange).toHaveBeenCalledWith("Lou", "2026-01-01", "girl"))
+    await waitFor(() => expect(onProfileChange).toHaveBeenCalledWith("Lou", "2026-01-02", "girl"))
   })
 
   test("demande une confirmation avant de réinitialiser la base", async () => {

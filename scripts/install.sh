@@ -9,6 +9,24 @@ readonly REPOSITORY_BRANCH="main"
 readonly SERVICE_NAME="babycare.service"
 readonly SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}"
 
+detect_server_ip() {
+  local detected_ip=""
+
+  if command -v ip >/dev/null 2>&1; then
+    detected_ip="$(ip route get 1.1.1.1 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i == "src") {print $(i+1); exit}}')"
+  fi
+
+  if [[ -z "${detected_ip}" ]] && command -v hostname >/dev/null 2>&1; then
+    detected_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  fi
+
+  if [[ -z "${detected_ip}" ]]; then
+    detected_ip="ADRESSE_DU_SERVEUR"
+  fi
+
+  echo "${detected_ip}"
+}
+
 if [[ ${EUID} -ne 0 ]]; then
   echo "Ce script doit être lancé avec sudo : sudo ./scripts/install.sh" >&2
   exit 1
@@ -21,7 +39,7 @@ fi
 
 echo "[1/6] Installation des dépendances système"
 apt-get update
-apt-get install -y ca-certificates curl gnupg git build-essential python3
+apt-get install -y ca-certificates curl gnupg git build-essential python3 iproute2
 
 node_major=0
 if command -v node >/dev/null 2>&1; then
@@ -76,4 +94,4 @@ systemctl --no-pager --full status "${SERVICE_NAME}"
 
 echo
 echo "BabyCare est à jour et démarrera automatiquement avec Debian."
-echo "Ouvrez http://ADRESSE_DU_SERVEUR:3000 depuis votre réseau local."
+echo "Ouvrez http://$(detect_server_ip):3000 depuis votre réseau local."
