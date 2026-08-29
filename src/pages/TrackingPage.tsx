@@ -2,6 +2,7 @@ import { AlertTriangle, Bath, Milk, PackageCheck, Thermometer } from "lucide-rea
 import { ActionGrid } from "@/components/ActionGrid"
 import { ActiveTimer } from "@/components/ActiveTimer"
 import { EventRow } from "@/components/EventRow"
+import { TemperatureSparkline } from "@/components/TemperatureSparkline"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { EVENT_LABELS, type BabyEvent, type StoolAlert } from "@/lib/types"
@@ -156,17 +157,6 @@ function InfoCard({ label, icon: Icon, primary, secondary, caption }: {
 function TemperatureInfoCard({ events }: { events: BabyEvent[] }) {
   const values = events.map((event) => event.value_real as number)
   const latest = events.at(-1)
-  const width = 180
-  const height = 42
-  const padding = 3
-  const min = values.length ? Math.min(...values) : 0
-  const max = values.length ? Math.max(...values) : 0
-  const span = Math.max(max - min, 0.2)
-  const points = values.map((value, index) => {
-    const x = values.length === 1 ? width / 2 : padding + index * ((width - padding * 2) / (values.length - 1))
-    const y = padding + (max - value + (span - (max - min)) / 2) * ((height - padding * 2) / span)
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(" ")
 
   return (
     <Card className="bg-card/80">
@@ -178,15 +168,7 @@ function TemperatureInfoCard({ events }: { events: BabyEvent[] }) {
             <p className="text-lg font-medium">{latest ? `${latest.value_real?.toFixed(1)} °C` : "Aucune"}</p>
             <p className="text-sm text-muted-foreground">{latest ? relativeTime(latest.started_at) : "—"}</p>
           </div>
-          {values.length ? (
-            <svg className="h-11 w-28 overflow-visible" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Évolution sur ${values.length} mesure${values.length > 1 ? "s" : ""}`}>
-              {values.length > 1 ? <polyline points={points} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-primary" /> : null}
-              {points.split(" ").map((point, index) => {
-                const [cx, cy] = point.split(",")
-                return <circle key={`${point}-${index}`} cx={cx} cy={cy} r={index === values.length - 1 ? 4 : 2.5} className="fill-primary" />
-              })}
-            </svg>
-          ) : null}
+          <TemperatureSparkline values={values} />
         </div>
       </CardContent>
     </Card>

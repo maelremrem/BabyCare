@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Check, LoaderCircle, Settings } from "lucide-react"
+import { Check, LoaderCircle, Mars, Settings, Venus } from "lucide-react"
 import { toast } from "sonner"
 import { BabyCareIcon } from "@/components/BabyCareIcon"
 import { Button } from "@/components/ui/button"
@@ -8,30 +8,37 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator"
 import { useClock } from "@/hooks/useClock"
 import { dateKey, formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, formatShortDate, getAgeParts } from "@/lib/dates"
-import { ACCENT_OPTIONS, type AccentColor, type AppSettings } from "@/lib/types"
+import { ACCENT_OPTIONS, type AccentColor, type AppSettings, type BabySex } from "@/lib/types"
 
 interface TopBarProps {
   settings: AppSettings
   onAccentChange: (color: AccentColor) => Promise<void>
-  onProfileChange: (babyName: string, birthDate: string) => Promise<void>
+  onProfileChange: (babyName: string, birthDate: string, babySex: BabySex) => Promise<void>
 }
+
+const SEX_OPTIONS = [
+  { value: "girl", label: "Fille", icon: Venus },
+  { value: "boy", label: "Garçon", icon: Mars }
+] as const
 
 export function TopBar({ settings, onAccentChange, onProfileChange }: TopBarProps) {
   const now = useClock()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [babyName, setBabyName] = useState(settings.baby_name)
   const [birthDate, setBirthDate] = useState(settings.birth_date)
+  const [babySex, setBabySex] = useState<BabySex>(settings.baby_sex)
   const [saving, setSaving] = useState(false)
   const age = getAgeParts(settings.birth_date, now)
 
   useEffect(() => setBabyName(settings.baby_name), [settings.baby_name])
   useEffect(() => setBirthDate(settings.birth_date), [settings.birth_date])
+  useEffect(() => setBabySex(settings.baby_sex), [settings.baby_sex])
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaving(true)
     try {
-      await onProfileChange(babyName.trim(), birthDate)
+      await onProfileChange(babyName.trim(), birthDate, babySex)
       setSettingsOpen(false)
       toast.success("Profil du bébé enregistré")
     } catch (error) {
@@ -106,6 +113,24 @@ export function TopBar({ settings, onAccentChange, onProfileChange }: TopBarProp
                 />
                 <p className="text-xs text-muted-foreground">L’âge reste masqué tant que ce champ est vide.</p>
               </div>
+
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium">Sexe</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {SEX_OPTIONS.map(({ value, label, icon: Icon }) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={babySex === value ? "default" : "outline"}
+                      aria-pressed={babySex === value}
+                      onClick={() => setBabySex((current) => current === value ? "" : value)}
+                    >
+                      <Icon aria-hidden="true" /> {label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">Nécessaire avec la date de naissance pour afficher les références OMS.</p>
+              </fieldset>
 
               <Button type="submit" className="w-full" disabled={saving}>
                 {saving ? <LoaderCircle className="animate-spin" /> : null}

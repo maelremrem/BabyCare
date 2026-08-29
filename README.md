@@ -26,8 +26,9 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - chronomètres persistants pour les tétées et les soins chronométrés ;
 - compteur des tétées réalisées dans la journée ;
 - alerte automatique lorsqu’aucune selle n’a été enregistrée depuis plus de 48 heures ;
-- aperçu graphique de l’évolution récente de la température ;
+- aperçu graphique de l’évolution récente de la température avec repère de la zone idéale de 36,5 à 37,5 °C ;
 - suivi médical avec courbes du poids et de la taille ;
+- zones de référence OMS du poids et de la taille, adaptées au sexe et à l’âge, dans une fenêtre mobile de trois mois de la naissance à 5 ans ;
 - saisie tactile des mesures par pas de 50 g et 0,1 cm, avec accélération au maintien et saisie clavier au double-clic ;
 - historique médical modifiable ;
 - passage rapide d’un sein à l’autre ;
@@ -37,6 +38,7 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - observations sur les événements ;
 - checklist des soins quotidiens ;
 - validation de la checklist complète dans l’historique ;
+- réinitialisation automatique de la checklist après chaque validation ;
 - historique filtrable et recherchable ;
 - modification et suppression des événements ;
 - export de l’historique au format Excel ;
@@ -44,6 +46,16 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - stockage permanent des événements dans SQLite.
 
 La conception complète et les critères du MVP se trouvent dans [la documentation fonctionnelle](./docs/BabyCare%20—%20Documentation%20de%20conception%20&%20développement.md).
+
+### Références de croissance OMS
+
+Les zones affichées dans le suivi médical utilisent les standards OMS de croissance de 0 à 5 ans, séparés pour les filles et les garçons. BabyCare interpole les paramètres LMS officiels selon l’âge et applique la formule de centile OMS pour tracer la médiane et la bande comprise entre −2 et +2 z-scores.
+
+- [standards OMS du poids pour l’âge](https://www.who.int/tools/child-growth-standards/standards/weight-for-age) ;
+- [standards OMS de longueur/taille pour l’âge](https://www.who.int/tools/child-growth-standards/standards/length-height-for-age) ;
+- [méthodes de développement des standards OMS](https://www.who.int/publications/i/item/924154693X).
+
+Ces zones sont des repères statistiques de croissance et ne constituent pas un diagnostic médical. Une mesure ou une évolution préoccupante doit être discutée avec un professionnel de santé.
 
 ## Stack technique
 
@@ -55,6 +67,7 @@ La conception complète et les critères du MVP se trouvent dans [la documentati
 | Base de données | SQLite avec `better-sqlite3` |
 | Export | ExcelJS |
 | Installation tablette | PWA avec `vite-plugin-pwa` |
+| Qualité | TypeScript strict, ESLint, Vitest, Testing Library et tests d’intégration Node.js |
 
 En développement, Vite sert l’interface sur le port `5173` et redirige les appels `/api` vers Express sur le port `3000`. En production, Express sert à la fois l’interface compilée et l’API sur un seul port.
 
@@ -109,11 +122,21 @@ npm run dev:server
 # Vérification TypeScript
 npm run typecheck
 
-# Tests du serveur
+# Analyse statique ESLint
+npm run lint
+
+# Tous les tests serveur et interface
 npm test
+
+# Tests séparés si nécessaire
+npm run test:server
+npm run test:ui
 
 # Build de production
 npm run build
+
+# Contrôle complet avant un commit
+npm run check
 
 # Lancer le build de production
 npm start
@@ -229,7 +252,7 @@ Pour reprendre le projet après une interruption :
 2. vérifier l’état Git avec `git status` et récupérer les changements avec `git pull --ff-only` ;
 3. installer les dépendances avec `npm install` ou `npm ci` ;
 4. lancer `npm run dev` ;
-5. valider les changements avec `npm run typecheck`, `npm test` et `npm run build`.
+5. valider les changements avec `npm run check`.
 
 Les prochains chantiers identifiés sont notamment :
 
@@ -249,12 +272,10 @@ Les contributions sont les bienvenues, en particulier sur l’ergonomie tactile,
 2. garder les changements ciblés et respecter l’architecture existante ;
 3. utiliser en priorité les composants présents dans `src/components/ui` ;
 4. vérifier l’interface sur tablette et téléphone ;
-5. lancer les trois contrôles avant de proposer le changement :
+5. lancer le contrôle complet avant de proposer le changement :
 
 ```bash
-npm run typecheck
-npm test
-npm run build
+npm run check
 ```
 
 6. décrire clairement le besoin, la solution et la méthode de test dans la pull request.

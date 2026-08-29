@@ -17,7 +17,6 @@ const careLabels = { eyes: "Yeux", nose: "Nez", cord: "Cordon", face: "Visage" }
 
 export function CarePage({ care, onChanged }: CarePageProps) {
   const completed = care.filter((item) => item.completed).length
-  const validatedAt = care.find((item) => item.validated_at)?.validated_at || null
   const allCompleted = care.length > 0 && completed === care.length
   const [validating, setValidating] = useState(false)
 
@@ -39,14 +38,13 @@ export function CarePage({ care, onChanged }: CarePageProps) {
       <Card>
         <CardHeader>
           <CardTitle>Soins quotidiens</CardTitle>
-          <CardDescription>La checklist se réinitialise chaque jour.</CardDescription>
+          <CardDescription>La checklist se réinitialise après chaque validation et chaque jour.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {care.map((item) => (
             <label key={item.care_type} className="flex min-h-16 cursor-pointer items-center gap-4 rounded-2xl border border-border px-4 transition-colors hover:bg-muted/40">
               <Checkbox
                 checked={Boolean(item.completed)}
-                disabled={Boolean(validatedAt)}
                 onCheckedChange={async (checked) => {
                   await api.updateDailyCare(item.care_type, Boolean(checked))
                   toast.success(`${careLabels[item.care_type]} ${checked ? "effectué" : "à faire"}`)
@@ -62,11 +60,7 @@ export function CarePage({ care, onChanged }: CarePageProps) {
             <div className="mb-2 flex justify-between text-sm"><span className="text-muted-foreground">Progression</span><strong>{completed} / {care.length}</strong></div>
             <Progress value={care.length ? completed / care.length * 100 : 0} />
           </div>
-          {validatedAt ? (
-            <div className="flex min-h-12 items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 px-4 text-sm font-medium text-primary">
-              <Check className="size-5" /> Soins validés à {new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(new Date(validatedAt))}
-            </div>
-          ) : allCompleted ? (
+          {allCompleted ? (
             <Button className="h-12 w-full" disabled={validating} onClick={validate}>
               <ClipboardCheck /> Valider les soins du jour
             </Button>

@@ -163,21 +163,30 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
   assert.equal(initial.accent_color, "orange")
   assert.equal(initial.baby_name, "")
   assert.equal(initial.birth_date, "")
+  assert.equal(initial.baby_sex, "")
 
   const saved = await fetch(`${baseUrl}/api/settings/profile`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03" })
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl" })
   }).then((response) => response.json())
   assert.equal(saved.baby_name, "Lou")
   assert.equal(saved.birth_date, "2025-12-03")
+  assert.equal(saved.baby_sex, "girl")
 
   const future = await fetch(`${baseUrl}/api/settings/profile`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ baby_name: "Lou", birth_date: "2999-01-01" })
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2999-01-01", baby_sex: "girl" })
   })
   assert.equal(future.status, 400)
+
+  const invalidSex = await fetch(`${baseUrl}/api/settings/profile`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "unknown" })
+  })
+  assert.equal(invalidSex.status, 400)
 
   const color = await fetch(`${baseUrl}/api/settings/accent`, {
     method: "PUT",
@@ -215,7 +224,7 @@ test("enregistre les mesures de poids et de taille", () => withServer(async (bas
   assert.equal(medicalHistory.events[0].type, "height")
 }))
 
-test("valide une seule fois la checklist complète dans les logs", () => withServer(async (baseUrl) => {
+test("réinitialise la checklist après chaque validation", () => withServer(async (baseUrl) => {
   const tooEarly = await fetch(`${baseUrl}/api/routines/daily/validate`, { method: "POST" })
   assert.equal(tooEarly.status, 409)
 
@@ -235,20 +244,26 @@ test("valide une seule fois la checklist complète dans les logs", () => withSer
 
   const care = await fetch(`${baseUrl}/api/routines/daily`).then((response) => response.json())
   assert.equal(care.length, 4)
-  assert.ok(care.every((item) => item.validated_at))
+  assert.ok(care.every((item) => item.completed === 0))
+  assert.ok(care.every((item) => item.completed_at === null))
+  assert.ok(care.every((item) => item.validated_at === null))
 
   const duplicateResponse = await fetch(`${baseUrl}/api/routines/daily/validate`, { method: "POST" })
-  assert.equal(duplicateResponse.status, 200)
-  const duplicate = await duplicateResponse.json()
-  assert.equal(duplicate.id, validated.id)
+  assert.equal(duplicateResponse.status, 409)
 
-  const locked = await fetch(`${baseUrl}/api/routines/daily/eyes`, {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ completed: false })
-  })
-  assert.equal(locked.status, 409)
+  for (const careType of ["eyes", "nose", "cord", "face"]) {
+    const response = await fetch(`${baseUrl}/api/routines/daily/${careType}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ completed: true })
+    })
+    assert.equal(response.status, 200)
+  }
+  const secondValidation = await fetch(`${baseUrl}/api/routines/daily/validate`, { method: "POST" })
+  assert.equal(secondValidation.status, 201)
+  const secondEvent = await secondValidation.json()
+  assert.notEqual(secondEvent.id, validated.id)
 
   const logs = await fetch(`${baseUrl}/api/events?type=daily_care`).then((response) => response.json())
-  assert.equal(logs.total, 1)
+  assert.equal(logs.total, 2)
 }))

@@ -25,6 +25,7 @@ const EVENT_TYPES = new Set([
 ])
 const TIMER_TYPES = new Set(["breast_left", "breast_right", "face_care", "cord_care", "face_cord_care"])
 const ACCENT_COLORS = new Set(["orange", "blue", "green", "pink", "purple"])
+const BABY_SEXES = new Set(["", "girl", "boy"])
 const DAILY_CARE_TYPES = ["eyes", "nose", "cord", "face"]
 const BATH_ITEMS = ["Serviette préparée", "Température vérifiée", "Sécher les plis"]
 const EDITABLE_FIELDS = new Set([
@@ -62,7 +63,8 @@ function readSettings(db) {
   return {
     accent_color: ACCENT_COLORS.has(values.accent_color) ? values.accent_color : "orange",
     baby_name: values.baby_name || "",
-    birth_date: values.birth_date || ""
+    birth_date: values.birth_date || "",
+    baby_sex: BABY_SEXES.has(values.baby_sex) ? values.baby_sex : ""
   }
 }
 
@@ -160,17 +162,21 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.put("/api/settings/profile", (request, response) => {
-    const { baby_name: babyName, birth_date: birthDate } = request.body
+    const { baby_name: babyName, birth_date: birthDate, baby_sex: babySex } = request.body
     if (typeof babyName !== "string" || babyName.trim().length > 80) {
       return response.status(400).json({ error: "Le nom du bébé ne peut pas dépasser 80 caractères." })
     }
     if (typeof birthDate !== "string" || (birthDate && (!isValidDateOnly(birthDate) || birthDate > localDate()))) {
       return response.status(400).json({ error: "La date de naissance est invalide ou située dans le futur." })
     }
+    if (typeof babySex !== "string" || !BABY_SEXES.has(babySex)) {
+      return response.status(400).json({ error: "Le sexe renseigné est invalide." })
+    }
 
     const updateProfile = db.transaction(() => {
       saveSetting(db, "baby_name", babyName.trim())
       saveSetting(db, "birth_date", birthDate)
+      saveSetting(db, "baby_sex", babySex)
     })
     updateProfile()
     response.json(readSettings(db))
@@ -334,11 +340,8 @@ export function createApp({ db = createDatabase() } = {}) {
     const ensure = db.transaction(() => DAILY_CARE_TYPES.forEach((type) => insert.run(date, type)))
     ensure()
     response.json(db.prepare(`
-      SELECT daily_care.*,
-        CASE WHEN events.id IS NOT NULL THEN daily_care_validations.validated_at ELSE NULL END AS validated_at
+      SELECT daily_care.*, NULL AS validated_at
       FROM daily_care
-      LEFT JOIN daily_care_validations ON daily_care_validations.date = daily_care.date
-      LEFT JOIN events ON events.id = daily_care_validations.event_id
       WHERE daily_care.date = ?
       ORDER BY daily_care.id
     `).all(date))
@@ -351,14 +354,6 @@ export function createApp({ db = createDatabase() } = {}) {
       DAILY_CARE_TYPES.forEach((type) => insertCare.run(date, type))
       const incomplete = db.prepare("SELECT COUNT(*) AS count FROM daily_care WHERE date = ? AND completed = 0").get(date).count
       if (incomplete > 0) return { incomplete: true }
-
-      const existing = db.prepare(`
-        SELECT events.id
-        FROM daily_care_validations
-        JOIN events ON events.id = daily_care_validations.event_id
-        WHERE daily_care_validations.date = ?
-      `).get(date)
-      if (existing) return { eventId: existing.id, created: false }
 
       const timestamp = nowIso()
       const event = db.prepare(`
@@ -377,14 +372,19 @@ export function createApp({ db = createDatabase() } = {}) {
         VALUES (?, ?, ?)
         ON CONFLICT(date) DO UPDATE SET event_id = excluded.event_id, validated_at = excluded.validated_at
       `).run(date, event.lastInsertRowid, timestamp)
-      return { eventId: event.lastInsertRowid, created: true }
+      db.prepare(`
+        UPDATE daily_care
+        SET completed = 0, completed_at = NULL
+        WHERE date = ?
+      `).run(date)
+      return { eventId: event.lastInsertRowid }
     })
 
     const result = validate()
     if (result.incomplete) {
       return response.status(409).json({ error: "Terminez la checklist avant de valider les soins." })
     }
-    response.status(result.created ? 201 : 200).json(parseEvent(db.prepare("SELECT * FROM events WHERE id = ?").get(result.eventId)))
+    response.status(201).json(parseEvent(db.prepare("SELECT * FROM events WHERE id = ?").get(result.eventId)))
   })
 
   app.put("/api/routines/daily/:careType", (request, response) => {
@@ -393,15 +393,6 @@ export function createApp({ db = createDatabase() } = {}) {
       return response.status(400).json({ error: "Soin quotidien invalide." })
     }
     const date = request.body.date || localDate()
-    const validation = db.prepare(`
-      SELECT events.id
-      FROM daily_care_validations
-      JOIN events ON events.id = daily_care_validations.event_id
-      WHERE daily_care_validations.date = ?
-    `).get(date)
-    if (validation) {
-      return response.status(409).json({ error: "Les soins du jour ont déjà été validés." })
-    }
     const completed = request.body.completed ? 1 : 0
     db.prepare(`
       INSERT INTO daily_care (date, care_type, completed, completed_at)

@@ -8,8 +8,12 @@
     "dev:client": "vite",
     "dev:server": "node server/app.js",
     "build": "tsc -b && vite build",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "lint": "eslint . --max-warnings=0",
     "start": "node server/app.js",
-    "test": "node --test server/**/*.test.js",
+    "test": "npm run test:server && npm run test:ui",
+    "test:server": "node --test server/**/*.test.js",
+    "test:ui": "vitest run",
     "typecheck": "tsc -b"
   },
   "dependencies": {
@@ -35,6 +39,9 @@
   "devDependencies": {
     "@eslint/js": "latest",
     "@tailwindcss/vite": "latest",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.6",
     "@types/express": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
@@ -45,10 +52,12 @@
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-react-refresh": "latest",
     "globals": "latest",
+    "jsdom": "^30.0.1",
     "tailwindcss": "latest",
     "typescript": "latest",
     "typescript-eslint": "latest",
     "vite": "latest",
-    "vite-plugin-pwa": "latest"
+    "vite-plugin-pwa": "latest",
+    "vitest": "^4.1.11"
   }
 }

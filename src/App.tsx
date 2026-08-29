@@ -16,7 +16,8 @@ import { TrackingPage } from "@/pages/TrackingPage"
 const DEFAULT_SETTINGS: AppSettings = {
   accent_color: "orange",
   baby_name: "",
-  birth_date: ""
+  birth_date: "",
+  baby_sex: ""
 }
 
 export default function App() {
@@ -62,8 +63,8 @@ export default function App() {
           setSettings(updatedSettings)
           toast.success(`Couleur ${ACCENT_OPTIONS.find((option) => option.id === color)?.label.toLowerCase()} appliquée`)
         }}
-        onProfileChange={async (babyName, birthDate) => {
-          setSettings(await api.updateProfile(babyName, birthDate))
+        onProfileChange={async (babyName, birthDate, babySex) => {
+          setSettings(await api.updateProfile(babyName, birthDate, babySex))
         }}
       />
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mx-auto max-w-6xl px-4 pb-14 sm:px-6">
@@ -90,7 +91,7 @@ export default function App() {
           <CarePage care={care} onChanged={refreshAll} />
         </TabsContent>
         <TabsContent value="medical" className="mt-5">
-          <MedicalPage refreshKey={refreshKey} onChanged={refreshAll} onEdit={setEditing} />
+          <MedicalPage settings={settings} refreshKey={refreshKey} onChanged={refreshAll} onEdit={setEditing} />
         </TabsContent>
         <TabsContent value="history" className="mt-5">
           <HistoryPage refreshKey={refreshKey} onEdit={setEditing} />

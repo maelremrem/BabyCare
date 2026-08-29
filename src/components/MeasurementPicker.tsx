@@ -23,7 +23,10 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState("")
   const multiplier = 10 ** decimals
-  currentValue.current = value
+
+  useEffect(() => {
+    currentValue.current = value
+  }, [value])
 
   const update = (steps: number) => {
     const next = Math.min(max, Math.max(min, Math.round((currentValue.current + steps * step) * multiplier) / multiplier))

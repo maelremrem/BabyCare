@@ -11,11 +11,12 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { dayHeading, groupEventsByDay } from "@/lib/dates"
-import type { BabyEvent } from "@/lib/types"
+import type { AppSettings, BabyEvent } from "@/lib/types"
 
 type MeasurementType = "weight" | "height"
 
 interface MedicalPageProps {
+  settings: AppSettings
   refreshKey: number
   onChanged: () => Promise<void>
   onEdit: (event: BabyEvent) => void
@@ -61,7 +62,7 @@ function measurementDate(value: string) {
   }).format(new Date(value))
 }
 
-export function MedicalPage({ refreshKey, onChanged, onEdit }: MedicalPageProps) {
+export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: MedicalPageProps) {
   const [weights, setWeights] = useState<BabyEvent[]>([])
   const [heights, setHeights] = useState<BabyEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -131,9 +132,19 @@ export function MedicalPage({ refreshKey, onChanged, onEdit }: MedicalPageProps)
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <MedicalChart title="Courbe de poids" events={weights} unit="kg" decimals={3} />
-        <MedicalChart title="Courbe de taille" events={heights} unit="cm" decimals={1} />
+        <MedicalChart title="Courbe de poids" indicator="weight" events={weights} unit="kg" decimals={3} settings={settings} />
+        <MedicalChart title="Courbe de taille" indicator="height" events={heights} unit="cm" decimals={1} settings={settings} />
       </div>
+
+      {!settings.birth_date || !settings.baby_sex ? (
+        <p className="-mt-5 text-center text-xs text-muted-foreground">
+          Renseignez la date de naissance et le sexe dans les paramètres pour afficher les zones de référence OMS.
+        </p>
+      ) : (
+        <p className="-mt-5 text-center text-xs text-muted-foreground">
+          Ces zones sont des repères statistiques OMS et ne remplacent pas l’avis d’un professionnel de santé.
+        </p>
+      )}
 
       <section>
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-[.18em] text-muted-foreground">Ajouter une mesure</h3>
