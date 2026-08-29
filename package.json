@@ -1,0 +1,53 @@
+{
+  "name": "babycare",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n API,WEB -c magenta,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "vite",
+    "dev:server": "node --watch server/app.js",
+    "build": "tsc -b && vite build",
+    "start": "node server/app.js",
+    "test": "node --test server/**/*.test.js",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@radix-ui/react-alert-dialog": "latest",
+    "@radix-ui/react-dialog": "latest",
+    "@radix-ui/react-popover": "latest",
+    "@radix-ui/react-scroll-area": "latest",
+    "@radix-ui/react-tabs": "latest",
+    "better-sqlite3": "latest",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "exceljs": "latest",
+    "express": "latest",
+    "lucide-react": "latest",
+    "next-themes": "^0.4.6",
+    "radix-ui": "^1.6.7",
+    "react": "latest",
+    "react-dom": "latest",
+    "sonner": "latest",
+    "tailwind-merge": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@tailwindcss/vite": "latest",
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "concurrently": "latest",
+    "eslint": "latest",
+    "eslint-plugin-react-hooks": "latest",
+    "eslint-plugin-react-refresh": "latest",
+    "globals": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest",
+    "vite": "latest",
+    "vite-plugin-pwa": "latest"
+  }
+}
