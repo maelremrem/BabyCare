@@ -285,7 +285,7 @@ Pour toute modification de la base ou de l’API, préserver la compatibilité a
 
 ## État du projet
 
-BabyCare est en développement actif. L’interface et les principaux parcours du MVP sont utilisables, mais le projet n’est pas encore considéré comme prêt pour une exposition publique ou un usage médical critique.
+BabyCare est en développement actif. L’interface et les principaux parcours du MVP sont utilisables.
 
 ## Licence
 
