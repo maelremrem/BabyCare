@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react"
 import { ClipboardCheck, History, LayoutDashboard, Stethoscope } from "lucide-react"
 import { toast } from "sonner"
 import { EventEditor } from "@/components/EventEditor"
+import { AppFooter } from "@/components/AppFooter"
+import { AppLoading } from "@/components/AppLoading"
 import { TopBar } from "@/components/TopBar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Toaster } from "@/components/ui/sonner"
@@ -28,6 +30,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("tracking")
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [stoolAlert, setStoolAlert] = useState<StoolAlert | null>(null)
+  const [bootstrapLoading, setBootstrapLoading] = useState(true)
 
   const refreshAll = useCallback(async () => {
     const [, daily, alert] = await Promise.all([refresh(), api.dailyCare(), api.stoolAlert()])
@@ -44,6 +47,7 @@ export default function App() {
         setStoolAlert(alert)
       })
       .catch((error) => toast.error(error.message))
+      .finally(() => setBootstrapLoading(false))
   }, [])
 
   useEffect(() => {
@@ -54,8 +58,10 @@ export default function App() {
     root.style.setProperty("--sidebar-primary", accent.value)
   }, [settings.accent_color])
 
+  if (bootstrapLoading || loading) return <AppLoading accentColor={settings.accent_color} />
+
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar
         settings={settings}
         onAccentChange={async (color) => {
@@ -66,8 +72,12 @@ export default function App() {
         onProfileChange={async (babyName, birthDate, babySex) => {
           setSettings(await api.updateProfile(babyName, birthDate, babySex))
         }}
+        onReset={async () => {
+          await api.resetDatabase()
+          window.location.reload()
+        }}
       />
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mx-auto max-w-6xl px-4 pb-14 sm:px-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-14 sm:px-6">
         <div className="sticky top-[73px] z-30 -mx-4 bg-background/95 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
           <TabsList className="grid h-14 w-full grid-cols-4 rounded-2xl bg-card p-1.5">
             <TabsTrigger value="tracking" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><LayoutDashboard className="hidden sm:block" /> <span>Suivi</span></TabsTrigger>
@@ -97,6 +107,7 @@ export default function App() {
           <HistoryPage refreshKey={refreshKey} onEdit={setEditing} />
         </TabsContent>
       </Tabs>
+      <AppFooter />
       <EventEditor event={editing} onOpenChange={(open) => !open && setEditing(null)} onChanged={refreshAll} />
       <Toaster position="bottom-center" richColors />
     </div>

@@ -1,6 +1,7 @@
-import { AlertTriangle, Bath, Milk, PackageCheck, Thermometer } from "lucide-react"
+import { AlertTriangle, Bath, Milk, Thermometer, WalletCards } from "lucide-react"
 import { ActionGrid } from "@/components/ActionGrid"
 import { ActiveTimer } from "@/components/ActiveTimer"
+import { ContentLoading } from "@/components/ContentLoading"
 import { EventRow } from "@/components/EventRow"
 import { TemperatureSparkline } from "@/components/TemperatureSparkline"
 import { Card, CardContent } from "@/components/ui/card"
@@ -45,7 +46,7 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
     },
     {
       label: "Couche",
-      icon: PackageCheck,
+      icon: WalletCards,
       primary: lastDiaperType ? ({ urine: "Urine", stool: "Selles", mixed: "Mixte" }[lastDiaperType] || lastDiaperType) : "Aucune",
       secondary: lastDiaper ? relativeTime(lastDiaper.started_at) : "",
       caption: undefined
@@ -89,7 +90,7 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
         <Card>
           <CardContent className="p-3 sm:p-5">
             {loading ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">Chargement…</p>
+              <ContentLoading label="Chargement de l’activité…" />
             ) : recent.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">Les premières actions apparaîtront ici.</p>
             ) : Object.entries(groups).map(([key, dayEvents], groupIndex) => (

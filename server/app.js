@@ -182,6 +182,24 @@ export function createApp({ db = createDatabase() } = {}) {
     response.json(readSettings(db))
   })
 
+  app.delete("/api/database", (_request, response) => {
+    const reset = db.transaction(() => {
+      db.prepare("DELETE FROM bath_checks").run()
+      db.prepare("DELETE FROM bath_sessions").run()
+      db.prepare("DELETE FROM daily_care_validations").run()
+      db.prepare("DELETE FROM daily_care").run()
+      db.prepare("DELETE FROM events").run()
+      db.prepare("DELETE FROM app_settings").run()
+      db.prepare("DELETE FROM sqlite_sequence").run()
+      saveSetting(db, "accent_color", "orange")
+      saveSetting(db, "baby_name", "")
+      saveSetting(db, "birth_date", "")
+      saveSetting(db, "baby_sex", "")
+    })
+    reset()
+    response.status(204).end()
+  })
+
   app.get("/api/alerts/stool", (_request, response) => {
     const lastStool = db.prepare(`
       SELECT started_at

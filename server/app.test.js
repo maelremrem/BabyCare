@@ -197,6 +197,27 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
   assert.equal(color.baby_name, "Lou")
 }))
 
+test("réinitialise toute la base de données et restaure les paramètres par défaut", () => withServer(async (baseUrl) => {
+  await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "temperature", value_real: 37.2 })
+  })
+  await fetch(`${baseUrl}/api/settings/profile`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl" })
+  })
+
+  const reset = await fetch(`${baseUrl}/api/database`, { method: "DELETE" })
+  assert.equal(reset.status, 204)
+
+  const history = await fetch(`${baseUrl}/api/events`).then((response) => response.json())
+  assert.equal(history.total, 0)
+  const settings = await fetch(`${baseUrl}/api/settings`).then((response) => response.json())
+  assert.deepEqual(settings, { accent_color: "orange", baby_name: "", birth_date: "", baby_sex: "" })
+}))
+
 test("enregistre les mesures de poids et de taille", () => withServer(async (baseUrl) => {
   const weight = await fetch(`${baseUrl}/api/events`, {
     method: "POST",

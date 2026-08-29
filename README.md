@@ -28,7 +28,7 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - alerte automatique lorsqu’aucune selle n’a été enregistrée depuis plus de 48 heures ;
 - aperçu graphique de l’évolution récente de la température avec repère de la zone idéale de 36,5 à 37,5 °C ;
 - suivi médical avec courbes du poids et de la taille ;
-- zones de référence OMS du poids et de la taille, adaptées au sexe et à l’âge, dans une fenêtre mobile de trois mois de la naissance à 5 ans ;
+- zones de référence OMS du poids et de la taille, adaptées au sexe et à l’âge, dans une plage commune ajustable de la naissance à 5 ans (3 mois par défaut) ;
 - saisie tactile des mesures par pas de 50 g et 0,1 cm, avec accélération au maintien et saisie clavier au double-clic ;
 - historique médical modifiable ;
 - passage rapide d’un sein à l’autre ;
@@ -43,7 +43,8 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - modification et suppression des événements ;
 - export de l’historique au format Excel ;
 - interface responsive et installable comme PWA ;
-- stockage permanent des événements dans SQLite.
+- stockage permanent des événements dans SQLite ;
+- remise à zéro complète et confirmée de la base depuis les paramètres.
 
 La conception complète et les critères du MVP se trouvent dans [la documentation fonctionnelle](./docs/BabyCare%20—%20Documentation%20de%20conception%20&%20développement.md).
 

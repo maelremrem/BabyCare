@@ -42,6 +42,7 @@ export const api = {
     method: "PUT",
     body: JSON.stringify({ baby_name: babyName, birth_date: birthDate, baby_sex: babySex })
   }),
+  resetDatabase: () => request<void>("/api/database", { method: "DELETE" }),
   dailyCare: () => request<DailyCare[]>("/api/routines/daily"),
   updateDailyCare: (careType: DailyCare["care_type"], completed: boolean) => request<DailyCare>(`/api/routines/daily/${careType}`, {
     method: "PUT",

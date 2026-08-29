@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, test, vi } from "vitest"
+import { render, screen } from "@testing-library/react"
+import { describe, expect, test } from "vitest"
 import { MedicalChart } from "@/components/MedicalChart"
 import type { AppSettings } from "@/lib/types"
 
@@ -11,20 +11,14 @@ const settings: AppSettings = {
 }
 
 describe("MedicalChart", () => {
-  afterEach(() => vi.useRealTimers())
-
-  test("projette une zone OMS dans une fenêtre mobile de trois mois", () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date("2026-03-01T12:00:00.000Z"))
-    render(<MedicalChart title="Courbe de poids" indicator="weight" events={[]} unit="kg" decimals={3} settings={settings} />)
+  test("projette une zone OMS dans la fenêtre de trois mois reçue", () => {
+    render(<MedicalChart title="Courbe de poids" indicator="weight" events={[]} unit="kg" decimals={3} settings={settings} windowStart={1} windowEnd={4} />)
 
     expect(screen.getByTestId("who-reference-zone")).toBeInTheDocument()
     expect(screen.getByText("Zone de référence OMS (−2 à +2 z)")).toBeInTheDocument()
-    expect(screen.getByText("1 mois → 4 mois")).toBeInTheDocument()
-
-    const slider = screen.getByRole("slider", { name: "Déplacer la fenêtre de la courbe de poids" })
-    fireEvent.change(slider, { target: { value: "57" } })
-    expect(screen.getByText("57 mois → 60 mois")).toBeInTheDocument()
+    expect(screen.getByText("1 mois")).toBeInTheDocument()
+    expect(screen.getByText("4 mois")).toBeInTheDocument()
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument()
   })
 
   test("demande une première mesure si le profil OMS est incomplet", () => {
@@ -35,6 +29,8 @@ describe("MedicalChart", () => {
       unit="cm"
       decimals={1}
       settings={{ ...settings, baby_sex: "" }}
+      windowStart={0}
+      windowEnd={3}
     />)
 
     expect(screen.getByText("Le graphique apparaîtra après la première mesure.")).toBeInTheDocument()

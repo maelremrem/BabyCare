@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Download, Search } from "lucide-react"
 import { toast } from "sonner"
 import { EventRow } from "@/components/EventRow"
+import { ContentLoading } from "@/components/ContentLoading"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -118,7 +119,7 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
       <Card>
         <CardContent className="p-3 sm:p-5">
           {loading ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">Chargement de l’historique…</p>
+            <ContentLoading label="Chargement de l’historique…" />
           ) : events.length === 0 ? (
             <p className="py-12 text-center text-sm text-muted-foreground">Aucun événement ne correspond à ces filtres.</p>
           ) : Object.entries(groups).map(([key, dayEvents], groupIndex) => (

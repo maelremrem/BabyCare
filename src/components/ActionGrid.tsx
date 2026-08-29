@@ -1,6 +1,6 @@
 import { useState } from "react"
 import {
-  Bath, CircleDot, HeartPulse, MessageSquarePlus, Milk, PackageCheck, Shirt, Smile, Thermometer
+  Bath, CircleDot, HeartPulse, MessageSquarePlus, Milk, Shirt, Smile, Thermometer, WalletCards
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -66,7 +66,7 @@ export function ActionGrid({ onChanged, onOpenCare }: ActionGridProps) {
 
         <Popover open={diaperOpen} onOpenChange={setDiaperOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" className={actionClass}><PackageCheck className="size-6" /> Couche</Button>
+            <Button variant="outline" className={actionClass}><WalletCards className="size-6" /> Couche</Button>
           </PopoverTrigger>
           <PopoverContent className="w-56 p-2" align="center">
             {[["Urine", "urine"], ["Selles", "stool"], ["Mixte", "mixed"]].map(([label, value]) => (

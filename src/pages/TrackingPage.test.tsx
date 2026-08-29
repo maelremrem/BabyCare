@@ -52,6 +52,7 @@ describe("TrackingPage", () => {
       within(informationSection!).getByText(label, { exact: true })
     ))
     expect(labels.map((element) => element.textContent)).toEqual(["Tétée", "Température", "Couche", "Bain"])
+    expect(labels[2].closest('[data-slot="card"]')?.querySelector(".lucide-wallet-cards")).toBeInTheDocument()
     labels.slice(1).forEach((element, index) => {
       expect(labels[index].compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })

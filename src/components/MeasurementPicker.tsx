@@ -103,6 +103,12 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
           }}
           onPointerDown={(event) => {
             if (editing) return
+            if (event.detail >= 2 && (event.target as HTMLElement).closest("[data-direct-entry]")) {
+              event.preventDefault()
+              dragY.current = null
+              beginEditing()
+              return
+            }
             event.currentTarget.setPointerCapture(event.pointerId)
             dragY.current = event.clientY
           }}
@@ -119,7 +125,11 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
               className={index === 2
                 ? "my-1 border-y border-primary py-2 text-4xl font-semibold tabular-nums text-foreground"
                 : "min-h-7 py-1 text-base tabular-nums text-muted-foreground/55"}
-              onDoubleClick={index === 2 && !editing ? beginEditing : undefined}
+              data-direct-entry={index === 2 ? "true" : undefined}
+              onDoubleClick={index === 2 && !editing ? (event) => {
+                event.preventDefault()
+                beginEditing()
+              } : undefined}
               title={index === 2 ? "Double-cliquer pour saisir la valeur" : undefined}
             >
               {index === 2 && editing ? (

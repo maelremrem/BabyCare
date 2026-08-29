@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Check, LoaderCircle, Mars, Settings, Venus } from "lucide-react"
+import { Check, LoaderCircle, Mars, Settings, Trash2, Venus } from "lucide-react"
 import { toast } from "sonner"
 import { BabyCareIcon } from "@/components/BabyCareIcon"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -14,6 +15,7 @@ interface TopBarProps {
   settings: AppSettings
   onAccentChange: (color: AccentColor) => Promise<void>
   onProfileChange: (babyName: string, birthDate: string, babySex: BabySex) => Promise<void>
+  onReset: () => Promise<void>
 }
 
 const SEX_OPTIONS = [
@@ -21,13 +23,15 @@ const SEX_OPTIONS = [
   { value: "boy", label: "Garçon", icon: Mars }
 ] as const
 
-export function TopBar({ settings, onAccentChange, onProfileChange }: TopBarProps) {
+export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: TopBarProps) {
   const now = useClock()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [babyName, setBabyName] = useState(settings.baby_name)
   const [birthDate, setBirthDate] = useState(settings.birth_date)
   const [babySex, setBabySex] = useState<BabySex>(settings.baby_sex)
   const [saving, setSaving] = useState(false)
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const age = getAgeParts(settings.birth_date, now)
 
   useEffect(() => setBabyName(settings.baby_name), [settings.baby_name])
@@ -45,6 +49,18 @@ export function TopBar({ settings, onAccentChange, onProfileChange }: TopBarProp
       toast.error(error instanceof Error ? error.message : "Impossible d’enregistrer le profil.")
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function resetDatabase() {
+    setResetting(true)
+    try {
+      await onReset()
+      setResetOpen(false)
+      setResetting(false)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Impossible de réinitialiser la base de données.")
+      setResetting(false)
     }
   }
 
@@ -161,9 +177,37 @@ export function TopBar({ settings, onAccentChange, onProfileChange }: TopBarProp
                 ))}
               </div>
             </div>
+
+            <Separator className="my-4" />
+
+            <div>
+              <p className="font-semibold text-destructive">Zone de danger</p>
+              <p className="mb-3 text-xs text-muted-foreground">Supprime définitivement le profil, les mesures, les soins et tout l’historique.</p>
+              <Button type="button" variant="destructive" className="w-full" onClick={() => setResetOpen(true)}>
+                <Trash2 /> Réinitialiser toute la base
+              </Button>
+            </div>
           </PopoverContent>
         </Popover>
       </div>
+
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Réinitialiser toute la base de données ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Toutes les informations BabyCare seront supprimées définitivement. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" disabled={resetting} onClick={resetDatabase}>
+              {resetting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+              Confirmer la réinitialisation
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   )
 }

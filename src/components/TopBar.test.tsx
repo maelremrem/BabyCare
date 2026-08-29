@@ -12,6 +12,7 @@ describe("TopBar", () => {
         settings={{ accent_color: "orange", baby_name: "Lou", birth_date: "2026-01-01", baby_sex: "" }}
         onAccentChange={vi.fn(async () => undefined)}
         onProfileChange={onProfileChange}
+        onReset={vi.fn(async () => undefined)}
       />
     )
 
@@ -23,5 +24,26 @@ describe("TopBar", () => {
     await user.click(screen.getByRole("button", { name: "Enregistrer le profil" }))
 
     await waitFor(() => expect(onProfileChange).toHaveBeenCalledWith("Lou", "2026-01-01", "girl"))
+  })
+
+  test("demande une confirmation avant de réinitialiser la base", async () => {
+    const user = userEvent.setup()
+    const onReset = vi.fn(async () => undefined)
+    render(
+      <TopBar
+        settings={{ accent_color: "orange", baby_name: "Lou", birth_date: "2026-01-01", baby_sex: "girl" }}
+        onAccentChange={vi.fn(async () => undefined)}
+        onProfileChange={vi.fn(async () => undefined)}
+        onReset={onReset}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Ouvrir les paramètres" }))
+    await user.click(screen.getByRole("button", { name: "Réinitialiser toute la base" }))
+    expect(onReset).not.toHaveBeenCalled()
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("Cette action est irréversible")
+
+    await user.click(screen.getByRole("button", { name: "Confirmer la réinitialisation" }))
+    await waitFor(() => expect(onReset).toHaveBeenCalledOnce())
   })
 })

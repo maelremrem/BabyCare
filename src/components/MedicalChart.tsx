@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { AppSettings, BabyEvent } from "@/lib/types"
 import { getAgeInMonths, getWhoGrowthReferenceAtAge } from "@/lib/whoGrowth"
@@ -10,48 +10,33 @@ interface MedicalChartProps {
   unit: string
   decimals: number
   settings: AppSettings
+  windowStart: number
+  windowEnd: number
 }
 
 const WIDTH = 600
 const HEIGHT = 220
 const PADDING_X = 48
 const PADDING_Y = 28
-const VIEW_MONTHS = 3
-const MAX_MONTH = 60
-const MAX_WINDOW_START = MAX_MONTH - VIEW_MONTHS
-const REFERENCE_SAMPLES = 13
 const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" })
 
 function shortDate(value: string) {
   return SHORT_DATE_FORMATTER.format(new Date(value))
 }
 
-function clampWindowStart(value: number) {
-  return Math.min(MAX_WINDOW_START, Math.max(0, Math.round(value * 4) / 4))
-}
-
-function defaultWindowStart(birthDate: string) {
-  const currentAge = getAgeInMonths(birthDate, new Date().toISOString())
-  return clampWindowStart((currentAge ?? 1) - 1)
-}
-
 function formatMonth(value: number) {
   return Number.isInteger(value) ? `${value} mois` : `${value.toFixed(1).replace(".", ",")} mois`
 }
 
-export const MedicalChart = memo(function MedicalChart({ title, indicator, events, unit, decimals, settings }: MedicalChartProps) {
-  const [windowStart, setWindowStart] = useState(() => defaultWindowStart(settings.birth_date))
+export const MedicalChart = memo(function MedicalChart({ title, indicator, events, unit, decimals, settings, windowStart, windowEnd }: MedicalChartProps) {
   const referenceEnabled = Boolean(settings.birth_date && settings.baby_sex)
-
-  useEffect(() => {
-    setWindowStart(defaultWindowStart(settings.birth_date))
-  }, [settings.birth_date, settings.baby_sex])
+  const viewMonths = Math.max(0.25, windowEnd - windowStart)
+  const referenceSamples = Math.ceil(viewMonths * 4) + 1
 
   const allMeasurements = useMemo(() => events
     .filter((event) => event.value_real != null)
     .slice(0, 250)
     .reverse(), [events])
-  const windowEnd = windowStart + VIEW_MONTHS
   const measurementsWithAge = allMeasurements.map((event) => ({
     event,
     ageMonths: getAgeInMonths(settings.birth_date, event.started_at)
@@ -60,8 +45,8 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
     ? measurementsWithAge.filter(({ ageMonths }) => ageMonths != null && ageMonths >= windowStart && ageMonths <= windowEnd)
     : measurementsWithAge.slice(-20)
   const references = referenceEnabled
-    ? Array.from({ length: REFERENCE_SAMPLES }, (_, index) => {
-        const ageMonths = windowStart + index / (REFERENCE_SAMPLES - 1) * VIEW_MONTHS
+    ? Array.from({ length: referenceSamples }, (_, index) => {
+        const ageMonths = windowStart + index / (referenceSamples - 1) * viewMonths
         const reference = getWhoGrowthReferenceAtAge(indicator, settings.baby_sex, ageMonths)
         return reference ? { ...reference, ageMonths } : null
       }).filter((reference) => reference != null)
@@ -96,7 +81,7 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
   const drawableWidth = WIDTH - PADDING_X * 2
   const drawableHeight = HEIGHT - PADDING_Y * 2
   const yFor = (value: number) => PADDING_Y + (maximum - value) / range * drawableHeight
-  const xForAge = (ageMonths: number) => PADDING_X + (ageMonths - windowStart) / VIEW_MONTHS * drawableWidth
+  const xForAge = (ageMonths: number) => PADDING_X + (ageMonths - windowStart) / viewMonths * drawableWidth
   const xForIndex = (index: number) => visibleMeasurements.length === 1
     ? WIDTH / 2
     : PADDING_X + index / (visibleMeasurements.length - 1) * drawableWidth
@@ -128,7 +113,7 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
           <CardTitle>{title}</CardTitle>
           <CardDescription>
             {referenceEnabled
-              ? `${visibleMeasurements.length} mesure${visibleMeasurements.length > 1 ? "s" : ""} dans cette vue de 3 mois`
+              ? `${visibleMeasurements.length} mesure${visibleMeasurements.length > 1 ? "s" : ""} dans cette vue de ${formatMonth(viewMonths)}`
               : `${visibleMeasurements.length} mesure${visibleMeasurements.length > 1 ? "s" : ""} affichée${visibleMeasurements.length > 1 ? "s" : ""}`}
           </CardDescription>
         </div>
@@ -169,28 +154,9 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
         </svg>
 
         {referenceEnabled ? (
-          <div className="mt-2 space-y-2">
-            <div className="flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm bg-emerald-500/25" aria-hidden="true" />
-                Zone de référence OMS (−2 à +2 z)
-              </span>
-              <span>{formatMonth(windowStart)} → {formatMonth(windowEnd)}</span>
-            </div>
-            <label className="block text-[10px] text-muted-foreground" htmlFor={`growth-window-${indicator}`}>
-              Parcourir la courbe de 0 à 5 ans
-            </label>
-            <input
-              id={`growth-window-${indicator}`}
-              aria-label={`Déplacer la fenêtre de la ${title.toLowerCase()}`}
-              type="range"
-              min="0"
-              max={MAX_WINDOW_START}
-              step="0.25"
-              value={windowStart}
-              onChange={(event) => setWindowStart(Number(event.target.value))}
-              className="h-2 w-full cursor-ew-resize accent-primary"
-            />
+          <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="size-2.5 rounded-sm bg-emerald-500/25" aria-hidden="true" />
+            Zone de référence OMS (−2 à +2 z)
           </div>
         ) : null}
       </CardContent>
