@@ -27,8 +27,23 @@ const TIMER_TYPES = new Set(["breast_left", "breast_right", "face_care", "cord_c
 const ACCENT_COLORS = new Set(["orange", "blue", "green", "pink", "purple"])
 const BABY_SEXES = new Set(["", "girl", "boy"])
 const LANGUAGE_PREFERENCES = new Set(["system", "fr", "en"])
-const DAILY_CARE_TYPES = ["eyes", "nose", "cord", "face"]
-const BATH_ITEMS = ["Serviette préparée", "Température vérifiée", "Sécher les plis"]
+const DAILY_CARE_TYPES = ["eyes", "face", "nose", "cord"]
+const BATH_ITEMS = [
+  "Préparation",
+  "Fesses si souillées",
+  "Mise à l’eau",
+  "Tête",
+  "Haut du corps",
+  "Bas du corps",
+  "Organes génitaux",
+  "Fesses",
+  "Rinçage",
+  "Sortie du bain",
+  "Séchage",
+  "Cordon",
+  "Couche",
+  "Habillage"
+]
 const EDITABLE_FIELDS = new Set([
   "type",
   "started_at",

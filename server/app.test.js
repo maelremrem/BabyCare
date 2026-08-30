@@ -60,6 +60,7 @@ test("conserve puis termine un chrono", () => withServer(async (baseUrl) => {
 test("initialise et met à jour la checklist quotidienne", () => withServer(async (baseUrl) => {
   const care = await fetch(`${baseUrl}/api/routines/daily`).then((response) => response.json())
   assert.equal(care.length, 4)
+  assert.deepEqual(care.map((item) => item.care_type), ["eyes", "face", "nose", "cord"])
 
   const updated = await fetch(`${baseUrl}/api/routines/daily/eyes`, {
     method: "PUT",
@@ -68,6 +69,27 @@ test("initialise et met à jour la checklist quotidienne", () => withServer(asyn
   }).then((response) => response.json())
   assert.equal(updated.completed, 1)
   assert.ok(updated.completed_at)
+}))
+
+test("initialise la checklist du bain dans l’ordre recommandé", () => withServer(async (baseUrl) => {
+  const bath = await fetch(`${baseUrl}/api/baths`, { method: "POST" }).then((response) => response.json())
+
+  assert.deepEqual(bath.items.map((item) => item.item), [
+    "Préparation",
+    "Fesses si souillées",
+    "Mise à l’eau",
+    "Tête",
+    "Haut du corps",
+    "Bas du corps",
+    "Organes génitaux",
+    "Fesses",
+    "Rinçage",
+    "Sortie du bain",
+    "Séchage",
+    "Cordon",
+    "Couche",
+    "Habillage"
+  ])
 }))
 
 test("génère un export Excel filtrable", () => withServer(async (baseUrl) => {

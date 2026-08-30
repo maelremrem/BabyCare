@@ -27,6 +27,35 @@ detect_server_ip() {
   echo "${detected_ip}"
 }
 
+update_existing_checkout() {
+  local tracked_changes=""
+  local changed_files=""
+  local stash_name=""
+
+  tracked_changes="$(git -C "${APP_DIR}" status --porcelain --untracked-files=no)"
+
+  if [[ -n "${tracked_changes}" ]]; then
+    changed_files="$(
+      {
+        git -C "${APP_DIR}" diff --name-only
+        git -C "${APP_DIR}" diff --name-only --cached
+      } | sort -u
+    )"
+
+    if [[ "${changed_files}" == "package-lock.json" ]]; then
+      echo "Changement local généré détecté sur package-lock.json : restauration avant mise à jour."
+      git -C "${APP_DIR}" restore --staged --worktree package-lock.json
+    else
+      stash_name="babycare-install-$(date +%Y%m%d-%H%M%S)"
+      echo "Changements locaux détectés : sauvegarde dans le stash Git '${stash_name}' avant mise à jour."
+      git -C "${APP_DIR}" stash push --message "${stash_name}"
+      echo "La mise à jour continue. Vous pourrez inspecter ces changements avec : git -C ${APP_DIR} stash list"
+    fi
+  fi
+
+  git -C "${APP_DIR}" pull --ff-only origin "${REPOSITORY_BRANCH}"
+}
+
 if [[ ${EUID} -ne 0 ]]; then
   echo "Ce script doit être lancé avec sudo : sudo ./scripts/install.sh" >&2
   exit 1
@@ -59,7 +88,7 @@ fi
 
 echo "[3/6] Récupération de BabyCare"
 if [[ -d "${APP_DIR}/.git" ]]; then
-  git -C "${APP_DIR}" pull --ff-only origin "${REPOSITORY_BRANCH}"
+  update_existing_checkout
 elif [[ -e "${APP_DIR}" ]]; then
   if [[ -n "$(find "${APP_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
     echo "Installation interrompue : ${APP_DIR} existe mais n’est pas un clone Git BabyCare." >&2
@@ -81,7 +110,7 @@ echo "[4/6] Installation des dépendances et compilation"
 cd "${APP_DIR}"
 npm ci
 npm run build
-npm prune --omit=dev
+npm prune --omit=dev --no-save
 
 echo "[5/6] Installation du service systemd"
 install -m 0644 "${APP_DIR}/scripts/babycare.service" "${SERVICE_PATH}"
