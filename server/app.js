@@ -45,6 +45,8 @@ const API_ERRORS = {
   baby_name_too_long: "Le nom du bébé ne peut pas dépasser 80 caractères.",
   invalid_birth_date: "La date de naissance est invalide ou située dans le futur.",
   invalid_baby_sex: "Le sexe renseigné est invalide.",
+  baby_not_found: "Bébé introuvable.",
+  cannot_delete_last_baby: "Le dernier bébé ne peut pas être supprimé.",
   invalid_event_type: "Type d’événement invalide.",
   invalid_temperature: "La température doit être comprise entre 34 et 44 °C.",
   invalid_weight: "Le poids doit être compris entre 0,3 et 30 kg.",
@@ -203,13 +205,25 @@ function isValidDateOnly(value) {
 function readSettings(db) {
   const rows = db.prepare("SELECT key, value FROM app_settings").all()
   const values = Object.fromEntries(rows.map(({ key, value }) => [key, value]))
+  let activeBaby = db.prepare("SELECT * FROM babies WHERE id = ?").get(Number(values.active_baby_id))
+  if (!activeBaby) {
+    activeBaby = db.prepare("SELECT * FROM babies ORDER BY id LIMIT 1").get()
+    if (activeBaby) saveSetting(db, "active_baby_id", String(activeBaby.id))
+  }
+  const babies = db.prepare("SELECT id, name, birth_date, sex AS baby_sex, accent_color FROM babies ORDER BY created_at, id").all()
   return {
-    accent_color: ACCENT_COLORS.has(values.accent_color) ? values.accent_color : "orange",
-    baby_name: values.baby_name || "",
-    birth_date: values.birth_date || "",
-    baby_sex: BABY_SEXES.has(values.baby_sex) ? values.baby_sex : "",
+    active_baby_id: activeBaby?.id || 0,
+    babies,
+    accent_color: ACCENT_COLORS.has(activeBaby?.accent_color) ? activeBaby.accent_color : "orange",
+    baby_name: activeBaby?.name || "",
+    birth_date: activeBaby?.birth_date || "",
+    baby_sex: BABY_SEXES.has(activeBaby?.sex) ? activeBaby.sex : "",
     language_preference: LANGUAGE_PREFERENCES.has(values.language_preference) ? values.language_preference : "system"
   }
+}
+
+function activeBabyId(db) {
+  return readSettings(db).active_baby_id
 }
 
 function saveSetting(db, key, value) {
@@ -228,9 +242,9 @@ function parseEvent(row) {
   }
 }
 
-function eventFilters(query) {
-  const clauses = []
-  const params = {}
+function eventFilters(query, babyId) {
+  const clauses = ["baby_id = @baby_id"]
+  const params = { baby_id: babyId }
 
   if (query.from) {
     clauses.push("date(started_at, 'localtime') >= date(@from)")
@@ -288,15 +302,6 @@ export function createApp({ db = createDatabase() } = {}) {
     response.json(readSettings(db))
   })
 
-  app.put("/api/settings/accent", (request, response) => {
-    const { color } = request.body
-    if (!ACCENT_COLORS.has(color)) {
-      return sendApiError(response, 400, "invalid_accent_color")
-    }
-    saveSetting(db, "accent_color", color)
-    response.json(readSettings(db))
-  })
-
   app.put("/api/settings/language", (request, response) => {
     const { language } = request.body
     if (!LANGUAGE_PREFERENCES.has(language)) {
@@ -307,7 +312,7 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.put("/api/settings/profile", (request, response) => {
-    const { baby_name: babyName, birth_date: birthDate, baby_sex: babySex } = request.body
+    const { baby_name: babyName, birth_date: birthDate, baby_sex: babySex, accent_color: accentColor = "orange" } = request.body
     if (typeof babyName !== "string" || babyName.trim().length > 80) {
       return sendApiError(response, 400, "baby_name_too_long")
     }
@@ -317,13 +322,72 @@ export function createApp({ db = createDatabase() } = {}) {
     if (typeof babySex !== "string" || !BABY_SEXES.has(babySex)) {
       return sendApiError(response, 400, "invalid_baby_sex")
     }
+    if (!ACCENT_COLORS.has(accentColor)) {
+      return sendApiError(response, 400, "invalid_accent_color")
+    }
 
-    const updateProfile = db.transaction(() => {
-      saveSetting(db, "baby_name", babyName.trim())
-      saveSetting(db, "birth_date", birthDate)
-      saveSetting(db, "baby_sex", babySex)
+    db.prepare(`
+      UPDATE babies SET name = ?, birth_date = ?, sex = ?, accent_color = ?, updated_at = ? WHERE id = ?
+    `).run(babyName.trim(), birthDate, babySex, accentColor, nowIso(), activeBabyId(db))
+    response.json(readSettings(db))
+  })
+
+  app.post("/api/babies", (request, response) => {
+    const { baby_name: babyName, birth_date: birthDate = "", baby_sex: babySex = "", accent_color: accentColor = "orange" } = request.body
+    if (typeof babyName !== "string" || !babyName.trim() || babyName.trim().length > 80) {
+      return sendApiError(response, 400, "baby_name_too_long")
+    }
+    if (typeof birthDate !== "string" || (birthDate && (!isValidDateOnly(birthDate) || birthDate > localDate()))) {
+      return sendApiError(response, 400, "invalid_birth_date")
+    }
+    if (typeof babySex !== "string" || !BABY_SEXES.has(babySex)) {
+      return sendApiError(response, 400, "invalid_baby_sex")
+    }
+    if (!ACCENT_COLORS.has(accentColor)) {
+      return sendApiError(response, 400, "invalid_accent_color")
+    }
+    const timestamp = nowIso()
+    const result = db.prepare(`
+      INSERT INTO babies (name, birth_date, sex, accent_color, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(babyName.trim(), birthDate, babySex, accentColor, timestamp, timestamp)
+    saveSetting(db, "active_baby_id", String(result.lastInsertRowid))
+    response.status(201).json(readSettings(db))
+  })
+
+  app.put("/api/babies/active", (request, response) => {
+    const babyId = Number(request.body.baby_id)
+    if (!Number.isInteger(babyId) || !db.prepare("SELECT 1 FROM babies WHERE id = ?").get(babyId)) {
+      return sendApiError(response, 404, "baby_not_found")
+    }
+    saveSetting(db, "active_baby_id", String(babyId))
+    response.json(readSettings(db))
+  })
+
+  app.delete("/api/babies/:id", (request, response) => {
+    const babyId = Number(request.params.id)
+    const wasActive = activeBabyId(db) === babyId
+    if (!db.prepare("SELECT 1 FROM babies WHERE id = ?").get(babyId)) {
+      return sendApiError(response, 404, "baby_not_found")
+    }
+    if (db.prepare("SELECT COUNT(*) AS count FROM babies").get().count <= 1) {
+      return sendApiError(response, 409, "cannot_delete_last_baby")
+    }
+    const remove = db.transaction(() => {
+      const eventIds = db.prepare("SELECT id FROM events WHERE baby_id = ?").all(babyId).map(({ id }) => id)
+      const sessionIds = db.prepare("SELECT id FROM bath_sessions WHERE baby_id = ?").all(babyId).map(({ id }) => id)
+      if (sessionIds.length) db.prepare(`DELETE FROM bath_checks WHERE bath_session_id IN (${sessionIds.map(() => "?").join(",")})`).run(...sessionIds)
+      db.prepare("DELETE FROM bath_sessions WHERE baby_id = ?").run(babyId)
+      db.prepare("DELETE FROM daily_care_validations WHERE baby_id = ?").run(babyId)
+      db.prepare("DELETE FROM daily_care WHERE baby_id = ?").run(babyId)
+      if (eventIds.length) db.prepare(`DELETE FROM events WHERE id IN (${eventIds.map(() => "?").join(",")})`).run(...eventIds)
+      db.prepare("DELETE FROM babies WHERE id = ?").run(babyId)
+      if (wasActive) {
+        const next = db.prepare("SELECT id FROM babies ORDER BY created_at, id LIMIT 1").get()
+        saveSetting(db, "active_baby_id", String(next.id))
+      }
     })
-    updateProfile()
+    remove()
     response.json(readSettings(db))
   })
 
@@ -334,13 +398,13 @@ export function createApp({ db = createDatabase() } = {}) {
       db.prepare("DELETE FROM daily_care_validations").run()
       db.prepare("DELETE FROM daily_care").run()
       db.prepare("DELETE FROM events").run()
+      db.prepare("DELETE FROM babies").run()
       db.prepare("DELETE FROM app_settings").run()
       db.prepare("DELETE FROM sqlite_sequence").run()
-      saveSetting(db, "accent_color", "orange")
-      saveSetting(db, "baby_name", "")
-      saveSetting(db, "birth_date", "")
-      saveSetting(db, "baby_sex", "")
       saveSetting(db, "language_preference", "system")
+      const timestamp = nowIso()
+      const baby = db.prepare("INSERT INTO babies (name, birth_date, sex, accent_color, created_at, updated_at) VALUES ('', '', '', 'orange', ?, ?)").run(timestamp, timestamp)
+      saveSetting(db, "active_baby_id", String(baby.lastInsertRowid))
     })
     reset()
     response.status(204).end()
@@ -350,12 +414,13 @@ export function createApp({ db = createDatabase() } = {}) {
     const lastStool = db.prepare(`
       SELECT started_at
       FROM events
-      WHERE type = 'diaper'
+      WHERE baby_id = ?
+        AND type = 'diaper'
         AND json_valid(metadata)
         AND json_extract(metadata, '$.diaper_type') IN ('stool', 'mixed')
       ORDER BY datetime(started_at) DESC
       LIMIT 1
-    `).get()
+    `).get(activeBabyId(db))
     const thresholdHours = 48
     const elapsedMilliseconds = lastStool ? Math.max(0, Date.now() - Date.parse(lastStool.started_at)) : null
     const hoursSince = elapsedMilliseconds == null ? null : Math.floor(elapsedMilliseconds / (60 * 60 * 1000))
@@ -370,7 +435,7 @@ export function createApp({ db = createDatabase() } = {}) {
   app.get("/api/events", (request, response) => {
     const limit = Math.min(Math.max(Number(request.query.limit) || 100, 1), 250)
     const offset = Math.max(Number(request.query.offset) || 0, 0)
-    const { where, params } = eventFilters(request.query)
+    const { where, params } = eventFilters(request.query, activeBabyId(db))
     const rows = db.prepare(`
       SELECT * FROM events
       ${where}
@@ -382,7 +447,7 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.get("/api/events/running", (_request, response) => {
-    const rows = db.prepare("SELECT * FROM events WHERE status = 'running' ORDER BY datetime(started_at)").all()
+    const rows = db.prepare("SELECT * FROM events WHERE baby_id = ? AND status = 'running' ORDER BY datetime(started_at)").all(activeBabyId(db))
     response.json(rows.map(parseEvent))
   })
 
@@ -401,12 +466,14 @@ export function createApp({ db = createDatabase() } = {}) {
       return sendApiError(response, 400, "invalid_height")
     }
     const timestamp = nowIso()
+    const babyId = activeBabyId(db)
     const start = started_at ? new Date(started_at).toISOString() : timestamp
     const result = db.prepare(`
-      INSERT INTO events (type, status, started_at, value_real, value_text, notes, metadata, created_at, updated_at)
-      VALUES (@type, 'completed', @started_at, @value_real, @value_text, @notes, @metadata, @created_at, @updated_at)
+      INSERT INTO events (baby_id, type, status, started_at, value_real, value_text, notes, metadata, created_at, updated_at)
+      VALUES (@baby_id, @type, 'completed', @started_at, @value_real, @value_text, @notes, @metadata, @created_at, @updated_at)
     `).run({
       type,
+      baby_id: babyId,
       started_at: start,
       value_real: value_real ?? null,
       value_text: value_text ?? null,
@@ -424,11 +491,13 @@ export function createApp({ db = createDatabase() } = {}) {
       return sendApiError(response, 400, "not_timer_event")
     }
     const timestamp = nowIso()
+    const babyId = activeBabyId(db)
     const result = db.prepare(`
-      INSERT INTO events (type, status, started_at, notes, metadata, created_at, updated_at)
-      VALUES (@type, 'running', @started_at, @notes, @metadata, @created_at, @updated_at)
+      INSERT INTO events (baby_id, type, status, started_at, notes, metadata, created_at, updated_at)
+      VALUES (@baby_id, @type, 'running', @started_at, @notes, @metadata, @created_at, @updated_at)
     `).run({
       type,
+      baby_id: babyId,
       started_at: timestamp,
       notes: notes?.trim() || null,
       metadata: metadata ? JSON.stringify(metadata) : null,
@@ -439,7 +508,7 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.post("/api/events/:id/stop", (request, response) => {
-    const event = db.prepare("SELECT * FROM events WHERE id = ?").get(request.params.id)
+    const event = db.prepare("SELECT * FROM events WHERE id = ? AND baby_id = ?").get(request.params.id, activeBabyId(db))
     if (!event) return sendApiError(response, 404, "event_not_found")
     if (event.status !== "running") return sendApiError(response, 409, "timer_already_completed")
 
@@ -455,7 +524,7 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.patch("/api/events/:id", (request, response) => {
-    const event = db.prepare("SELECT * FROM events WHERE id = ?").get(request.params.id)
+    const event = db.prepare("SELECT * FROM events WHERE id = ? AND baby_id = ?").get(request.params.id, activeBabyId(db))
     if (!event) return sendApiError(response, 404, "event_not_found")
 
     const updates = Object.entries(request.body).filter(([key]) => EDITABLE_FIELDS.has(key))
@@ -493,37 +562,40 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.delete("/api/events/:id", (request, response) => {
-    const result = db.prepare("DELETE FROM events WHERE id = ?").run(request.params.id)
+    const result = db.prepare("DELETE FROM events WHERE id = ? AND baby_id = ?").run(request.params.id, activeBabyId(db))
     if (!result.changes) return sendApiError(response, 404, "event_not_found")
     response.status(204).end()
   })
 
   app.get("/api/routines/daily", (request, response) => {
     const date = request.query.date || localDate()
-    const insert = db.prepare("INSERT OR IGNORE INTO daily_care (date, care_type) VALUES (?, ?)")
-    const ensure = db.transaction(() => DAILY_CARE_TYPES.forEach((type) => insert.run(date, type)))
+    const babyId = activeBabyId(db)
+    const insert = db.prepare("INSERT OR IGNORE INTO daily_care (baby_id, date, care_type) VALUES (?, ?, ?)")
+    const ensure = db.transaction(() => DAILY_CARE_TYPES.forEach((type) => insert.run(babyId, date, type)))
     ensure()
     response.json(db.prepare(`
       SELECT daily_care.*, NULL AS validated_at
       FROM daily_care
-      WHERE daily_care.date = ?
+      WHERE daily_care.baby_id = ? AND daily_care.date = ?
       ORDER BY daily_care.id
-    `).all(date))
+    `).all(babyId, date))
   })
 
   app.post("/api/routines/daily/validate", (request, response) => {
     const date = request.body?.date || localDate()
-    const insertCare = db.prepare("INSERT OR IGNORE INTO daily_care (date, care_type) VALUES (?, ?)")
+    const babyId = activeBabyId(db)
+    const insertCare = db.prepare("INSERT OR IGNORE INTO daily_care (baby_id, date, care_type) VALUES (?, ?, ?)")
     const validate = db.transaction(() => {
-      DAILY_CARE_TYPES.forEach((type) => insertCare.run(date, type))
-      const incomplete = db.prepare("SELECT COUNT(*) AS count FROM daily_care WHERE date = ? AND completed = 0").get(date).count
+      DAILY_CARE_TYPES.forEach((type) => insertCare.run(babyId, date, type))
+      const incomplete = db.prepare("SELECT COUNT(*) AS count FROM daily_care WHERE baby_id = ? AND date = ? AND completed = 0").get(babyId, date).count
       if (incomplete > 0) return { incomplete: true }
 
       const timestamp = nowIso()
       const event = db.prepare(`
-        INSERT INTO events (type, status, started_at, ended_at, duration_seconds, value_text, notes, metadata, created_at, updated_at)
-        VALUES ('daily_care', 'completed', ?, ?, 0, '4 / 4', ?, ?, ?, ?)
+        INSERT INTO events (baby_id, type, status, started_at, ended_at, duration_seconds, value_text, notes, metadata, created_at, updated_at)
+        VALUES (?, 'daily_care', 'completed', ?, ?, 0, '4 / 4', ?, ?, ?, ?)
       `).run(
+        babyId,
         timestamp,
         timestamp,
         "Yeux, nez, cordon et visage effectués",
@@ -532,15 +604,15 @@ export function createApp({ db = createDatabase() } = {}) {
         timestamp
       )
       db.prepare(`
-        INSERT INTO daily_care_validations (date, event_id, validated_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(date) DO UPDATE SET event_id = excluded.event_id, validated_at = excluded.validated_at
-      `).run(date, event.lastInsertRowid, timestamp)
+        INSERT INTO daily_care_validations (baby_id, date, event_id, validated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(baby_id, date) DO UPDATE SET event_id = excluded.event_id, validated_at = excluded.validated_at
+      `).run(babyId, date, event.lastInsertRowid, timestamp)
       db.prepare(`
         UPDATE daily_care
         SET completed = 0, completed_at = NULL
-        WHERE date = ?
-      `).run(date)
+        WHERE baby_id = ? AND date = ?
+      `).run(babyId, date)
       return { eventId: event.lastInsertRowid }
     })
 
@@ -557,25 +629,27 @@ export function createApp({ db = createDatabase() } = {}) {
       return sendApiError(response, 400, "invalid_daily_care")
     }
     const date = request.body.date || localDate()
+    const babyId = activeBabyId(db)
     const completed = request.body.completed ? 1 : 0
     db.prepare(`
-      INSERT INTO daily_care (date, care_type, completed, completed_at)
-      VALUES (@date, @care_type, @completed, @completed_at)
-      ON CONFLICT(date, care_type) DO UPDATE SET
+      INSERT INTO daily_care (baby_id, date, care_type, completed, completed_at)
+      VALUES (@baby_id, @date, @care_type, @completed, @completed_at)
+      ON CONFLICT(baby_id, date, care_type) DO UPDATE SET
         completed = excluded.completed,
         completed_at = excluded.completed_at
-    `).run({ date, care_type: careType, completed, completed_at: completed ? nowIso() : null })
-    response.json(db.prepare("SELECT * FROM daily_care WHERE date = ? AND care_type = ?").get(date, careType))
+    `).run({ baby_id: babyId, date, care_type: careType, completed, completed_at: completed ? nowIso() : null })
+    response.json(db.prepare("SELECT * FROM daily_care WHERE baby_id = ? AND date = ? AND care_type = ?").get(babyId, date, careType))
   })
 
   app.post("/api/baths", (_request, response) => {
     const timestamp = nowIso()
+    const babyId = activeBabyId(db)
     const transaction = db.transaction(() => {
       const event = db.prepare(`
-        INSERT INTO events (type, status, started_at, ended_at, duration_seconds, created_at, updated_at)
-        VALUES ('bath', 'completed', ?, ?, 0, ?, ?)
-      `).run(timestamp, timestamp, timestamp, timestamp)
-      const session = db.prepare("INSERT INTO bath_sessions (event_id, started_at, completed_at) VALUES (?, ?, ?)").run(event.lastInsertRowid, timestamp, timestamp)
+        INSERT INTO events (baby_id, type, status, started_at, ended_at, duration_seconds, created_at, updated_at)
+        VALUES (?, 'bath', 'completed', ?, ?, 0, ?, ?)
+      `).run(babyId, timestamp, timestamp, timestamp, timestamp)
+      const session = db.prepare("INSERT INTO bath_sessions (baby_id, event_id, started_at, completed_at) VALUES (?, ?, ?, ?)").run(babyId, event.lastInsertRowid, timestamp, timestamp)
       const insert = db.prepare("INSERT INTO bath_checks (bath_session_id, item) VALUES (?, ?)")
       BATH_ITEMS.forEach((item) => insert.run(session.lastInsertRowid, item))
       return session.lastInsertRowid
@@ -587,13 +661,15 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.get("/api/baths/:id", (request, response) => {
-    const session = db.prepare("SELECT * FROM bath_sessions WHERE id = ?").get(request.params.id)
+    const session = db.prepare("SELECT * FROM bath_sessions WHERE id = ? AND baby_id = ?").get(request.params.id, activeBabyId(db))
     if (!session) return sendApiError(response, 404, "bath_session_not_found")
     const items = db.prepare("SELECT * FROM bath_checks WHERE bath_session_id = ? ORDER BY id").all(session.id)
     response.json({ ...session, items })
   })
 
   app.put("/api/baths/:bathId/items/:itemId", (request, response) => {
+    const session = db.prepare("SELECT 1 FROM bath_sessions WHERE id = ? AND baby_id = ?").get(request.params.bathId, activeBabyId(db))
+    if (!session) return sendApiError(response, 404, "bath_session_not_found")
     const completed = request.body.completed ? 1 : 0
     const result = db.prepare(`
       UPDATE bath_checks SET completed = ?, completed_at = ?
@@ -608,7 +684,7 @@ export function createApp({ db = createDatabase() } = {}) {
       const locale = resolveExportLocale(request.query.locale)
       const localeTag = EXPORT_LOCALE_TAGS[locale]
       const exportMessages = EXPORT_MESSAGES[locale]
-      const { where, params } = eventFilters(request.query)
+      const { where, params } = eventFilters(request.query, activeBabyId(db))
       const rows = db.prepare(`SELECT * FROM events ${where} ORDER BY datetime(started_at) DESC`).all(params).map(parseEvent)
       const workbook = new ExcelJS.Workbook()
       workbook.creator = "BabyCare"

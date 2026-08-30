@@ -47,18 +47,23 @@ export const api = {
   }),
   deleteEvent: (id: number) => request<void>(`/api/events/${id}`, { method: "DELETE" }),
   settings: () => request<AppSettings>("/api/settings"),
-  updateAccent: (color: AccentColor) => request<AppSettings>("/api/settings/accent", {
-    method: "PUT",
-    body: JSON.stringify({ color })
-  }),
   updateLanguage: (language: LanguagePreference) => request<AppSettings>("/api/settings/language", {
     method: "PUT",
     body: JSON.stringify({ language })
   }),
-  updateProfile: (babyName: string, birthDate: string, babySex: BabySex) => request<AppSettings>("/api/settings/profile", {
+  updateProfile: (babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor) => request<AppSettings>("/api/settings/profile", {
     method: "PUT",
-    body: JSON.stringify({ baby_name: babyName, birth_date: birthDate, baby_sex: babySex })
+    body: JSON.stringify({ baby_name: babyName, birth_date: birthDate, baby_sex: babySex, accent_color: accentColor })
   }),
+  createBaby: (babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor) => request<AppSettings>("/api/babies", {
+    method: "POST",
+    body: JSON.stringify({ baby_name: babyName, birth_date: birthDate, baby_sex: babySex, accent_color: accentColor })
+  }),
+  selectBaby: (babyId: number) => request<AppSettings>("/api/babies/active", {
+    method: "PUT",
+    body: JSON.stringify({ baby_id: babyId })
+  }),
+  deleteBaby: (babyId: number) => request<AppSettings>(`/api/babies/${babyId}`, { method: "DELETE" }),
   resetDatabase: () => request<void>("/api/database", { method: "DELETE" }),
   dailyCare: () => request<DailyCare[]>("/api/routines/daily"),
   updateDailyCare: (careType: DailyCare["care_type"], completed: boolean) => request<DailyCare>(`/api/routines/daily/${careType}`, {

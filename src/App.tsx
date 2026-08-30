@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Toaster } from "@/components/ui/sonner"
 import { useEvents } from "@/hooks/useEvents"
 import { api } from "@/lib/api"
-import { I18nProvider, interpolate, localizedErrorMessage, messages, resolveLocale, type LanguagePreference } from "@/lib/i18n"
+import { I18nProvider, localizedErrorMessage, messages, resolveLocale, type LanguagePreference } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AppSettings, type BabyEvent, type DailyCare, type StoolAlert } from "@/lib/types"
 import { CarePage } from "@/pages/CarePage"
 import { HistoryPage } from "@/pages/HistoryPage"
@@ -17,11 +17,17 @@ import { MedicalPage } from "@/pages/MedicalPage"
 import { TrackingPage } from "@/pages/TrackingPage"
 
 const DEFAULT_SETTINGS: AppSettings = {
+  active_baby_id: 0,
+  babies: [],
   accent_color: "orange",
   baby_name: "",
   birth_date: "",
   baby_sex: "",
   language_preference: "system"
+}
+
+function activeAccentColor(settings: AppSettings) {
+  return settings.babies.find((baby) => baby.id === settings.active_baby_id)?.accent_color || settings.accent_color
 }
 
 export default function App() {
@@ -33,6 +39,7 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [stoolAlert, setStoolAlert] = useState<StoolAlert | null>(null)
   const [bootstrapLoading, setBootstrapLoading] = useState(true)
+  const activeColor = activeAccentColor(settings)
 
   const refreshAll = useCallback(async () => {
     const [, daily, alert] = await Promise.all([refresh(), api.dailyCare(), api.stoolAlert()])
@@ -56,35 +63,43 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    const accent = ACCENT_OPTIONS.find((option) => option.id === settings.accent_color) || ACCENT_OPTIONS[0]
+    const accent = ACCENT_OPTIONS.find((option) => option.id === activeColor) || ACCENT_OPTIONS[0]
     const root = document.documentElement
     root.style.setProperty("--primary", accent.value)
     root.style.setProperty("--ring", accent.value)
     root.style.setProperty("--sidebar-primary", accent.value)
-  }, [settings.accent_color])
+  }, [activeColor])
 
   const locale = resolveLocale(settings.language_preference)
   const t = messages[locale]
 
-  if (bootstrapLoading || loading) return <AppLoading accentColor={settings.accent_color} />
+  if (bootstrapLoading || loading) return <AppLoading accentColor={activeColor} />
 
   return (
     <I18nProvider preference={settings.language_preference}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <TopBar
           settings={settings}
-          onAccentChange={async (color) => {
-            const updatedSettings = await api.updateAccent(color)
-            setSettings(updatedSettings)
-            const accentLabel = ACCENT_OPTIONS.find((option) => option.id === color)?.label.toLowerCase() || color
-            toast.success(interpolate(t.settings.accentApplied, { color: accentLabel }))
+          onBabySelect={async (babyId) => {
+            setSettings(await api.selectBaby(babyId))
+            await refreshAll()
+            setEditing(null)
+          }}
+          onBabyAdd={async (babyName, birthDate, babySex, accentColor) => {
+            setSettings(await api.createBaby(babyName, birthDate, babySex, accentColor))
+            await refreshAll()
+          }}
+          onBabyDelete={async (babyId) => {
+            setSettings(await api.deleteBaby(babyId))
+            await refreshAll()
+            setEditing(null)
           }}
           onLanguageChange={async (language: LanguagePreference) => {
             setSettings(await api.updateLanguage(language))
             toast.success(t.settings.languageUpdated)
           }}
-          onProfileChange={async (babyName, birthDate, babySex) => {
-            setSettings(await api.updateProfile(babyName, birthDate, babySex))
+          onProfileChange={async (babyName, birthDate, babySex, accentColor) => {
+            setSettings(await api.updateProfile(babyName, birthDate, babySex, accentColor))
           }}
           onReset={async () => {
             await api.resetDatabase()

@@ -4,6 +4,8 @@ BabyCare est une application web locale, tactile et installable conçue pour enr
 
 L’application privilégie un minimum d’interactions, une lecture immédiate sur tablette et la conservation locale des données. Elle ne nécessite aucun service cloud et ne comporte pas d’authentification dans sa version MVP.
 
+Si BabyCare vous aide au quotidien et que vous voulez me soutenir ou me remercier : [ko-fi.com/maelremrem](https://ko-fi.com/maelremrem).
+
 ## Public et usage cible
 
 BabyCare s’adresse principalement aux parents et aux personnes qui participent aux soins d’un bébé dans un même foyer.
@@ -46,6 +48,10 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - interface responsive et installable comme PWA ;
 - stockage permanent des événements dans SQLite ;
 - remise à zéro complète et confirmée de la base depuis les paramètres.
+
+## Soutenir le projet
+
+BabyCare est développé sur du temps personnel. Pour soutenir le projet ou simplement dire merci : [Ko-fi](https://ko-fi.com/maelremrem).
 
 La conception complète et les critères du MVP se trouvent dans [la documentation fonctionnelle](./docs/BabyCare%20—%20Documentation%20de%20conception%20&%20développement.md).
 

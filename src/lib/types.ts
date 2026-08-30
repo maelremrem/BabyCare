@@ -49,7 +49,17 @@ export const ACCENT_OPTIONS = [
 export type AccentColor = typeof ACCENT_OPTIONS[number]["id"]
 export type BabySex = "" | "girl" | "boy"
 
+export interface BabyProfile {
+  id: number
+  name: string
+  birth_date: string
+  baby_sex: BabySex
+  accent_color: AccentColor
+}
+
 export interface AppSettings {
+  active_baby_id: number
+  babies: BabyProfile[]
   accent_color: AccentColor
   baby_name: string
   birth_date: string
