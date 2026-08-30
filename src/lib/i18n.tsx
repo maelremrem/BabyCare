@@ -184,7 +184,7 @@ const fr = {
   },
   care: {
     title: "Soins quotidiens",
-    description: "La checklist se réinitialise après chaque validation et chaque jour.",
+    description: "Préparation et gestes recommandés. Cochez chaque soin une fois terminé.",
     completed: "effectué",
     todo: "à faire",
     progress: "Progression",
@@ -192,12 +192,7 @@ const fr = {
     validated: "Soins du jour ajoutés à l’historique",
     validationImpossible: "Validation impossible",
     bathTitle: "Bain",
-    bathDescription: "Les étapes utiles pour préparer et terminer le bain.",
-    bathItems: {
-      towel: "Serviette préparée",
-      temperature: "Température vérifiée",
-      folds: "Sécher soigneusement les plis"
-    }
+    bathDescription: "Préparation, lavage, rinçage et séchage en toute sécurité."
   },
   history: {
     title: "Historique",
@@ -475,7 +470,7 @@ const en: Messages = {
   },
   care: {
     title: "Daily care",
-    description: "The checklist resets after each validation and each day.",
+    description: "Recommended preparation and care steps. Check off each care task when finished.",
     completed: "done",
     todo: "to do",
     progress: "Progress",
@@ -483,12 +478,7 @@ const en: Messages = {
     validated: "Today’s care added to history",
     validationImpossible: "Validation unavailable",
     bathTitle: "Bath",
-    bathDescription: "Helpful steps to prepare and finish the bath.",
-    bathItems: {
-      towel: "Towel prepared",
-      temperature: "Temperature checked",
-      folds: "Carefully dry skin folds"
-    }
+    bathDescription: "Preparation, washing, rinsing, and safe drying."
   },
   history: {
     title: "History",
