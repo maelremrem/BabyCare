@@ -17,13 +17,15 @@ export function EventRow({ event, onClick }: EventRowProps) {
     : typeof event.metadata?.location === "string"
       ? [normalizeIrritationLocation(event.metadata.location)]
       : []
-  const isTimer = event.type === "breast_left" || event.type === "breast_right"
+  const isTimer = event.type === "breast_left" || event.type === "breast_right" || event.type === "nap"
   const detail = event.type === "temperature" && event.value_real != null
     ? `${event.value_real.toFixed(1)} °C`
     : event.type === "weight" && event.value_real != null
       ? `${event.value_real.toFixed(3)} kg`
       : event.type === "height" && event.value_real != null
         ? `${event.value_real.toFixed(1)} cm`
+      : event.type === "bottle" && event.value_real != null
+        ? `${event.value_real.toFixed(0)} ml`
     : diaperType
       ? t.diaperTypes[diaperType as keyof typeof t.diaperTypes]
       : irritationLocations.length > 0

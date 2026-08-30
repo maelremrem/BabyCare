@@ -36,8 +36,21 @@ describe("calculateHistoryStatistics", () => {
     expect(result.temperature.average).toBeCloseTo(37.1)
     expect(result.temperature).toMatchObject({ minimum: 36.8, maximum: 37.4, count: 2 })
     expect(result.feeding).toEqual({ averageDurationSeconds: 900, leftCount: 1, rightCount: 2, total: 3 })
+    expect(result.bottle).toEqual({ averageIntervalSeconds: null, averageQuantityMl: null, intervalCount: 0, total: 0 })
     expect(result.averageStoolIntervalSeconds).toBe(24 * 60 * 60)
     expect(result.stoolIntervalCount).toBe(1)
+  })
+
+  test("calcule le temps moyen et la quantité moyenne des biberons", () => {
+    const result = calculateHistoryStatistics([
+      event({ id: 1, type: "bottle", started_at: "2026-08-01T08:00:00.000Z", value_real: 90 }),
+      event({ id: 2, type: "bottle", started_at: "2026-08-01T11:00:00.000Z", value_real: 120 }),
+      event({ id: 3, type: "bottle", started_at: "2026-08-01T15:00:00.000Z", value_real: 150 })
+    ])
+
+    expect(result.bottle.averageIntervalSeconds).toBe(3.5 * 60 * 60)
+    expect(result.bottle.averageQuantityMl).toBe(120)
+    expect(result.bottle).toMatchObject({ intervalCount: 2, total: 3 })
   })
 
   test("ignore les événements en cours et retourne des valeurs absentes sans données", () => {

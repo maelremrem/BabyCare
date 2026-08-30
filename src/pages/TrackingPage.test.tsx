@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, test, vi } from "vitest"
 import type { BabyEvent, StoolAlert } from "@/lib/types"
 import { TrackingPage } from "@/pages/TrackingPage"
@@ -91,5 +92,51 @@ describe("TrackingPage", () => {
     expect(screen.getByRole("button", { name: "Température" })).not.toHaveClass("text-primary")
     expect(screen.getByRole("button", { name: "Sein Gauche" })).not.toHaveClass("text-primary")
     expect(screen.getByRole("button", { name: "Sein Droit" })).toHaveClass("text-primary")
+  })
+
+  test("remplace les seins par une saisie de biberon en mode biberon", async () => {
+    const user = userEvent.setup()
+    const bottle = { ...temperatureEvent, id: 3, type: "bottle" as const, value_real: 120 }
+    render(
+      <TrackingPage
+        events={[bottle, temperatureEvent]}
+        running={[]}
+        loading={false}
+        stoolAlert={{ ...overdueAlert, overdue: false }}
+        feedingType="bottle"
+        onChanged={vi.fn(async () => undefined)}
+        onEdit={vi.fn()}
+        onOpenCare={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByRole("button", { name: "Sein Gauche" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Sein Droit" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Biberon" })).toBeInTheDocument()
+    expect(screen.getAllByText("120 ml")).toHaveLength(2)
+    await user.click(screen.getByRole("button", { name: "Biberon" }))
+    const picker = screen.getByRole("spinbutton", { name: "Sélecteur de biberon" })
+    expect(picker).toHaveAttribute("aria-valuenow", "120")
+    await user.click(screen.getByRole("button", { name: "Augmenter biberon" }))
+    expect(picker).toHaveAttribute("aria-valuenow", "130")
+  })
+
+  test("propose 150 ml lorsqu’aucun biberon n’a encore été saisi", async () => {
+    const user = userEvent.setup()
+    render(
+      <TrackingPage
+        events={[temperatureEvent]}
+        running={[]}
+        loading={false}
+        stoolAlert={{ ...overdueAlert, overdue: false }}
+        feedingType="bottle"
+        onChanged={vi.fn(async () => undefined)}
+        onEdit={vi.fn()}
+        onOpenCare={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Biberon" }))
+    expect(screen.getByRole("spinbutton", { name: "Sélecteur de biberon" })).toHaveAttribute("aria-valuenow", "150")
   })
 })

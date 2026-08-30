@@ -16,11 +16,16 @@ function migrateToBabies(db) {
       name TEXT NOT NULL DEFAULT '',
       birth_date TEXT NOT NULL DEFAULT '',
       sex TEXT NOT NULL DEFAULT '' CHECK(sex IN ('', 'girl', 'boy')),
+      feeding_type TEXT NOT NULL DEFAULT 'breast' CHECK(feeding_type IN ('breast', 'bottle')),
       accent_color TEXT NOT NULL DEFAULT 'orange',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `)
+
+  if (!hasColumn(db, "babies", "feeding_type")) {
+    db.exec("ALTER TABLE babies ADD COLUMN feeding_type TEXT NOT NULL DEFAULT 'breast' CHECK(feeding_type IN ('breast', 'bottle'))")
+  }
 
   if (!db.prepare("SELECT 1 FROM babies LIMIT 1").get()) {
     const settings = Object.fromEntries(db.prepare("SELECT key, value FROM app_settings").all().map(({ key, value }) => [key, value]))

@@ -7,7 +7,7 @@ import { TemperatureSparkline } from "@/components/TemperatureSparkline"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { interpolate, useI18n } from "@/lib/i18n"
-import type { BabyEvent, StoolAlert } from "@/lib/types"
+import type { BabyEvent, FeedingType, StoolAlert } from "@/lib/types"
 import { dateKey, dayHeading, formatDuration, formatTime, groupEventsByDay, relativeTime } from "@/lib/dates"
 
 interface TrackingPageProps {
@@ -15,14 +15,18 @@ interface TrackingPageProps {
   running: BabyEvent[]
   loading: boolean
   stoolAlert: StoolAlert | null
+  feedingType?: FeedingType
   onChanged: () => Promise<void>
   onEdit: (event: BabyEvent) => void
   onOpenCare: () => void
 }
 
-export function TrackingPage({ events, running, loading, stoolAlert, onChanged, onEdit, onOpenCare }: TrackingPageProps) {
+export function TrackingPage({ events, running, loading, stoolAlert, feedingType = "breast", onChanged, onEdit, onOpenCare }: TrackingPageProps) {
   const { locale, t } = useI18n()
-  const lastFeeding = events.find((event) => event.type === "breast_left" || event.type === "breast_right")
+  const lastFeeding = events.find((event) => feedingType === "bottle"
+    ? event.type === "bottle"
+    : event.type === "breast_left" || event.type === "breast_right")
+  const lastBottleQuantity = events.find((event) => event.type === "bottle" && Number.isFinite(event.value_real))?.value_real ?? 150
   const nextBreast = lastFeeding?.type === "breast_left" ? "breast_right" : "breast_left"
   const lastDiaper = events.find((event) => event.type === "diaper")
   const lastBath = events.find((event) => event.type === "bath")
@@ -31,7 +35,7 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
   const lastDiaperType = typeof lastDiaper?.metadata?.diaper_type === "string" ? lastDiaper.metadata.diaper_type : null
   const today = dateKey(new Date().toISOString())
   const feedingsToday = events.reduce((count, event) => {
-    const isFeeding = event.type === "breast_left" || event.type === "breast_right"
+    const isFeeding = feedingType === "bottle" ? event.type === "bottle" : event.type === "breast_left" || event.type === "breast_right"
     return count + (isFeeding && dateKey(event.started_at) === today ? 1 : 0)
   }, 0)
   const temperatures = events
@@ -41,11 +45,17 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
 
   const info = [
     {
-      label: t.tracking.feeding,
+      label: feedingType === "bottle" ? t.tracking.bottle : t.tracking.feeding,
       icon: Milk,
-      primary: lastFeeding ? t.eventLabels[lastFeeding.type] : t.common.none,
+      primary: lastFeeding
+        ? lastFeeding.type === "bottle" && lastFeeding.value_real != null
+          ? `${lastFeeding.value_real.toFixed(0)} ml`
+          : t.eventLabels[lastFeeding.type]
+        : t.common.none,
       secondary: lastFeeding ? formatDuration(lastFeeding.duration_seconds, locale) || relativeTime(lastFeeding.started_at, locale) : "",
-      caption: `${feedingsToday} ${feedingsToday === 1 ? t.tracking.feedingsTodaySingular : t.tracking.feedingsTodayPlural}`
+      caption: `${feedingsToday} ${feedingType === "bottle"
+        ? feedingsToday === 1 ? t.tracking.bottlesTodaySingular : t.tracking.bottlesTodayPlural
+        : feedingsToday === 1 ? t.tracking.feedingsTodaySingular : t.tracking.feedingsTodayPlural}`
     },
     {
       label: t.tracking.diaper,
@@ -80,7 +90,7 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
 
       <section>
         <SectionTitle>{t.tracking.quickActions}</SectionTitle>
-        <ActionGrid nextBreast={nextBreast} onChanged={onChanged} onOpenCare={onOpenCare} />
+        <ActionGrid nextBreast={nextBreast} feedingType={feedingType} bottleDefaultQuantity={lastBottleQuantity} onChanged={onChanged} onOpenCare={onOpenCare} />
       </section>
 
       {running.length > 0 && (

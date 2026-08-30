@@ -12,15 +12,15 @@ import { Separator } from "@/components/ui/separator"
 import { useClock } from "@/hooks/useClock"
 import { formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, formatShortDate, getAgeParts } from "@/lib/dates"
 import { getLocaleTag, interpolate, localizedErrorMessage, type LanguagePreference, useI18n } from "@/lib/i18n"
-import { ACCENT_OPTIONS, type AccentColor, type AppSettings, type BabySex } from "@/lib/types"
+import { ACCENT_OPTIONS, type AccentColor, type AppSettings, type BabySex, type FeedingType } from "@/lib/types"
 
 interface TopBarProps {
   settings: AppSettings
   onBabySelect: (babyId: number) => Promise<void>
-  onBabyAdd: (babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor) => Promise<void>
+  onBabyAdd: (babyName: string, birthDate: string, babySex: BabySex, feedingType: FeedingType, accentColor: AccentColor) => Promise<void>
   onBabyDelete: (babyId: number) => Promise<void>
   onLanguageChange: (language: LanguagePreference) => Promise<void>
-  onProfileChange: (babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor) => Promise<void>
+  onProfileChange: (babyName: string, birthDate: string, babySex: BabySex, feedingType: FeedingType, accentColor: AccentColor) => Promise<void>
   onReset: () => Promise<void>
 }
 
@@ -103,6 +103,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
   const [birthDatePickerOpen, setBirthDatePickerOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => parseIsoDateOnly(settings.birth_date) ?? dateOnly(new Date()))
   const [babySex, setBabySex] = useState<BabySex>(settings.baby_sex)
+  const [feedingType, setFeedingType] = useState<FeedingType>(settings.feeding_type || "breast")
   const [babyColor, setBabyColor] = useState<AccentColor>(activeBabyColor)
   const [addingBaby, setAddingBaby] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -119,6 +120,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
     if (parsedBirthDate) setCalendarMonth(parsedBirthDate)
   }, [locale, settings.birth_date])
   useEffect(() => setBabySex(settings.baby_sex), [settings.baby_sex])
+  useEffect(() => setFeedingType(settings.feeding_type || "breast"), [settings.feeding_type])
   useEffect(() => setBabyColor(activeBabyColor), [activeBabyColor])
 
   const today = dateOnly(now)
@@ -144,10 +146,10 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
     setSaving(true)
     try {
       if (addingBaby) {
-        await onBabyAdd(babyName.trim(), parsedBirthDate, babySex, babyColor)
+        await onBabyAdd(babyName.trim(), parsedBirthDate, babySex, feedingType, babyColor)
         setAddingBaby(false)
       } else {
-        await onProfileChange(babyName.trim(), parsedBirthDate, babySex, babyColor)
+        await onProfileChange(babyName.trim(), parsedBirthDate, babySex, feedingType, babyColor)
       }
       setSettingsOpen(false)
       toast.success(t.settings.profileSaved)
@@ -163,6 +165,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
     setBabyName("")
     setBirthDateInput("")
     setBabySex("")
+    setFeedingType("breast")
     setBabyColor("orange")
   }
 
@@ -171,6 +174,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
     setBabyName(settings.baby_name)
     setBirthDateInput(formatDateInput(settings.birth_date, locale))
     setBabySex(settings.baby_sex)
+    setFeedingType(settings.feeding_type || "breast")
     setBabyColor(activeBabyColor)
   }
 
@@ -388,6 +392,24 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                       </Button>
                     ))}
                   </div>
+                </fieldset>
+
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">{t.settings.feedingType}</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["breast", "bottle"] as const).map((value) => (
+                      <Button
+                        key={value}
+                        type="button"
+                        variant={feedingType === value ? "default" : "outline"}
+                        aria-pressed={feedingType === value}
+                        onClick={() => setFeedingType(value)}
+                      >
+                        {t.settings.feedingTypeOptions[value]}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t.settings.feedingTypeHelp}</p>
                 </fieldset>
 
                 <Button type="submit" className="w-full" disabled={saving}>

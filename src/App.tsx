@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   baby_name: "",
   birth_date: "",
   baby_sex: "",
+  feeding_type: "breast",
   language_preference: "system"
 }
 
@@ -92,8 +93,8 @@ export default function App() {
             await refreshAll()
             setEditing(null)
           }}
-          onBabyAdd={async (babyName, birthDate, babySex, accentColor) => {
-            setSettings(await api.createBaby(babyName, birthDate, babySex, accentColor))
+          onBabyAdd={async (babyName, birthDate, babySex, feedingType, accentColor) => {
+            setSettings(await api.createBaby(babyName, birthDate, babySex, feedingType, accentColor))
             await refreshAll()
           }}
           onBabyDelete={async (babyId) => {
@@ -105,8 +106,8 @@ export default function App() {
             setSettings(await api.updateLanguage(language))
             toast.success(t.settings.languageUpdated)
           }}
-          onProfileChange={async (babyName, birthDate, babySex, accentColor) => {
-            setSettings(await api.updateProfile(babyName, birthDate, babySex, accentColor))
+          onProfileChange={async (babyName, birthDate, babySex, feedingType, accentColor) => {
+            setSettings(await api.updateProfile(babyName, birthDate, babySex, feedingType, accentColor))
           }}
           onReset={async () => {
             await api.resetDatabase()
@@ -128,6 +129,7 @@ export default function App() {
               running={running}
               loading={loading}
               stoolAlert={stoolAlert}
+              feedingType={settings.feeding_type || "breast"}
               onChanged={refreshAll}
               onEdit={setEditing}
               onOpenCare={() => setActiveTab("care")}
@@ -140,7 +142,7 @@ export default function App() {
             <MedicalPage settings={settings} refreshKey={refreshKey} onChanged={refreshAll} onEdit={setEditing} />
           </TabsContent>
           <TabsContent value="history" className="mt-5">
-            <HistoryPage refreshKey={refreshKey} onEdit={setEditing} />
+            <HistoryPage refreshKey={refreshKey} feedingType={settings.feeding_type || "breast"} onEdit={setEditing} />
           </TabsContent>
         </Tabs>
         <AppFooter />

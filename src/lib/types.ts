@@ -5,6 +5,8 @@ export const EVENT_LABELS = {
   diaper: "Couche",
   breast_left: "Sein gauche",
   breast_right: "Sein droit",
+  bottle: "Biberon",
+  nap: "Sieste",
   bath: "Bain",
   face_care: "Visage",
   cord_care: "Cordon",
@@ -48,12 +50,14 @@ export const ACCENT_OPTIONS = [
 
 export type AccentColor = typeof ACCENT_OPTIONS[number]["id"]
 export type BabySex = "" | "girl" | "boy"
+export type FeedingType = "breast" | "bottle"
 
 export interface BabyProfile {
   id: number
   name: string
   birth_date: string
   baby_sex: BabySex
+  feeding_type?: FeedingType
   accent_color: AccentColor
 }
 
@@ -64,6 +68,7 @@ export interface AppSettings {
   baby_name: string
   birth_date: string
   baby_sex: BabySex
+  feeding_type?: FeedingType
   language_preference: "system" | "fr" | "en"
 }
 

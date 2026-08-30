@@ -1,4 +1,4 @@
-import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, StoolAlert } from "./types"
+import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, FeedingType, StoolAlert } from "./types"
 import type { LanguagePreference } from "@/lib/i18n"
 import { demoApi } from "@/lib/demoApi"
 
@@ -54,13 +54,13 @@ const serverApi = {
     method: "PUT",
     body: JSON.stringify({ language })
   }),
-  updateProfile: (babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor) => request<AppSettings>("/api/settings/profile", {
+  updateProfile: (babyName: string, birthDate: string, babySex: BabySex, feedingType: FeedingType, accentColor: AccentColor) => request<AppSettings>("/api/settings/profile", {
     method: "PUT",
-    body: JSON.stringify({ baby_name: babyName, birth_date: birthDate, baby_sex: babySex, accent_color: accentColor })
+    body: JSON.stringify({ baby_name: babyName, birth_date: birthDate, baby_sex: babySex, feeding_type: feedingType, accent_color: accentColor })
   }),
-  createBaby: (babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor) => request<AppSettings>("/api/babies", {
+  createBaby: (babyName: string, birthDate: string, babySex: BabySex, feedingType: FeedingType, accentColor: AccentColor) => request<AppSettings>("/api/babies", {
     method: "POST",
-    body: JSON.stringify({ baby_name: babyName, birth_date: birthDate, baby_sex: babySex, accent_color: accentColor })
+    body: JSON.stringify({ baby_name: babyName, birth_date: birthDate, baby_sex: babySex, feeding_type: feedingType, accent_color: accentColor })
   }),
   selectBaby: (babyId: number) => request<AppSettings>("/api/babies/active", {
     method: "PUT",

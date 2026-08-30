@@ -31,6 +31,7 @@ test("migre les données existantes vers le premier bébé", () => {
     const baby = migrated.prepare("SELECT * FROM babies").get()
     assert.equal(baby.name, "Lou")
     assert.equal(baby.accent_color, "green")
+    assert.equal(baby.feeding_type, "breast")
     assert.equal(migrated.prepare("SELECT baby_id FROM events").get().baby_id, baby.id)
     assert.equal(Number(migrated.prepare("SELECT value FROM app_settings WHERE key = 'active_baby_id'").get().value), baby.id)
   } finally {

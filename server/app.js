@@ -12,6 +12,8 @@ const EVENT_TYPES = new Set([
   "diaper",
   "breast_left",
   "breast_right",
+  "bottle",
+  "nap",
   "bath",
   "face_care",
   "cord_care",
@@ -23,9 +25,10 @@ const EVENT_TYPES = new Set([
   "eye_care",
   "nose_care"
 ])
-const TIMER_TYPES = new Set(["breast_left", "breast_right"])
+const TIMER_TYPES = new Set(["breast_left", "breast_right", "nap"])
 const ACCENT_COLORS = new Set(["orange", "blue", "green", "pink", "purple"])
 const BABY_SEXES = new Set(["", "girl", "boy"])
+const FEEDING_TYPES = new Set(["breast", "bottle"])
 const LANGUAGE_PREFERENCES = new Set(["system", "fr", "en"])
 const DAILY_CARE_TYPES = ["eyes", "face", "nose", "cord"]
 const BATH_ITEMS = [
@@ -60,6 +63,8 @@ const API_ERRORS = {
   baby_name_too_long: "Le nom du bébé ne peut pas dépasser 80 caractères.",
   invalid_birth_date: "La date de naissance est invalide ou située dans le futur.",
   invalid_baby_sex: "Le sexe renseigné est invalide.",
+  invalid_feeding_type: "Le type d’allaitement est invalide.",
+  invalid_bottle_quantity: "La quantité du biberon doit être comprise entre 1 et 1000 ml.",
   baby_not_found: "Bébé introuvable.",
   cannot_delete_last_baby: "Le dernier bébé ne peut pas être supprimé.",
   invalid_event_type: "Type d’événement invalide.",
@@ -101,6 +106,8 @@ const EXPORT_MESSAGES = {
       diaper: "Couche",
       breast_left: "Sein gauche",
       breast_right: "Sein droit",
+      bottle: "Biberon",
+      nap: "Sieste",
       bath: "Bain",
       face_care: "Visage",
       cord_care: "Cordon",
@@ -155,6 +162,8 @@ const EXPORT_MESSAGES = {
       diaper: "Diaper",
       breast_left: "Left breast",
       breast_right: "Right breast",
+      bottle: "Bottle",
+      nap: "Nap",
       bath: "Bath",
       face_care: "Face",
       cord_care: "Cord",
@@ -226,7 +235,7 @@ function readSettings(db) {
     activeBaby = db.prepare("SELECT * FROM babies ORDER BY id LIMIT 1").get()
     if (activeBaby) saveSetting(db, "active_baby_id", String(activeBaby.id))
   }
-  const babies = db.prepare("SELECT id, name, birth_date, sex AS baby_sex, accent_color FROM babies ORDER BY created_at, id").all()
+  const babies = db.prepare("SELECT id, name, birth_date, sex AS baby_sex, feeding_type, accent_color FROM babies ORDER BY created_at, id").all()
   return {
     active_baby_id: activeBaby?.id || 0,
     babies,
@@ -234,6 +243,7 @@ function readSettings(db) {
     baby_name: activeBaby?.name || "",
     birth_date: activeBaby?.birth_date || "",
     baby_sex: BABY_SEXES.has(activeBaby?.sex) ? activeBaby.sex : "",
+    feeding_type: FEEDING_TYPES.has(activeBaby?.feeding_type) ? activeBaby.feeding_type : "breast",
     language_preference: LANGUAGE_PREFERENCES.has(values.language_preference) ? values.language_preference : "system"
   }
 }
@@ -360,7 +370,8 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.put("/api/settings/profile", (request, response) => {
-    const { baby_name: babyName, birth_date: birthDate, baby_sex: babySex, accent_color: accentColor = "orange" } = request.body
+    const { baby_name: babyName, birth_date: birthDate, baby_sex: babySex, feeding_type: requestedFeedingType, accent_color: accentColor = "orange" } = request.body
+    const feedingType = requestedFeedingType ?? readSettings(db).feeding_type
     if (typeof babyName !== "string" || babyName.trim().length > 80) {
       return sendApiError(response, 400, "baby_name_too_long")
     }
@@ -370,18 +381,21 @@ export function createApp({ db = createDatabase() } = {}) {
     if (typeof babySex !== "string" || !BABY_SEXES.has(babySex)) {
       return sendApiError(response, 400, "invalid_baby_sex")
     }
+    if (!FEEDING_TYPES.has(feedingType)) {
+      return sendApiError(response, 400, "invalid_feeding_type")
+    }
     if (!ACCENT_COLORS.has(accentColor)) {
       return sendApiError(response, 400, "invalid_accent_color")
     }
 
     db.prepare(`
-      UPDATE babies SET name = ?, birth_date = ?, sex = ?, accent_color = ?, updated_at = ? WHERE id = ?
-    `).run(babyName.trim(), birthDate, babySex, accentColor, nowIso(), activeBabyId(db))
+      UPDATE babies SET name = ?, birth_date = ?, sex = ?, feeding_type = ?, accent_color = ?, updated_at = ? WHERE id = ?
+    `).run(babyName.trim(), birthDate, babySex, feedingType, accentColor, nowIso(), activeBabyId(db))
     response.json(readSettings(db))
   })
 
   app.post("/api/babies", (request, response) => {
-    const { baby_name: babyName, birth_date: birthDate = "", baby_sex: babySex = "", accent_color: accentColor = "orange" } = request.body
+    const { baby_name: babyName, birth_date: birthDate = "", baby_sex: babySex = "", feeding_type: feedingType = "breast", accent_color: accentColor = "orange" } = request.body
     if (typeof babyName !== "string" || !babyName.trim() || babyName.trim().length > 80) {
       return sendApiError(response, 400, "baby_name_too_long")
     }
@@ -391,14 +405,17 @@ export function createApp({ db = createDatabase() } = {}) {
     if (typeof babySex !== "string" || !BABY_SEXES.has(babySex)) {
       return sendApiError(response, 400, "invalid_baby_sex")
     }
+    if (!FEEDING_TYPES.has(feedingType)) {
+      return sendApiError(response, 400, "invalid_feeding_type")
+    }
     if (!ACCENT_COLORS.has(accentColor)) {
       return sendApiError(response, 400, "invalid_accent_color")
     }
     const timestamp = nowIso()
     const result = db.prepare(`
-      INSERT INTO babies (name, birth_date, sex, accent_color, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(babyName.trim(), birthDate, babySex, accentColor, timestamp, timestamp)
+      INSERT INTO babies (name, birth_date, sex, feeding_type, accent_color, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(babyName.trim(), birthDate, babySex, feedingType, accentColor, timestamp, timestamp)
     saveSetting(db, "active_baby_id", String(result.lastInsertRowid))
     response.status(201).json(readSettings(db))
   })
@@ -513,6 +530,9 @@ export function createApp({ db = createDatabase() } = {}) {
     if (type === "height" && (!Number.isFinite(value_real) || value_real < 20 || value_real > 200)) {
       return sendApiError(response, 400, "invalid_height")
     }
+    if (type === "bottle" && (!Number.isFinite(value_real) || value_real < 1 || value_real > 1000)) {
+      return sendApiError(response, 400, "invalid_bottle_quantity")
+    }
     const timestamp = nowIso()
     const babyId = activeBabyId(db)
     const start = started_at ? new Date(started_at).toISOString() : timestamp
@@ -540,18 +560,29 @@ export function createApp({ db = createDatabase() } = {}) {
     }
     const timestamp = nowIso()
     const babyId = activeBabyId(db)
-    const result = db.prepare(`
-      INSERT INTO events (baby_id, type, status, started_at, notes, metadata, created_at, updated_at)
-      VALUES (@baby_id, @type, 'running', @started_at, @notes, @metadata, @created_at, @updated_at)
-    `).run({
-      type,
-      baby_id: babyId,
-      started_at: timestamp,
-      notes: notes?.trim() || null,
-      metadata: metadata ? JSON.stringify(metadata) : null,
-      created_at: timestamp,
-      updated_at: timestamp
+    const startTimer = db.transaction(() => {
+      db.prepare(`
+        UPDATE events
+        SET status = 'completed',
+          ended_at = @ended_at,
+          duration_seconds = MAX(0, ROUND((julianday(@ended_at) - julianday(started_at)) * 86400)),
+          updated_at = @updated_at
+        WHERE baby_id = @baby_id AND status = 'running'
+      `).run({ baby_id: babyId, ended_at: timestamp, updated_at: timestamp })
+      return db.prepare(`
+        INSERT INTO events (baby_id, type, status, started_at, notes, metadata, created_at, updated_at)
+        VALUES (@baby_id, @type, 'running', @started_at, @notes, @metadata, @created_at, @updated_at)
+      `).run({
+        type,
+        baby_id: babyId,
+        started_at: timestamp,
+        notes: notes?.trim() || null,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+        created_at: timestamp,
+        updated_at: timestamp
+      })
     })
+    const result = startTimer()
     response.status(201).json(parseEvent(db.prepare("SELECT * FROM events WHERE id = ?").get(result.lastInsertRowid)))
   })
 
@@ -595,6 +626,12 @@ export function createApp({ db = createDatabase() } = {}) {
       const height = Number(request.body.value_real)
       if (!Number.isFinite(height) || height < 20 || height > 200) {
         return sendApiError(response, 400, "invalid_height")
+      }
+    }
+    if (updatedType === "bottle" && request.body.value_real !== undefined) {
+      const quantity = Number(request.body.value_real)
+      if (!Number.isFinite(quantity) || quantity < 1 || quantity > 1000) {
+        return sendApiError(response, 400, "invalid_bottle_quantity")
       }
     }
     if (request.body.duration_seconds !== undefined) {
@@ -776,6 +813,8 @@ export function createApp({ db = createDatabase() } = {}) {
               ? `${event.value_real.toFixed(3)} kg`
               : event.type === "height" && event.value_real != null
                 ? `${event.value_real.toFixed(1)} cm`
+              : event.type === "bottle" && event.value_real != null
+                ? `${event.value_real.toFixed(0)} ml`
               : event.value_real ?? event.value_text ?? "",
           detail: displayDetail(event.metadata, locale),
           notes: event.notes || ""

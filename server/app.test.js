@@ -57,6 +57,31 @@ test("conserve puis termine un chrono", () => withServer(async (baseUrl) => {
   assert.ok(stopped.duration_seconds >= 0)
 }))
 
+test("démarrer un chrono termine le chrono actif du bébé", () => withServer(async (baseUrl) => {
+  const first = await fetch(`${baseUrl}/api/events/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "breast_left" })
+  }).then((response) => response.json())
+
+  const second = await fetch(`${baseUrl}/api/events/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "nap" })
+  }).then((response) => response.json())
+
+  const running = await fetch(`${baseUrl}/api/events/running`).then((response) => response.json())
+  const history = await fetch(`${baseUrl}/api/events`).then((response) => response.json())
+  const completedFirst = history.events.find((event) => event.id === first.id)
+
+  assert.equal(second.type, "nap")
+  assert.equal(running.length, 1)
+  assert.equal(running[0].id, second.id)
+  assert.equal(completedFirst.status, "completed")
+  assert.ok(completedFirst.ended_at)
+  assert.ok(completedFirst.duration_seconds >= 0)
+}))
+
 test("modifie la durée d’un événement chronométré et recalcule sa fin", () => withServer(async (baseUrl) => {
   const started = await fetch(`${baseUrl}/api/events/start`, {
     method: "POST",
@@ -260,16 +285,18 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
   assert.equal(initial.baby_name, "")
   assert.equal(initial.birth_date, "")
   assert.equal(initial.baby_sex, "")
+  assert.equal(initial.feeding_type, "breast")
   assert.equal(initial.language_preference, "system")
 
   const saved = await fetch(`${baseUrl}/api/settings/profile`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl", accent_color: "green" })
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl", feeding_type: "bottle", accent_color: "green" })
   }).then((response) => response.json())
   assert.equal(saved.baby_name, "Lou")
   assert.equal(saved.birth_date, "2025-12-03")
   assert.equal(saved.baby_sex, "girl")
+  assert.equal(saved.feeding_type, "bottle")
   assert.equal(saved.accent_color, "green")
   assert.equal(saved.babies[0].accent_color, "green")
 
@@ -294,6 +321,14 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
   })
   assert.equal(invalidColor.status, 400)
   assert.equal((await invalidColor.json()).code, "invalid_accent_color")
+
+  const invalidFeedingType = await fetch(`${baseUrl}/api/settings/profile`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl", feeding_type: "mixed" })
+  })
+  assert.equal(invalidFeedingType.status, 400)
+  assert.equal((await invalidFeedingType.json()).code, "invalid_feeding_type")
 
   const language = await fetch(`${baseUrl}/api/settings/language`, {
     method: "PUT",
@@ -333,6 +368,7 @@ test("réinitialise toute la base de données et restaure les paramètres par d�
   assert.equal(settings.baby_name, "")
   assert.equal(settings.birth_date, "")
   assert.equal(settings.baby_sex, "")
+  assert.equal(settings.feeding_type, "breast")
   assert.equal(settings.language_preference, "system")
   assert.equal(settings.babies.length, 1)
   assert.equal(settings.active_baby_id, settings.babies[0].id)
@@ -412,6 +448,35 @@ test("enregistre les mesures de poids et de taille", () => withServer(async (bas
   const medicalHistory = await fetch(`${baseUrl}/api/events?type=height`).then((response) => response.json())
   assert.equal(medicalHistory.total, 1)
   assert.equal(medicalHistory.events[0].type, "height")
+}))
+
+test("enregistre un biberon instantané avec une quantité valide", () => withServer(async (baseUrl) => {
+  const bottle = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "bottle", value_real: 120 })
+  }).then((response) => response.json())
+
+  assert.equal(bottle.type, "bottle")
+  assert.equal(bottle.status, "completed")
+  assert.equal(bottle.duration_seconds, null)
+  assert.equal(bottle.value_real, 120)
+
+  const invalid = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "bottle", value_real: 0 })
+  })
+  assert.equal(invalid.status, 400)
+  assert.equal((await invalid.json()).code, "invalid_bottle_quantity")
+
+  const timer = await fetch(`${baseUrl}/api/events/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "bottle" })
+  })
+  assert.equal(timer.status, 400)
+  assert.equal((await timer.json()).code, "not_timer_event")
 }))
 
 test("réinitialise la checklist après chaque validation", () => withServer(async (baseUrl) => {

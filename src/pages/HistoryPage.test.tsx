@@ -53,4 +53,21 @@ describe("HistoryPage", () => {
     expect(within(stool).getByText("24 h 00 min")).toBeInTheDocument()
     await waitFor(() => expect(api.events).toHaveBeenCalledTimes(2))
   })
+
+  test("affiche l’intervalle et la quantité moyenne en mode biberon", async () => {
+    const monthlyEvents = [
+      event({ id: 1, type: "bottle", started_at: "2026-08-01T08:00:00.000Z", value_real: 90 }),
+      event({ id: 2, type: "bottle", started_at: "2026-08-01T11:00:00.000Z", value_real: 150 })
+    ]
+    vi.spyOn(api, "events").mockImplementation(async (params = new URLSearchParams()) => params.get("limit") === "250"
+      ? { events: monthlyEvents, total: monthlyEvents.length, limit: 250, offset: 0 }
+      : { events: [], total: 0, limit: 100, offset: 0 })
+
+    render(<HistoryPage refreshKey={0} feedingType="bottle" onEdit={vi.fn()} />)
+
+    const feeding = await screen.findByTestId("feeding-statistics")
+    expect(within(feeding).getByText("3 h 00 min")).toBeInTheDocument()
+    expect(within(feeding).getByText("120 ml")).toBeInTheDocument()
+    expect(within(feeding).getByText("Temps moyen entre deux biberons")).toBeInTheDocument()
+  })
 })

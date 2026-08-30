@@ -13,6 +13,12 @@ export interface HistoryStatistics {
     rightCount: number
     total: number
   }
+  bottle: {
+    averageIntervalSeconds: number | null
+    averageQuantityMl: number | null
+    intervalCount: number
+    total: number
+  }
   averageStoolIntervalSeconds: number | null
   stoolIntervalCount: number
 }
@@ -30,6 +36,12 @@ export function calculateHistoryStatistics(events: BabyEvent[]): HistoryStatisti
   const feedingDurations = feedings
     .map((event) => event.duration_seconds)
     .filter((duration): duration is number => duration != null && Number.isFinite(duration) && duration >= 0)
+  const bottles = completed
+    .filter((event) => event.type === "bottle" && Number.isFinite(event.value_real))
+    .sort((left, right) => Date.parse(left.started_at) - Date.parse(right.started_at))
+  const bottleIntervals = bottles.slice(1)
+    .map((event, index) => (Date.parse(event.started_at) - Date.parse(bottles[index].started_at)) / 1000)
+    .filter((interval) => Number.isFinite(interval) && interval >= 0)
   const stools = completed
     .filter((event) => event.type === "diaper" && ["stool", "mixed"].includes(String(event.metadata?.diaper_type)))
     .map((event) => Date.parse(event.started_at))
@@ -49,6 +61,12 @@ export function calculateHistoryStatistics(events: BabyEvent[]): HistoryStatisti
       leftCount: feedings.filter((event) => event.type === "breast_left").length,
       rightCount: feedings.filter((event) => event.type === "breast_right").length,
       total: feedings.length
+    },
+    bottle: {
+      averageIntervalSeconds: average(bottleIntervals),
+      averageQuantityMl: average(bottles.map((event) => event.value_real as number)),
+      intervalCount: bottleIntervals.length,
+      total: bottles.length
     },
     averageStoolIntervalSeconds: average(stoolIntervals),
     stoolIntervalCount: stoolIntervals.length

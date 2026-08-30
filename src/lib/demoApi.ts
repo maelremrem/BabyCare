@@ -1,4 +1,4 @@
-import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, StoolAlert } from "@/lib/types"
+import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, FeedingType, StoolAlert } from "@/lib/types"
 import type { LanguagePreference } from "@/lib/i18n"
 
 interface DemoState {
@@ -12,7 +12,7 @@ interface DemoState {
 
 const STORAGE_KEY = "babycare-demo-state-v1"
 const DAILY_CARE_TYPES: DailyCare["care_type"][] = ["eyes", "face", "nose", "cord"]
-const TIMER_TYPES = new Set<EventType>(["breast_left", "breast_right"])
+const TIMER_TYPES = new Set<EventType>(["breast_left", "breast_right", "nap"])
 const DEFAULT_BABY_NAME = "Charlie"
 
 function nowIso() {
@@ -48,6 +48,7 @@ function initialState(): DemoState {
     name: DEFAULT_BABY_NAME,
     birth_date: localDate(birthDate),
     baby_sex: "girl" as BabySex,
+    feeding_type: "breast" as FeedingType,
     accent_color: "orange" as AccentColor
   }
   const events = [
@@ -85,6 +86,17 @@ function initialState(): DemoState {
       metadata: null
     }),
     createEvent(4, {
+      type: "nap",
+      status: "completed",
+      started_at: daysAgo(1, 13, 10),
+      ended_at: daysAgo(1, 14, 35),
+      duration_seconds: 5100,
+      value_real: null,
+      value_text: null,
+      notes: "Demo nap",
+      metadata: null
+    }),
+    createEvent(5, {
       type: "weight",
       status: "completed",
       started_at: daysAgo(2, 10, 15),
@@ -95,7 +107,7 @@ function initialState(): DemoState {
       notes: "Weekly check",
       metadata: null
     }),
-    createEvent(5, {
+    createEvent(6, {
       type: "height",
       status: "completed",
       started_at: daysAgo(2, 10, 20),
@@ -106,7 +118,7 @@ function initialState(): DemoState {
       notes: "Weekly check",
       metadata: null
     }),
-    createEvent(6, {
+    createEvent(7, {
       type: "observation",
       status: "completed",
       started_at: daysAgo(3, 18, 5),
@@ -121,7 +133,7 @@ function initialState(): DemoState {
 
   return {
     nextBabyId: 2,
-    nextEventId: 7,
+    nextEventId: 8,
     nextDailyCareId: 1,
     settings: {
       active_baby_id: baby.id,
@@ -130,6 +142,7 @@ function initialState(): DemoState {
       baby_name: baby.name,
       birth_date: baby.birth_date,
       baby_sex: baby.baby_sex,
+      feeding_type: baby.feeding_type,
       language_preference: "system"
     },
     events,
@@ -158,6 +171,7 @@ function writeState(state: DemoState) {
 }
 
 function activeBabySettings(state: DemoState): AppSettings {
+  state.settings.babies.forEach((baby) => { baby.feeding_type ||= "breast" })
   const activeBaby = state.settings.babies.find((baby) => baby.id === state.settings.active_baby_id) || state.settings.babies[0]
   if (!activeBaby) return state.settings
   return {
@@ -166,7 +180,8 @@ function activeBabySettings(state: DemoState): AppSettings {
     accent_color: activeBaby.accent_color,
     baby_name: activeBaby.name,
     birth_date: activeBaby.birth_date,
-    baby_sex: activeBaby.baby_sex
+    baby_sex: activeBaby.baby_sex,
+    feeding_type: activeBaby.feeding_type || "breast"
   }
 }
 
@@ -273,6 +288,14 @@ export const demoApi = {
     if (!TIMER_TYPES.has(type)) throw new Error("This action cannot be timed.")
     const state = readState()
     const timestamp = nowIso()
+    state.events
+      .filter((event) => event.status === "running")
+      .forEach((event) => {
+        event.status = "completed"
+        event.ended_at = timestamp
+        event.duration_seconds = Math.max(0, Math.round((Date.parse(timestamp) - Date.parse(event.started_at)) / 1000))
+        event.updated_at = timestamp
+      })
     const event = createEvent(state.nextEventId++, {
       type,
       status: "running",
@@ -330,25 +353,27 @@ export const demoApi = {
     return saveSettings(state)
   },
 
-  async updateProfile(babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor): Promise<AppSettings> {
+  async updateProfile(babyName: string, birthDate: string, babySex: BabySex, feedingType: FeedingType, accentColor: AccentColor): Promise<AppSettings> {
     const state = readState()
     const baby = state.settings.babies.find((item) => item.id === state.settings.active_baby_id)
     if (baby) {
       baby.name = babyName
       baby.birth_date = birthDate
       baby.baby_sex = babySex
+      baby.feeding_type = feedingType
       baby.accent_color = accentColor
     }
     return saveSettings(state)
   },
 
-  async createBaby(babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor): Promise<AppSettings> {
+  async createBaby(babyName: string, birthDate: string, babySex: BabySex, feedingType: FeedingType, accentColor: AccentColor): Promise<AppSettings> {
     const state = readState()
     const baby = {
       id: state.nextBabyId++,
       name: babyName,
       birth_date: birthDate,
       baby_sex: babySex,
+      feeding_type: feedingType,
       accent_color: accentColor
     }
     state.settings.babies.push(baby)

@@ -41,6 +41,8 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
       ? event.value_text || ""
       : event.type === "weight"
         ? event.value_real.toFixed(3)
+        : event.type === "bottle"
+          ? event.value_real.toFixed(0)
         : event.value_real.toFixed(1))
     setDetail(typeof event.metadata?.diaper_type === "string" ? event.metadata.diaper_type : "")
     const duration = event.duration_seconds || 0
@@ -61,8 +63,8 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
   if (!event) return null
 
   const save = async () => {
-    const isNumericMeasurement = event.type === "temperature" || event.type === "weight" || event.type === "height"
-    const isTimer = event.type === "breast_left" || event.type === "breast_right"
+    const isNumericMeasurement = event.type === "temperature" || event.type === "weight" || event.type === "height" || event.type === "bottle"
+    const isTimer = event.type === "breast_left" || event.type === "breast_right" || event.type === "nap"
     const duration = Number(durationHours) * 3600 + Number(durationMinutes) * 60 + Number(durationSeconds)
     const metadata = event.type === "diaper"
       ? { ...event.metadata, diaper_type: detail }
@@ -112,7 +114,13 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
               <Input type="number" min="20" max="200" step="0.1" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
           )}
-          {(event.type === "breast_left" || event.type === "breast_right") && (
+          {event.type === "bottle" && (
+            <label className="grid gap-2 text-sm font-medium">
+              {t.eventEditor.bottleQuantity}
+              <Input type="number" min="1" max="1000" step="1" value={value} onChange={(e) => setValue(e.target.value)} />
+            </label>
+          )}
+          {(event.type === "breast_left" || event.type === "breast_right" || event.type === "nap") && (
             <fieldset className="grid gap-2">
               <legend className="text-sm font-medium">{t.eventEditor.duration}</legend>
               <div className="grid grid-cols-3 gap-3">

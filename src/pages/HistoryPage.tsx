@@ -12,10 +12,11 @@ import { api, isDemoMode } from "@/lib/api"
 import { dayHeading, formatDuration, groupEventsByDay } from "@/lib/dates"
 import { calculateHistoryStatistics } from "@/lib/historyStatistics"
 import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
-import { EVENT_LABELS, type BabyEvent, type EventType } from "@/lib/types"
+import { EVENT_LABELS, type BabyEvent, type EventType, type FeedingType } from "@/lib/types"
 
 interface HistoryPageProps {
   refreshKey: number
+  feedingType?: FeedingType
   onEdit: (event: BabyEvent) => void
 }
 
@@ -67,7 +68,7 @@ function percentage(count: number, total: number) {
   return total ? Math.round((count / total) * 100) : 0
 }
 
-export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
+export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: HistoryPageProps) {
   const { locale, t } = useI18n()
   const [events, setEvents] = useState<BabyEvent[]>([])
   const [total, setTotal] = useState(0)
@@ -129,6 +130,12 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
   const feedingAverage = statistics.feeding.averageDurationSeconds == null
     ? "—"
     : formatDuration(Math.round(statistics.feeding.averageDurationSeconds), locale)
+  const bottleIntervalAverage = statistics.bottle.averageIntervalSeconds == null
+    ? "—"
+    : formatDuration(Math.round(statistics.bottle.averageIntervalSeconds), locale)
+  const bottleQuantityAverage = statistics.bottle.averageQuantityMl == null
+    ? "—"
+    : `${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-US", { maximumFractionDigits: 0 }).format(statistics.bottle.averageQuantityMl)} ml`
   const stoolAverage = statistics.averageStoolIntervalSeconds == null
     ? "—"
     : formatDuration(Math.round(statistics.averageStoolIntervalSeconds), locale)
@@ -199,14 +206,19 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
               <div className="flex items-center gap-3">
                 <span className="grid size-10 place-items-center rounded-xl bg-chart-2/15 text-chart-2"><Utensils className="size-5" /></span>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t.history.feedingAverage}</p>
-                  <p className="mt-1 text-2xl font-semibold">{statisticsLoading ? "—" : feedingAverage}</p>
-                  <p className="text-xs text-muted-foreground">{t.history.average}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{feedingType === "bottle" ? t.history.bottleStatistics : t.history.feedingAverage}</p>
+                  <p className="mt-1 text-2xl font-semibold">{statisticsLoading ? "—" : feedingType === "bottle" ? bottleIntervalAverage : feedingAverage}</p>
+                  <p className="text-xs text-muted-foreground">{feedingType === "bottle" ? t.history.bottleIntervalAverage : t.history.average}</p>
                 </div>
               </div>
               {statisticsLoading ? (
                 <p className="text-sm text-muted-foreground">{t.history.loading}</p>
-              ) : statistics.feeding.total ? (
+              ) : feedingType === "bottle" && statistics.bottle.total ? (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.averageQuantity}</span><strong className="mt-1 block">{bottleQuantityAverage}</strong></div>
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.bottleCount}</span><strong className="mt-1 block">{statistics.bottle.total}</strong></div>
+                </div>
+              ) : feedingType === "breast" && statistics.feeding.total ? (
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.leftBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.leftCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.leftCount})</span></strong></div>
                   <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.rightBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.rightCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.rightCount})</span></strong></div>

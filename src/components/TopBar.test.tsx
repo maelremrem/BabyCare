@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest"
 import { TopBar } from "@/components/TopBar"
 
 describe("TopBar", () => {
-  test("enregistre le sexe avec le profil du bébé", async () => {
+  test("enregistre le sexe et le type d’allaitement avec le profil du bébé", async () => {
     const user = userEvent.setup()
     const onProfileChange = vi.fn(async () => undefined)
     render(
@@ -32,10 +32,11 @@ describe("TopBar", () => {
     expect(girlButton.querySelector(".lucide-venus")).toBeInTheDocument()
     await user.click(girlButton)
     await user.click(screen.getByRole("button", { name: "Choisir Vert pour ce bébé" }))
+    await user.click(screen.getByRole("button", { name: "Au biberon" }))
     expect(girlButton).toHaveAttribute("aria-pressed", "true")
     await user.click(screen.getByRole("button", { name: "Enregistrer le profil" }))
 
-    await waitFor(() => expect(onProfileChange).toHaveBeenCalledWith("Lou", "2026-01-02", "girl", "green"))
+    await waitFor(() => expect(onProfileChange).toHaveBeenCalledWith("Lou", "2026-01-02", "girl", "bottle", "green"))
   })
 
   test("demande une confirmation avant de réinitialiser la base", async () => {
@@ -83,7 +84,7 @@ describe("TopBar", () => {
     await user.click(screen.getByRole("button", { name: "Choisir Rose pour ce bébé" }))
     await user.click(screen.getByRole("button", { name: "Ajouter ce bébé" }))
 
-    await waitFor(() => expect(onBabyAdd).toHaveBeenCalledWith("Mila", "", "", "pink"))
+    await waitFor(() => expect(onBabyAdd).toHaveBeenCalledWith("Mila", "", "", "breast", "pink"))
   })
 
   test("confirme la suppression du bébé actif", async () => {
