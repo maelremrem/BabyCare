@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { dayHeading, groupEventsByDay } from "@/lib/dates"
-import { getLocaleTag, interpolate, useI18n } from "@/lib/i18n"
+import { getLocaleTag, interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
 import type { AppSettings, BabyEvent } from "@/lib/types"
 import { getAgeInMonths } from "@/lib/whoGrowth"
 
@@ -105,11 +105,11 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
       setWeights(weightResult.events)
       setHeights(heightResult.events)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.medical.unavailable)
+      toast.error(localizedErrorMessage(error, t, t.medical.unavailable))
     } finally {
       setLoading(false)
     }
-  }, [t.medical.unavailable])
+  }, [t])
 
   useEffect(() => {
     loadMeasurements()
@@ -154,7 +154,7 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
       setMeasurementType(null)
       await onChanged()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.medical.saveError)
+      toast.error(localizedErrorMessage(error, t, t.medical.saveError))
     } finally {
       setSaving(false)
     }

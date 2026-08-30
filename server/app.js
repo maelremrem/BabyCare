@@ -39,6 +39,140 @@ const EDITABLE_FIELDS = new Set([
   "notes",
   "metadata"
 ])
+const API_ERRORS = {
+  invalid_accent_color: "Couleur d’accent invalide.",
+  invalid_language_preference: "Préférence de langue invalide.",
+  baby_name_too_long: "Le nom du bébé ne peut pas dépasser 80 caractères.",
+  invalid_birth_date: "La date de naissance est invalide ou située dans le futur.",
+  invalid_baby_sex: "Le sexe renseigné est invalide.",
+  invalid_event_type: "Type d’événement invalide.",
+  invalid_temperature: "La température doit être comprise entre 34 et 44 °C.",
+  invalid_weight: "Le poids doit être compris entre 0,3 et 30 kg.",
+  invalid_height: "La taille doit être comprise entre 20 et 200 cm.",
+  not_timer_event: "Cette action ne peut pas être chronométrée.",
+  event_not_found: "Événement introuvable.",
+  timer_already_completed: "Ce chrono est déjà terminé.",
+  incomplete_daily_care: "Terminez la checklist avant de valider les soins.",
+  invalid_daily_care: "Soin quotidien invalide.",
+  bath_session_not_found: "Session de bain introuvable.",
+  bath_item_not_found: "Élément de bain introuvable.",
+  internal_error: "Une erreur interne est survenue."
+}
+const EXPORT_LOCALES = new Set(["fr", "en"])
+const EXPORT_LOCALE_TAGS = {
+  fr: "fr-FR",
+  en: "en-US"
+}
+const EXPORT_MESSAGES = {
+  fr: {
+    sheetName: "Historique",
+    columns: {
+      date: "Date",
+      start: "Heure début",
+      end: "Heure fin",
+      duration: "Durée",
+      type: "Type",
+      value: "Valeur",
+      detail: "Détail",
+      notes: "Observation"
+    },
+    eventLabels: {
+      temperature: "Température",
+      weight: "Poids",
+      height: "Taille",
+      diaper: "Couche",
+      breast_left: "Sein gauche",
+      breast_right: "Sein droit",
+      bath: "Bain",
+      face_care: "Visage",
+      cord_care: "Cordon",
+      face_cord_care: "Visage et cordon",
+      clothes_change: "Vêtements",
+      irritation: "Irritation",
+      observation: "Observation",
+      daily_care: "Soins quotidiens",
+      eye_care: "Yeux",
+      nose_care: "Nez"
+    },
+    diaperTypes: {
+      urine: "Urine",
+      stool: "Selles",
+      mixed: "Mixte"
+    },
+    irritationLocations: {
+      face: "Visage",
+      neck: "Cou",
+      chest: "Torse",
+      back: "Dos",
+      arms: "Bras",
+      legs: "Jambes",
+      bottom: "Fesses",
+      other: "Autre",
+      visage: "Visage",
+      cou: "Cou",
+      torse: "Torse",
+      dos: "Dos",
+      bras: "Bras",
+      jambes: "Jambes",
+      fesses: "Fesses",
+      autre: "Autre"
+    }
+  },
+  en: {
+    sheetName: "Events",
+    columns: {
+      date: "Date",
+      start: "Start time",
+      end: "End time",
+      duration: "Duration",
+      type: "Type",
+      value: "Value",
+      detail: "Detail",
+      notes: "Observation"
+    },
+    eventLabels: {
+      temperature: "Temperature",
+      weight: "Weight",
+      height: "Height",
+      diaper: "Diaper",
+      breast_left: "Left breast",
+      breast_right: "Right breast",
+      bath: "Bath",
+      face_care: "Face",
+      cord_care: "Cord",
+      face_cord_care: "Face and cord",
+      clothes_change: "Clothes",
+      irritation: "Irritation",
+      observation: "Observation",
+      daily_care: "Daily care",
+      eye_care: "Eyes",
+      nose_care: "Nose"
+    },
+    diaperTypes: {
+      urine: "Urine",
+      stool: "Stool",
+      mixed: "Mixed"
+    },
+    irritationLocations: {
+      face: "Face",
+      neck: "Neck",
+      chest: "Chest",
+      back: "Back",
+      arms: "Arms",
+      legs: "Legs",
+      bottom: "Bottom",
+      other: "Other",
+      visage: "Face",
+      cou: "Neck",
+      torse: "Chest",
+      dos: "Back",
+      bras: "Arms",
+      jambes: "Legs",
+      fesses: "Bottom",
+      autre: "Other"
+    }
+  }
+}
 
 const nowIso = () => new Date().toISOString()
 const localDate = () => new Intl.DateTimeFormat("en-CA", {
@@ -47,6 +181,14 @@ const localDate = () => new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
   day: "2-digit"
 }).format(new Date())
+
+function sendApiError(response, status, code) {
+  return response.status(status).json({ error: API_ERRORS[code], code })
+}
+
+function resolveExportLocale(value) {
+  return EXPORT_LOCALES.has(value) ? value : "fr"
+}
 
 function isValidDateOnly(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
@@ -120,25 +262,17 @@ function formatDuration(seconds) {
     : `${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`
 }
 
-function displayType(type) {
-  return {
-    temperature: "Température",
-    weight: "Poids",
-    height: "Taille",
-    diaper: "Couche",
-    breast_left: "Sein gauche",
-    breast_right: "Sein droit",
-    bath: "Bain",
-    face_care: "Visage",
-    cord_care: "Cordon",
-    face_cord_care: "Visage et cordon",
-    clothes_change: "Vêtements",
-    irritation: "Irritation",
-    observation: "Observation",
-    daily_care: "Soins quotidiens",
-    eye_care: "Yeux",
-    nose_care: "Nez"
-  }[type] || type
+function displayType(type, locale) {
+  return EXPORT_MESSAGES[locale].eventLabels[type] || type
+}
+
+function displayDetail(metadata, locale) {
+  if (metadata?.diaper_type) return EXPORT_MESSAGES[locale].diaperTypes[metadata.diaper_type] || metadata.diaper_type
+  if (Array.isArray(metadata?.locations)) {
+    return metadata.locations.map((location) => EXPORT_MESSAGES[locale].irritationLocations[location] || location).join(", ")
+  }
+  if (metadata?.location) return EXPORT_MESSAGES[locale].irritationLocations[metadata.location] || metadata.location
+  return ""
 }
 
 export function createApp({ db = createDatabase() } = {}) {
@@ -157,7 +291,7 @@ export function createApp({ db = createDatabase() } = {}) {
   app.put("/api/settings/accent", (request, response) => {
     const { color } = request.body
     if (!ACCENT_COLORS.has(color)) {
-      return response.status(400).json({ error: "Couleur d’accent invalide." })
+      return sendApiError(response, 400, "invalid_accent_color")
     }
     saveSetting(db, "accent_color", color)
     response.json(readSettings(db))
@@ -166,7 +300,7 @@ export function createApp({ db = createDatabase() } = {}) {
   app.put("/api/settings/language", (request, response) => {
     const { language } = request.body
     if (!LANGUAGE_PREFERENCES.has(language)) {
-      return response.status(400).json({ error: "Préférence de langue invalide." })
+      return sendApiError(response, 400, "invalid_language_preference")
     }
     saveSetting(db, "language_preference", language)
     response.json(readSettings(db))
@@ -175,13 +309,13 @@ export function createApp({ db = createDatabase() } = {}) {
   app.put("/api/settings/profile", (request, response) => {
     const { baby_name: babyName, birth_date: birthDate, baby_sex: babySex } = request.body
     if (typeof babyName !== "string" || babyName.trim().length > 80) {
-      return response.status(400).json({ error: "Le nom du bébé ne peut pas dépasser 80 caractères." })
+      return sendApiError(response, 400, "baby_name_too_long")
     }
     if (typeof birthDate !== "string" || (birthDate && (!isValidDateOnly(birthDate) || birthDate > localDate()))) {
-      return response.status(400).json({ error: "La date de naissance est invalide ou située dans le futur." })
+      return sendApiError(response, 400, "invalid_birth_date")
     }
     if (typeof babySex !== "string" || !BABY_SEXES.has(babySex)) {
-      return response.status(400).json({ error: "Le sexe renseigné est invalide." })
+      return sendApiError(response, 400, "invalid_baby_sex")
     }
 
     const updateProfile = db.transaction(() => {
@@ -255,16 +389,16 @@ export function createApp({ db = createDatabase() } = {}) {
   app.post("/api/events", (request, response) => {
     const { type, started_at, value_real, value_text, notes, metadata } = request.body
     if (!EVENT_TYPES.has(type)) {
-      return response.status(400).json({ error: "Type d’événement invalide." })
+      return sendApiError(response, 400, "invalid_event_type")
     }
     if (type === "temperature" && (!Number.isFinite(value_real) || value_real < 34 || value_real > 44)) {
-      return response.status(400).json({ error: "La température doit être comprise entre 34 et 44 °C." })
+      return sendApiError(response, 400, "invalid_temperature")
     }
     if (type === "weight" && (!Number.isFinite(value_real) || value_real < 0.3 || value_real > 30)) {
-      return response.status(400).json({ error: "Le poids doit être compris entre 0,3 et 30 kg." })
+      return sendApiError(response, 400, "invalid_weight")
     }
     if (type === "height" && (!Number.isFinite(value_real) || value_real < 20 || value_real > 200)) {
-      return response.status(400).json({ error: "La taille doit être comprise entre 20 et 200 cm." })
+      return sendApiError(response, 400, "invalid_height")
     }
     const timestamp = nowIso()
     const start = started_at ? new Date(started_at).toISOString() : timestamp
@@ -287,7 +421,7 @@ export function createApp({ db = createDatabase() } = {}) {
   app.post("/api/events/start", (request, response) => {
     const { type, notes, metadata } = request.body
     if (!TIMER_TYPES.has(type)) {
-      return response.status(400).json({ error: "Cette action ne peut pas être chronométrée." })
+      return sendApiError(response, 400, "not_timer_event")
     }
     const timestamp = nowIso()
     const result = db.prepare(`
@@ -306,8 +440,8 @@ export function createApp({ db = createDatabase() } = {}) {
 
   app.post("/api/events/:id/stop", (request, response) => {
     const event = db.prepare("SELECT * FROM events WHERE id = ?").get(request.params.id)
-    if (!event) return response.status(404).json({ error: "Événement introuvable." })
-    if (event.status !== "running") return response.status(409).json({ error: "Ce chrono est déjà terminé." })
+    if (!event) return sendApiError(response, 404, "event_not_found")
+    if (event.status !== "running") return sendApiError(response, 409, "timer_already_completed")
 
     const endedAt = nowIso()
     const duration = Math.max(0, Math.round((Date.parse(endedAt) - Date.parse(event.started_at)) / 1000))
@@ -322,29 +456,29 @@ export function createApp({ db = createDatabase() } = {}) {
 
   app.patch("/api/events/:id", (request, response) => {
     const event = db.prepare("SELECT * FROM events WHERE id = ?").get(request.params.id)
-    if (!event) return response.status(404).json({ error: "Événement introuvable." })
+    if (!event) return sendApiError(response, 404, "event_not_found")
 
     const updates = Object.entries(request.body).filter(([key]) => EDITABLE_FIELDS.has(key))
     if (updates.some(([key, value]) => key === "type" && !EVENT_TYPES.has(value))) {
-      return response.status(400).json({ error: "Type d’événement invalide." })
+      return sendApiError(response, 400, "invalid_event_type")
     }
     const updatedType = request.body.type || event.type
     if (updatedType === "temperature" && request.body.value_real !== undefined) {
       const temperature = Number(request.body.value_real)
       if (!Number.isFinite(temperature) || temperature < 34 || temperature > 44) {
-        return response.status(400).json({ error: "La température doit être comprise entre 34 et 44 °C." })
+        return sendApiError(response, 400, "invalid_temperature")
       }
     }
     if (updatedType === "weight" && request.body.value_real !== undefined) {
       const weight = Number(request.body.value_real)
       if (!Number.isFinite(weight) || weight < 0.3 || weight > 30) {
-        return response.status(400).json({ error: "Le poids doit être compris entre 0,3 et 30 kg." })
+        return sendApiError(response, 400, "invalid_weight")
       }
     }
     if (updatedType === "height" && request.body.value_real !== undefined) {
       const height = Number(request.body.value_real)
       if (!Number.isFinite(height) || height < 20 || height > 200) {
-        return response.status(400).json({ error: "La taille doit être comprise entre 20 et 200 cm." })
+        return sendApiError(response, 400, "invalid_height")
       }
     }
     if (!updates.length) return response.json(parseEvent(event))
@@ -360,7 +494,7 @@ export function createApp({ db = createDatabase() } = {}) {
 
   app.delete("/api/events/:id", (request, response) => {
     const result = db.prepare("DELETE FROM events WHERE id = ?").run(request.params.id)
-    if (!result.changes) return response.status(404).json({ error: "Événement introuvable." })
+    if (!result.changes) return sendApiError(response, 404, "event_not_found")
     response.status(204).end()
   })
 
@@ -412,7 +546,7 @@ export function createApp({ db = createDatabase() } = {}) {
 
     const result = validate()
     if (result.incomplete) {
-      return response.status(409).json({ error: "Terminez la checklist avant de valider les soins." })
+      return sendApiError(response, 409, "incomplete_daily_care")
     }
     response.status(201).json(parseEvent(db.prepare("SELECT * FROM events WHERE id = ?").get(result.eventId)))
   })
@@ -420,7 +554,7 @@ export function createApp({ db = createDatabase() } = {}) {
   app.put("/api/routines/daily/:careType", (request, response) => {
     const { careType } = request.params
     if (!DAILY_CARE_TYPES.includes(careType)) {
-      return response.status(400).json({ error: "Soin quotidien invalide." })
+      return sendApiError(response, 400, "invalid_daily_care")
     }
     const date = request.body.date || localDate()
     const completed = request.body.completed ? 1 : 0
@@ -454,7 +588,7 @@ export function createApp({ db = createDatabase() } = {}) {
 
   app.get("/api/baths/:id", (request, response) => {
     const session = db.prepare("SELECT * FROM bath_sessions WHERE id = ?").get(request.params.id)
-    if (!session) return response.status(404).json({ error: "Session de bain introuvable." })
+    if (!session) return sendApiError(response, 404, "bath_session_not_found")
     const items = db.prepare("SELECT * FROM bath_checks WHERE bath_session_id = ? ORDER BY id").all(session.id)
     response.json({ ...session, items })
   })
@@ -465,36 +599,39 @@ export function createApp({ db = createDatabase() } = {}) {
       UPDATE bath_checks SET completed = ?, completed_at = ?
       WHERE id = ? AND bath_session_id = ?
     `).run(completed, completed ? nowIso() : null, request.params.itemId, request.params.bathId)
-    if (!result.changes) return response.status(404).json({ error: "Élément de bain introuvable." })
+    if (!result.changes) return sendApiError(response, 404, "bath_item_not_found")
     response.json(db.prepare("SELECT * FROM bath_checks WHERE id = ?").get(request.params.itemId))
   })
 
   app.get("/api/export/xlsx", async (request, response, next) => {
     try {
+      const locale = resolveExportLocale(request.query.locale)
+      const localeTag = EXPORT_LOCALE_TAGS[locale]
+      const exportMessages = EXPORT_MESSAGES[locale]
       const { where, params } = eventFilters(request.query)
       const rows = db.prepare(`SELECT * FROM events ${where} ORDER BY datetime(started_at) DESC`).all(params).map(parseEvent)
       const workbook = new ExcelJS.Workbook()
       workbook.creator = "BabyCare"
-      const sheet = workbook.addWorksheet("Historique", { views: [{ state: "frozen", ySplit: 1 }] })
+      const sheet = workbook.addWorksheet(exportMessages.sheetName, { views: [{ state: "frozen", ySplit: 1 }] })
       sheet.columns = [
-        { header: "Date", key: "date", width: 14 },
-        { header: "Heure début", key: "start", width: 14 },
-        { header: "Heure fin", key: "end", width: 14 },
-        { header: "Durée", key: "duration", width: 12 },
-        { header: "Type", key: "type", width: 20 },
-        { header: "Valeur", key: "value", width: 14 },
-        { header: "Détail", key: "detail", width: 20 },
-        { header: "Observation", key: "notes", width: 42 }
+        { header: exportMessages.columns.date, key: "date", width: 14 },
+        { header: exportMessages.columns.start, key: "start", width: 14 },
+        { header: exportMessages.columns.end, key: "end", width: 14 },
+        { header: exportMessages.columns.duration, key: "duration", width: 12 },
+        { header: exportMessages.columns.type, key: "type", width: 20 },
+        { header: exportMessages.columns.value, key: "value", width: 14 },
+        { header: exportMessages.columns.detail, key: "detail", width: 20 },
+        { header: exportMessages.columns.notes, key: "notes", width: 42 }
       ]
       rows.forEach((event) => {
         const start = new Date(event.started_at)
         const end = event.ended_at ? new Date(event.ended_at) : null
         sheet.addRow({
-          date: start.toLocaleDateString("fr-FR"),
-          start: start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-          end: end?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) || "",
+          date: start.toLocaleDateString(localeTag),
+          start: start.toLocaleTimeString(localeTag, { hour: "2-digit", minute: "2-digit" }),
+          end: end?.toLocaleTimeString(localeTag, { hour: "2-digit", minute: "2-digit" }) || "",
           duration: formatDuration(event.duration_seconds),
-          type: displayType(event.type),
+          type: displayType(event.type, locale),
           value: event.type === "temperature" && event.value_real != null
             ? `${event.value_real.toFixed(1)} °C`
             : event.type === "weight" && event.value_real != null
@@ -502,10 +639,7 @@ export function createApp({ db = createDatabase() } = {}) {
               : event.type === "height" && event.value_real != null
                 ? `${event.value_real.toFixed(1)} cm`
               : event.value_real ?? event.value_text ?? "",
-          detail: event.metadata?.diaper_type
-            || (Array.isArray(event.metadata?.locations) ? event.metadata.locations.join(", ") : "")
-            || event.metadata?.location
-            || "",
+          detail: displayDetail(event.metadata, locale),
           notes: event.notes || ""
         })
       })
@@ -537,7 +671,7 @@ export function createApp({ db = createDatabase() } = {}) {
 
   app.use((error, _request, response, _next) => {
     console.error(error)
-    response.status(500).json({ error: "Une erreur interne est survenue." })
+    sendApiError(response, 500, "internal_error")
   })
 
   return app

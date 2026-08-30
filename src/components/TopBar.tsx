@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { useClock } from "@/hooks/useClock"
 import { formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, formatShortDate, getAgeParts } from "@/lib/dates"
-import { getLocaleTag, interpolate, type LanguagePreference, useI18n } from "@/lib/i18n"
+import { getLocaleTag, interpolate, localizedErrorMessage, type LanguagePreference, useI18n } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AccentColor, type AppSettings, type BabySex } from "@/lib/types"
 
 interface TopBarProps {
@@ -139,7 +139,7 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
       setSettingsOpen(false)
       toast.success(t.settings.profileSaved)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.settings.profileSaveError)
+      toast.error(localizedErrorMessage(error, t, t.settings.profileSaveError))
     } finally {
       setSaving(false)
     }
@@ -152,7 +152,7 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
       setResetOpen(false)
       setResetting(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.settings.resetError)
+      toast.error(localizedErrorMessage(error, t, t.settings.resetError))
       setResetting(false)
     }
   }
@@ -337,7 +337,7 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
                         className="relative size-10 rounded-xl p-0"
                         aria-label={interpolate(t.settings.useAccent, { color: option.label })}
                         aria-pressed={settings.accent_color === option.id}
-                        onClick={() => onAccentChange(option.id).catch((error) => toast.error(error.message))}
+                        onClick={() => onAccentChange(option.id).catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}
                       >
                         <span className="size-6 rounded-full" style={{ backgroundColor: option.value }} />
                         {settings.accent_color === option.id ? <Check className="absolute size-3 text-white drop-shadow" /> : null}
@@ -352,7 +352,7 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
                   <p className="font-semibold">{t.settings.languageTitle}</p>
                   <p className="mb-3 text-xs text-muted-foreground">{t.settings.languageDescription}</p>
                   <label htmlFor="language-preference" className="mb-2 block text-sm font-medium">{t.settings.languageLabel}</label>
-                  <Select value={settings.language_preference} onValueChange={(value) => onLanguageChange(value as LanguagePreference).catch((error) => toast.error(error.message))}>
+                  <Select value={settings.language_preference} onValueChange={(value) => onLanguageChange(value as LanguagePreference).catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}>
                     <SelectTrigger id="language-preference" className="h-11 w-full">
                       <SelectValue />
                     </SelectTrigger>

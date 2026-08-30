@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { api } from "@/lib/api"
-import { useI18n } from "@/lib/i18n"
+import { localizedErrorMessage, useI18n } from "@/lib/i18n"
 import type { DailyCare } from "@/lib/types"
 
 interface CarePageProps {
@@ -33,7 +33,7 @@ export function CarePage({ care, onChanged }: CarePageProps) {
       toast.success(t.care.validated)
       await onChanged()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.care.validationImpossible)
+      toast.error(localizedErrorMessage(error, t, t.care.validationImpossible))
     } finally {
       setValidating(false)
     }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import ExcelJS from "exceljs"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
@@ -75,10 +76,19 @@ test("génère un export Excel filtrable", () => withServer(async (baseUrl) => {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ type: "diaper", metadata: { diaper_type: "mixed" } })
   })
-  const response = await fetch(`${baseUrl}/api/export/xlsx?type=diaper`)
+  const response = await fetch(`${baseUrl}/api/export/xlsx?type=diaper&locale=en`)
   assert.equal(response.status, 200)
   assert.match(response.headers.get("content-type"), /spreadsheetml/)
-  assert.ok((await response.arrayBuffer()).byteLength > 1000)
+  const workbookBuffer = Buffer.from(await response.arrayBuffer())
+  assert.ok(workbookBuffer.byteLength > 1000)
+
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(workbookBuffer)
+  const sheet = workbook.getWorksheet("Events")
+  assert.ok(sheet)
+  assert.deepEqual(sheet.getRow(1).values.slice(1, 9), ["Date", "Start time", "End time", "Duration", "Type", "Value", "Detail", "Observation"])
+  assert.equal(sheet.getRow(2).getCell(5).value, "Diaper")
+  assert.equal(sheet.getRow(2).getCell(7).value, "Mixed")
 }))
 
 test("gère le soin combiné, les irritations multiples et les observations", () => withServer(async (baseUrl) => {
@@ -210,6 +220,7 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
     body: JSON.stringify({ language: "de" })
   })
   assert.equal(invalidLanguage.status, 400)
+  assert.equal((await invalidLanguage.json()).code, "invalid_language_preference")
 }))
 
 test("réinitialise toute la base de données et restaure les paramètres par défaut", () => withServer(async (baseUrl) => {

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
-import { useI18n } from "@/lib/i18n"
+import { localizedErrorMessage, useI18n } from "@/lib/i18n"
 import { IRRITATION_LOCATIONS, normalizeIrritationLocation, type BabyEvent } from "@/lib/types"
 
 interface EventEditorProps {
@@ -163,7 +163,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <Button className="h-12" onClick={() => save().catch((error) => toast.error(error.message))}>{t.common.save}</Button>
+          <Button className="h-12" onClick={() => save().catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}>{t.common.save}</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

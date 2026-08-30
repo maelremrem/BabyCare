@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { api } from "@/lib/api"
 import { dayHeading, groupEventsByDay } from "@/lib/dates"
-import { useI18n } from "@/lib/i18n"
+import { localizedErrorMessage, useI18n } from "@/lib/i18n"
 import { EVENT_LABELS, type BabyEvent, type EventType } from "@/lib/types"
 
 interface HistoryPageProps {
@@ -65,11 +65,11 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
       setEvents(result.events)
       setTotal(result.total)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.history.unavailable)
+      toast.error(localizedErrorMessage(error, t, t.history.unavailable))
     } finally {
       setLoading(false)
     }
-  }, [params, t.history.unavailable])
+  }, [params, t])
 
   useEffect(() => {
     const timer = window.setTimeout(load, search ? 250 : 0)
@@ -79,6 +79,7 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
   const groups = groupEventsByDay(events)
   const exportParams = new URLSearchParams(params)
   exportParams.delete("limit")
+  exportParams.set("locale", locale)
 
   return (
     <div className="space-y-5">

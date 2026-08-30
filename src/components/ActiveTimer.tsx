@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { formatTimer } from "@/lib/dates"
-import { interpolate, useI18n } from "@/lib/i18n"
+import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
 import type { BabyEvent, EventType } from "@/lib/types"
 
 interface ActiveTimerProps {
@@ -49,11 +49,11 @@ export function ActiveTimer({ event, onChanged }: ActiveTimerProps) {
           <Textarea className="mt-4 min-h-20 bg-background/70" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t.activeTimer.addObservation} />
         </div>
         <div className="flex flex-col gap-3">
-          <Button className="h-14 min-w-44" onClick={() => stop().catch((error) => toast.error(error.message))}>
+          <Button className="h-14 min-w-44" onClick={() => stop().catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}>
             <CircleStop /> {t.activeTimer.stop}
           </Button>
           {(event.type === "breast_left" || event.type === "breast_right") && (
-            <Button variant="outline" className="h-12" onClick={() => switchBreast().catch((error) => toast.error(error.message))}>
+            <Button variant="outline" className="h-12" onClick={() => switchBreast().catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}>
               <ArrowLeftRight /> {t.activeTimer.switchBreast}
             </Button>
           )}

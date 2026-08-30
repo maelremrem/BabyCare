@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Toaster } from "@/components/ui/sonner"
 import { useEvents } from "@/hooks/useEvents"
 import { api } from "@/lib/api"
-import { I18nProvider, interpolate, messages, resolveLocale, type LanguagePreference } from "@/lib/i18n"
+import { I18nProvider, interpolate, localizedErrorMessage, messages, resolveLocale, type LanguagePreference } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AppSettings, type BabyEvent, type DailyCare, type StoolAlert } from "@/lib/types"
 import { CarePage } from "@/pages/CarePage"
 import { HistoryPage } from "@/pages/HistoryPage"
@@ -48,7 +48,10 @@ export default function App() {
         setSettings(settings)
         setStoolAlert(alert)
       })
-      .catch((error) => toast.error(error.message))
+      .catch((error) => {
+        const fallbackMessages = messages[resolveLocale("system")]
+        toast.error(localizedErrorMessage(error, fallbackMessages, fallbackMessages.common.appUnavailable))
+      })
       .finally(() => setBootstrapLoading(false))
   }, [])
 

@@ -251,6 +251,25 @@ const fr = {
     directEntryTitle: "Double-cliquer pour saisir la valeur",
     instructions: "Pas de {step} · maintenir +/− · double-clic pour saisir"
   },
+  apiErrors: {
+    invalid_accent_color: "Couleur d’accent invalide.",
+    invalid_language_preference: "Préférence de langue invalide.",
+    baby_name_too_long: "Le nom du bébé ne peut pas dépasser 80 caractères.",
+    invalid_birth_date: "La date de naissance est invalide ou située dans le futur.",
+    invalid_baby_sex: "Le sexe renseigné est invalide.",
+    invalid_event_type: "Type d’événement invalide.",
+    invalid_temperature: "La température doit être comprise entre 34 et 44 °C.",
+    invalid_weight: "Le poids doit être compris entre 0,3 et 30 kg.",
+    invalid_height: "La taille doit être comprise entre 20 et 200 cm.",
+    not_timer_event: "Cette action ne peut pas être chronométrée.",
+    event_not_found: "Événement introuvable.",
+    timer_already_completed: "Ce chrono est déjà terminé.",
+    incomplete_daily_care: "Terminez la checklist avant de valider les soins.",
+    invalid_daily_care: "Soin quotidien invalide.",
+    bath_session_not_found: "Session de bain introuvable.",
+    bath_item_not_found: "Élément de bain introuvable.",
+    internal_error: "Une erreur interne est survenue."
+  },
   dates: {
     yearSingular: "an",
     yearPlural: "ans",
@@ -512,6 +531,25 @@ const en: Messages = {
     directEntryTitle: "Double-click to enter the value",
     instructions: "{step} step · hold +/− · double-click to type"
   },
+  apiErrors: {
+    invalid_accent_color: "Invalid accent color.",
+    invalid_language_preference: "Invalid language preference.",
+    baby_name_too_long: "The baby name cannot exceed 80 characters.",
+    invalid_birth_date: "The birth date is invalid or in the future.",
+    invalid_baby_sex: "The selected sex is invalid.",
+    invalid_event_type: "Invalid event type.",
+    invalid_temperature: "Temperature must be between 34 and 44 °C.",
+    invalid_weight: "Weight must be between 0.3 and 30 kg.",
+    invalid_height: "Height must be between 20 and 200 cm.",
+    not_timer_event: "This action cannot be timed.",
+    event_not_found: "Event not found.",
+    timer_already_completed: "This timer is already finished.",
+    incomplete_daily_care: "Finish the checklist before validating care.",
+    invalid_daily_care: "Invalid daily care item.",
+    bath_session_not_found: "Bath session not found.",
+    bath_item_not_found: "Bath item not found.",
+    internal_error: "An internal error occurred."
+  },
   dates: {
     yearSingular: "year",
     yearPlural: "years",
@@ -567,6 +605,13 @@ export function interpolate(template: string, values: Record<string, string | nu
     (message, [key, value]) => message.replaceAll(`{${key}}`, String(value)),
     template
   )
+}
+
+export function localizedErrorMessage(error: unknown, t: Messages, fallback: string) {
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") {
+    return t.apiErrors[error.code as keyof typeof t.apiErrors] || fallback
+  }
+  return error instanceof Error ? error.message : fallback
 }
 
 export function I18nProvider({ preference, children }: { preference: LanguagePreference, children: ReactNode }) {

@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea"
 import { TemperaturePicker } from "@/components/TemperaturePicker"
 import { api } from "@/lib/api"
-import { interpolate, useI18n } from "@/lib/i18n"
+import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
 import { IRRITATION_LOCATIONS, type EventType } from "@/lib/types"
 
 interface ActionGridProps {
@@ -45,7 +45,7 @@ export function ActionGrid({ onChanged, onOpenCare }: ActionGridProps) {
       await onChanged()
       scrollToActiveTimer()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.common.actionImpossible)
+      toast.error(localizedErrorMessage(error, t, t.common.actionImpossible))
     }
   }
 
@@ -55,7 +55,7 @@ export function ActionGrid({ onChanged, onOpenCare }: ActionGridProps) {
       toast.success(interpolate(t.actions.recorded, { label }))
       await onChanged()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.common.actionImpossible)
+      toast.error(localizedErrorMessage(error, t, t.common.actionImpossible))
     }
   }
 
