@@ -1,3 +1,4 @@
+import { Coffee } from "lucide-react"
 import packageJson from "../../package.json"
 import { useI18n } from "@/lib/i18n"
 
@@ -12,8 +13,9 @@ export function AppFooter() {
             href="https://ko-fi.com/maelremrem"
             target="_blank"
             rel="noreferrer"
-            className="transition-colors hover:text-primary focus-visible:text-primary"
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-primary focus-visible:text-primary"
           >
+            <Coffee className="size-3.5" aria-hidden="true" />
             {t.footer.support}
           </a>
           <a

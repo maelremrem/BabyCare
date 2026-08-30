@@ -31,7 +31,7 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - aperçu graphique de l’évolution récente de la température avec repère de la zone idéale de 36,5 à 37,5 °C ;
 - suivi médical avec courbes du poids et de la taille ;
 - zones de référence OMS du poids et de la taille, adaptées au sexe et à l’âge, dans une plage commune ajustable de la naissance à 5 ans (3 mois par défaut) ;
-- saisie tactile des mesures par pas de 50 g et 0,1 cm, avec accélération au maintien et saisie clavier au double-clic ;
+- saisie tactile des mesures par pas de 10 g et 0,1 cm, avec accélération au maintien et saisie clavier au double-clic ;
 - historique médical modifiable ;
 - passage rapide d’un sein à l’autre ;
 - sélecteur tactile de température limité de 34 à 44 °C, avec saisie clavier au double-clic ;

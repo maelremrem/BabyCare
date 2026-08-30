@@ -13,13 +13,15 @@ import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
 import { IRRITATION_LOCATIONS, type EventType } from "@/lib/types"
 
 interface ActionGridProps {
+  nextBreast: "breast_left" | "breast_right"
   onChanged: () => Promise<void>
   onOpenCare: () => void
 }
 
 const actionClass = "h-24 flex-col gap-2 rounded-2xl border-border bg-card text-sm font-semibold tracking-wide shadow-none active:scale-[.97] sm:h-28"
+const activeBreastClass = "border-primary/50 text-primary"
 
-export function ActionGrid({ onChanged, onOpenCare }: ActionGridProps) {
+export function ActionGrid({ nextBreast, onChanged, onOpenCare }: ActionGridProps) {
   const { t } = useI18n()
   const [temperatureOpen, setTemperatureOpen] = useState(false)
   const [irritationOpen, setIrritationOpen] = useState(false)
@@ -63,7 +65,7 @@ export function ActionGrid({ onChanged, onOpenCare }: ActionGridProps) {
     <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Button variant="outline" className={actionClass} onClick={() => setTemperatureOpen(true)}>
-          <Thermometer className="size-6 text-primary" /> {t.eventLabels.temperature}
+          <Thermometer className="size-6" /> {t.eventLabels.temperature}
         </Button>
 
         <Popover open={diaperOpen} onOpenChange={setDiaperOpen}>
@@ -85,10 +87,10 @@ export function ActionGrid({ onChanged, onOpenCare }: ActionGridProps) {
         <Button variant="outline" className={actionClass} onClick={onOpenCare}>
           <Bath className="size-6" /> {t.eventLabels.bath}
         </Button>
-        <Button variant="outline" className={actionClass} onClick={() => start("breast_left", t.eventLabels.breast_left)}>
+        <Button variant="outline" className={`${actionClass} ${nextBreast === "breast_left" ? activeBreastClass : ""}`} onClick={() => start("breast_left", t.eventLabels.breast_left)}>
           <Milk className="size-6" /> {t.actions.leftBreast}
         </Button>
-        <Button variant="outline" className={actionClass} onClick={() => start("breast_right", t.eventLabels.breast_right)}>
+        <Button variant="outline" className={`${actionClass} ${nextBreast === "breast_right" ? activeBreastClass : ""}`} onClick={() => start("breast_right", t.eventLabels.breast_right)}>
           <Milk className="size-6" /> {t.actions.rightBreast}
         </Button>
 
@@ -117,7 +119,7 @@ export function ActionGrid({ onChanged, onOpenCare }: ActionGridProps) {
       <Dialog open={temperatureOpen} onOpenChange={setTemperatureOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Thermometer className="text-primary" /> {t.eventLabels.temperature}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><Thermometer /> {t.eventLabels.temperature}</DialogTitle>
             <DialogDescription>{t.actions.temperatureDescription}</DialogDescription>
           </DialogHeader>
           <TemperaturePicker value={temperature} onChange={setTemperature} />

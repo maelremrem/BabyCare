@@ -18,6 +18,13 @@ const temperatureEvent: BabyEvent = {
   updated_at: "2026-08-29T18:00:00.000Z"
 }
 
+const leftBreastEvent: BabyEvent = {
+  ...temperatureEvent,
+  id: 2,
+  type: "breast_left",
+  duration_seconds: 420
+}
+
 const overdueAlert: StoolAlert = {
   overdue: true,
   last_stool_at: "2026-08-27T17:00:00.000Z",
@@ -62,5 +69,23 @@ describe("TrackingPage", () => {
   test("masque l’alerte lorsque le transit est à jour", () => {
     renderTracking({ ...overdueAlert, overdue: false, hours_since: 2 })
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  test("accentue le sein à utiliser après la dernière tétée", () => {
+    render(
+      <TrackingPage
+        events={[leftBreastEvent, temperatureEvent]}
+        running={[]}
+        loading={false}
+        stoolAlert={{ ...overdueAlert, overdue: false }}
+        onChanged={vi.fn(async () => undefined)}
+        onEdit={vi.fn()}
+        onOpenCare={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole("button", { name: "Température" })).not.toHaveClass("text-primary")
+    expect(screen.getByRole("button", { name: "Sein Gauche" })).not.toHaveClass("text-primary")
+    expect(screen.getByRole("button", { name: "Sein Droit" })).toHaveClass("text-primary")
   })
 })
