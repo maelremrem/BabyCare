@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: BabyCare
+message: If BabyCare is useful to you, please cite this repository.
+type: software
+authors:
+  - family-names: Remérand
+    given-names: Maël
+repository-code: https://github.com/maelremrem/BabyCare
+url: https://maelremrem.github.io/BabyCare/
+license: AGPL-3.0-only
+version: 0.1.0
+date-released: 2026-08-30

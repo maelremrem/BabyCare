@@ -7,7 +7,9 @@ export function AppFooter() {
   return (
     <footer className="border-t border-border/70 bg-card/30">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-muted-foreground sm:flex-row sm:px-6">
-        <p><span className="font-semibold text-foreground">BabyCare</span> · {t.footer.version} {packageJson.version}</p>
+        <p className="text-center sm:text-left">
+          <span className="font-semibold text-foreground">BabyCare © Maël Remérand</span> — Licensed under GNU AGPL v3 · {t.footer.version} {packageJson.version}
+        </p>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
           <a
             href="https://ko-fi.com/maelremrem"

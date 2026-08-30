@@ -270,7 +270,9 @@ BabyCare is under active development. The interface and main MVP flows are usabl
 
 ## License
 
-No license is defined yet. Until a `LICENSE` file is added, the code remains under the copyright of its owner and reuse is not implicitly granted.
+BabyCare is copyright © 2026 Maël Remérand and is licensed under the GNU Affero General Public License v3.0, **AGPL-3.0-only**. See [`LICENSE`](./LICENSE) for the license text.
+
+The BabyCare name and logo are reserved; see [`TRADEMARKS.md`](./TRADEMARKS.md). Contributions are encouraged through pull requests to the official repository; see [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ---
 
@@ -547,4 +549,6 @@ BabyCare est en développement actif. L’interface et les principaux parcours d
 
 ## Licence
 
-Aucune licence n’est encore définie. Tant qu’un fichier `LICENSE` n’est pas ajouté, le code reste soumis au droit d’auteur de son propriétaire et sa réutilisation n’est pas implicitement autorisée.
+BabyCare est copyright © 2026 Maël Remérand et est distribué sous licence GNU Affero General Public License v3.0, **AGPL-3.0-only**. Consultez [`LICENSE`](./LICENSE) pour le texte de la licence.
+
+Le nom et le logo BabyCare sont réservés ; consultez [`TRADEMARKS.md`](./TRADEMARKS.md). Les contributions sont encouragées sous forme de pull requests vers le dépôt officiel ; consultez [`CONTRIBUTING.md`](./CONTRIBUTING.md).
