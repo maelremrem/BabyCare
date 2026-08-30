@@ -34,7 +34,7 @@ describe("HistoryPage", () => {
       event({ id: 5, type: "diaper", started_at: "2026-08-01T08:00:00.000Z", metadata: { diaper_type: "stool" } }),
       event({ id: 6, type: "diaper", started_at: "2026-08-02T08:00:00.000Z", metadata: { diaper_type: "mixed" } })
     ]
-    vi.spyOn(api, "events").mockImplementation(async (params) => params.get("limit") === "250"
+    vi.spyOn(api, "events").mockImplementation(async (params = new URLSearchParams()) => params.get("limit") === "250"
       ? { events: monthlyEvents, total: monthlyEvents.length, limit: 250, offset: 0 }
       : { events: [], total: 0, limit: 100, offset: 0 })
 

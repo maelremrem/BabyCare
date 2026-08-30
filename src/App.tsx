@@ -4,11 +4,12 @@ import { toast } from "sonner"
 import { EventEditor } from "@/components/EventEditor"
 import { AppFooter } from "@/components/AppFooter"
 import { AppLoading } from "@/components/AppLoading"
+import { DemoNoticeDialog } from "@/components/DemoNoticeDialog"
 import { TopBar } from "@/components/TopBar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Toaster } from "@/components/ui/sonner"
 import { useEvents } from "@/hooks/useEvents"
-import { api, subscribeToServerChanges } from "@/lib/api"
+import { api, isDemoMode, subscribeToServerChanges } from "@/lib/api"
 import { I18nProvider, localizedErrorMessage, messages, resolveLocale, type LanguagePreference } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AppSettings, type BabyEvent, type DailyCare, type StoolAlert } from "@/lib/types"
 import { CarePage } from "@/pages/CarePage"
@@ -144,6 +145,7 @@ export default function App() {
         </Tabs>
         <AppFooter />
         <EventEditor event={editing} onOpenChange={(open) => !open && setEditing(null)} onChanged={refreshAll} />
+        <DemoNoticeDialog enabled={isDemoMode} />
         <Toaster position="bottom-center" richColors />
       </div>
     </I18nProvider>
