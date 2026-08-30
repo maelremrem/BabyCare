@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
-import { EVENT_LABELS, IRRITATION_LOCATIONS, type BabyEvent } from "@/lib/types"
+import { useI18n } from "@/lib/i18n"
+import { IRRITATION_LOCATIONS, normalizeIrritationLocation, type BabyEvent } from "@/lib/types"
 
 interface EventEditorProps {
   event: BabyEvent | null
@@ -22,6 +23,7 @@ const toLocalInput = (value: string) => {
 }
 
 export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps) {
+  const { t } = useI18n()
   const [notes, setNotes] = useState("")
   const [startedAt, setStartedAt] = useState("")
   const [value, setValue] = useState("")
@@ -42,9 +44,9 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
     const legacyLocation = event.metadata?.location
     setIrritationLocations(
       Array.isArray(storedLocations)
-        ? storedLocations
+        ? storedLocations.map(normalizeIrritationLocation)
         : typeof legacyLocation === "string"
-          ? [legacyLocation]
+          ? [normalizeIrritationLocation(legacyLocation)]
           : []
     )
   }, [event])
@@ -65,7 +67,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
       value_text: !isNumericMeasurement && event.value_text != null ? value : event.value_text,
       metadata
     })
-    toast.success("Événement mis à jour")
+    toast.success(t.eventEditor.updated)
     onOpenChange(false)
     await onChanged()
   }
@@ -74,37 +76,37 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
     <Sheet open={Boolean(event)} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col sm:max-w-lg">
         <SheetHeader className="px-6 pt-6">
-          <SheetTitle>{EVENT_LABELS[event.type]}</SheetTitle>
-          <SheetDescription>Modifiez les informations enregistrées.</SheetDescription>
+          <SheetTitle>{t.eventLabels[event.type]}</SheetTitle>
+          <SheetDescription>{t.eventEditor.description}</SheetDescription>
         </SheetHeader>
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
           <label className="grid gap-2 text-sm font-medium">
-            Date et heure
+            {t.eventEditor.dateTime}
             <Input type="datetime-local" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} />
           </label>
           {event.type === "temperature" && (
             <label className="grid gap-2 text-sm font-medium">
-              Température (°C)
+              {t.eventEditor.temperature}
               <Input type="number" min="34" max="44" step="0.1" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
           )}
           {event.type === "weight" && (
             <label className="grid gap-2 text-sm font-medium">
-              Poids (kg)
+              {t.eventEditor.weight}
               <Input type="number" min="0.3" max="30" step="0.05" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
           )}
           {event.type === "height" && (
             <label className="grid gap-2 text-sm font-medium">
-              Taille (cm)
+              {t.eventEditor.height}
               <Input type="number" min="20" max="200" step="0.1" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
           )}
           {event.type === "diaper" && (
             <div className="grid gap-2 text-sm font-medium">
-              Type de couche
+              {t.eventEditor.diaperType}
               <div className="grid grid-cols-3 gap-2">
-                {[["Urine", "urine"], ["Selles", "stool"], ["Mixte", "mixed"]].map(([label, option]) => (
+                {Object.entries(t.diaperTypes).map(([option, label]) => (
                   <Button key={option} type="button" variant={detail === option ? "default" : "outline"} onClick={() => setDetail(option)}>
                     {label}
                   </Button>
@@ -114,10 +116,9 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
           )}
           {event.type === "irritation" && (
             <div className="grid gap-2 text-sm font-medium">
-              Zones
+              {t.eventEditor.locations}
               <div className="grid grid-cols-2 gap-2">
-                {IRRITATION_LOCATIONS.map((label) => {
-                  const location = label.toLowerCase()
+                {IRRITATION_LOCATIONS.map((location) => {
                   const selected = irritationLocations.includes(location)
                   return (
                     <Button
@@ -129,7 +130,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
                         ? current.filter((item) => item !== location)
                         : [...current, location])}
                     >
-                      {label}
+                      {t.irritationLocations[location]}
                     </Button>
                   )
                 })}
@@ -137,32 +138,32 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
             </div>
           )}
           <label className="grid gap-2 text-sm font-medium">
-            Observation
-            <Textarea className="min-h-28" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observation" />
+            {t.common.observation}
+            <Textarea className="min-h-28" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t.common.observation} />
           </label>
         </div>
         <SheetFooter className="grid grid-cols-2 gap-3 px-6 pb-6">
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="h-12"><Trash2 /> Supprimer</Button>
+              <Button variant="destructive" className="h-12"><Trash2 /> {t.common.delete}</Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Supprimer cet événement ?</AlertDialogTitle>
-                <AlertDialogDescription>Cette action est définitive et retirera l’entrée de l’historique.</AlertDialogDescription>
+                <AlertDialogTitle>{t.eventEditor.deleteTitle}</AlertDialogTitle>
+                <AlertDialogDescription>{t.eventEditor.deleteDescription}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
                 <AlertDialogAction variant="destructive" onClick={async () => {
                   await api.deleteEvent(event.id)
-                  toast.success("Événement supprimé")
+                  toast.success(t.eventEditor.deleted)
                   onOpenChange(false)
                   await onChanged()
-                }}>Supprimer</AlertDialogAction>
+                }}>{t.common.delete}</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <Button className="h-12" onClick={() => save().catch((error) => toast.error(error.message))}>Enregistrer</Button>
+          <Button className="h-12" onClick={() => save().catch((error) => toast.error(error.message))}>{t.common.save}</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

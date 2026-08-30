@@ -54,7 +54,7 @@
     "globals": "latest",
     "jsdom": "^30.0.1",
     "tailwindcss": "latest",
-    "typescript": "latest",
+    "typescript": "^6.0.3",
     "typescript-eslint": "latest",
     "vite": "latest",
     "vite-plugin-pwa": "latest",

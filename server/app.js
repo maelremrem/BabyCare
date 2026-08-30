@@ -26,6 +26,7 @@ const EVENT_TYPES = new Set([
 const TIMER_TYPES = new Set(["breast_left", "breast_right", "face_care", "cord_care", "face_cord_care"])
 const ACCENT_COLORS = new Set(["orange", "blue", "green", "pink", "purple"])
 const BABY_SEXES = new Set(["", "girl", "boy"])
+const LANGUAGE_PREFERENCES = new Set(["system", "fr", "en"])
 const DAILY_CARE_TYPES = ["eyes", "nose", "cord", "face"]
 const BATH_ITEMS = ["Serviette préparée", "Température vérifiée", "Sécher les plis"]
 const EDITABLE_FIELDS = new Set([
@@ -64,7 +65,8 @@ function readSettings(db) {
     accent_color: ACCENT_COLORS.has(values.accent_color) ? values.accent_color : "orange",
     baby_name: values.baby_name || "",
     birth_date: values.birth_date || "",
-    baby_sex: BABY_SEXES.has(values.baby_sex) ? values.baby_sex : ""
+    baby_sex: BABY_SEXES.has(values.baby_sex) ? values.baby_sex : "",
+    language_preference: LANGUAGE_PREFERENCES.has(values.language_preference) ? values.language_preference : "system"
   }
 }
 
@@ -161,6 +163,15 @@ export function createApp({ db = createDatabase() } = {}) {
     response.json(readSettings(db))
   })
 
+  app.put("/api/settings/language", (request, response) => {
+    const { language } = request.body
+    if (!LANGUAGE_PREFERENCES.has(language)) {
+      return response.status(400).json({ error: "Préférence de langue invalide." })
+    }
+    saveSetting(db, "language_preference", language)
+    response.json(readSettings(db))
+  })
+
   app.put("/api/settings/profile", (request, response) => {
     const { baby_name: babyName, birth_date: birthDate, baby_sex: babySex } = request.body
     if (typeof babyName !== "string" || babyName.trim().length > 80) {
@@ -195,6 +206,7 @@ export function createApp({ db = createDatabase() } = {}) {
       saveSetting(db, "baby_name", "")
       saveSetting(db, "birth_date", "")
       saveSetting(db, "baby_sex", "")
+      saveSetting(db, "language_preference", "system")
     })
     reset()
     response.status(204).end()

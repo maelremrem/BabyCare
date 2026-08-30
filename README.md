@@ -42,6 +42,7 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - historique filtrable et recherchable ;
 - modification et suppression des événements ;
 - export de l’historique au format Excel ;
+- interface disponible en français et en anglais, avec langue automatique du navigateur ou choix forcé dans les paramètres ;
 - interface responsive et installable comme PWA ;
 - stockage permanent des événements dans SQLite ;
 - remise à zéro complète et confirmée de la base depuis les paramètres.
@@ -282,6 +283,17 @@ npm run check
 6. décrire clairement le besoin, la solution et la méthode de test dans la pull request.
 
 Pour toute modification de la base ou de l’API, préserver la compatibilité avec les bases existantes et ajouter un test dans `server/app.test.js`. Ne versionnez jamais une base réelle, un export Excel contenant des données privées ou un fichier de configuration comportant des secrets.
+
+### Proposer une traduction
+
+Les traductions de l’interface sont centralisées dans `src/lib/i18n.tsx`. Pour proposer une nouvelle langue :
+
+1. créer une branche depuis `main`, par exemple `git switch -c translation/enrich-english` ou `git switch -c translation/add-es` ;
+2. ajouter ou compléter les libellés dans `src/lib/i18n.tsx` en conservant exactement la même structure de clés ;
+3. si une nouvelle langue est ajoutée, l’inscrire aussi dans `SUPPORTED_LOCALES`, `localeTags`, les options de langue et le type `AppSettings` ;
+4. vérifier l’interface dans les paramètres, les actions rapides, l’historique et le suivi médical ;
+5. lancer `npm run check` ;
+6. ouvrir une pull request vers `main` en indiquant la langue concernée, les écrans vérifiés et les éventuels choix de formulation.
 
 ## État du projet
 

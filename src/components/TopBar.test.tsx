@@ -9,8 +9,9 @@ describe("TopBar", () => {
     const onProfileChange = vi.fn(async () => undefined)
     render(
       <TopBar
-        settings={{ accent_color: "orange", baby_name: "Lou", birth_date: "2026-01-01", baby_sex: "" }}
+        settings={{ accent_color: "orange", baby_name: "Lou", birth_date: "2026-01-01", baby_sex: "", language_preference: "system" }}
         onAccentChange={vi.fn(async () => undefined)}
+        onLanguageChange={vi.fn(async () => undefined)}
         onProfileChange={onProfileChange}
         onReset={vi.fn(async () => undefined)}
       />
@@ -39,8 +40,9 @@ describe("TopBar", () => {
     const onReset = vi.fn(async () => undefined)
     render(
       <TopBar
-        settings={{ accent_color: "orange", baby_name: "Lou", birth_date: "2026-01-01", baby_sex: "girl" }}
+        settings={{ accent_color: "orange", baby_name: "Lou", birth_date: "2026-01-01", baby_sex: "girl", language_preference: "system" }}
         onAccentChange={vi.fn(async () => undefined)}
+        onLanguageChange={vi.fn(async () => undefined)}
         onProfileChange={vi.fn(async () => undefined)}
         onReset={onReset}
       />

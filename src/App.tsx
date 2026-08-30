@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Toaster } from "@/components/ui/sonner"
 import { useEvents } from "@/hooks/useEvents"
 import { api } from "@/lib/api"
+import { I18nProvider, interpolate, messages, resolveLocale, type LanguagePreference } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AppSettings, type BabyEvent, type DailyCare, type StoolAlert } from "@/lib/types"
 import { CarePage } from "@/pages/CarePage"
 import { HistoryPage } from "@/pages/HistoryPage"
@@ -19,7 +20,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   accent_color: "orange",
   baby_name: "",
   birth_date: "",
-  baby_sex: ""
+  baby_sex: "",
+  language_preference: "system"
 }
 
 export default function App() {
@@ -58,58 +60,68 @@ export default function App() {
     root.style.setProperty("--sidebar-primary", accent.value)
   }, [settings.accent_color])
 
+  const locale = resolveLocale(settings.language_preference)
+  const t = messages[locale]
+
   if (bootstrapLoading || loading) return <AppLoading accentColor={settings.accent_color} />
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <TopBar
-        settings={settings}
-        onAccentChange={async (color) => {
-          const updatedSettings = await api.updateAccent(color)
-          setSettings(updatedSettings)
-          toast.success(`Couleur ${ACCENT_OPTIONS.find((option) => option.id === color)?.label.toLowerCase()} appliquée`)
-        }}
-        onProfileChange={async (babyName, birthDate, babySex) => {
-          setSettings(await api.updateProfile(babyName, birthDate, babySex))
-        }}
-        onReset={async () => {
-          await api.resetDatabase()
-          window.location.reload()
-        }}
-      />
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-14 sm:px-6">
-        <div className="sticky top-[73px] z-30 -mx-4 bg-background/95 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
-          <TabsList className="grid h-14 w-full grid-cols-4 rounded-2xl bg-card p-1.5">
-            <TabsTrigger value="tracking" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><LayoutDashboard className="hidden sm:block" /> <span>Suivi</span></TabsTrigger>
-            <TabsTrigger value="care" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><ClipboardCheck className="hidden sm:block" /> <span>Soins</span></TabsTrigger>
-            <TabsTrigger value="medical" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><Stethoscope className="hidden sm:block" /> <span>Suivi médical</span></TabsTrigger>
-            <TabsTrigger value="history" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><History className="hidden sm:block" /> <span>Historique</span></TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value="tracking" className="mt-5">
-          <TrackingPage
-            events={events}
-            running={running}
-            loading={loading}
-            stoolAlert={stoolAlert}
-            onChanged={refreshAll}
-            onEdit={setEditing}
-            onOpenCare={() => setActiveTab("care")}
-          />
-        </TabsContent>
-        <TabsContent value="care" className="mt-5">
-          <CarePage care={care} onChanged={refreshAll} />
-        </TabsContent>
-        <TabsContent value="medical" className="mt-5">
-          <MedicalPage settings={settings} refreshKey={refreshKey} onChanged={refreshAll} onEdit={setEditing} />
-        </TabsContent>
-        <TabsContent value="history" className="mt-5">
-          <HistoryPage refreshKey={refreshKey} onEdit={setEditing} />
-        </TabsContent>
-      </Tabs>
-      <AppFooter />
-      <EventEditor event={editing} onOpenChange={(open) => !open && setEditing(null)} onChanged={refreshAll} />
-      <Toaster position="bottom-center" richColors />
-    </div>
+    <I18nProvider preference={settings.language_preference}>
+      <div className="flex min-h-dvh flex-col bg-background text-foreground">
+        <TopBar
+          settings={settings}
+          onAccentChange={async (color) => {
+            const updatedSettings = await api.updateAccent(color)
+            setSettings(updatedSettings)
+            const accentLabel = ACCENT_OPTIONS.find((option) => option.id === color)?.label.toLowerCase() || color
+            toast.success(interpolate(t.settings.accentApplied, { color: accentLabel }))
+          }}
+          onLanguageChange={async (language: LanguagePreference) => {
+            setSettings(await api.updateLanguage(language))
+            toast.success(t.settings.languageUpdated)
+          }}
+          onProfileChange={async (babyName, birthDate, babySex) => {
+            setSettings(await api.updateProfile(babyName, birthDate, babySex))
+          }}
+          onReset={async () => {
+            await api.resetDatabase()
+            window.location.reload()
+          }}
+        />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-14 sm:px-6">
+          <div className="sticky top-[73px] z-30 -mx-4 bg-background/95 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
+            <TabsList className="grid h-14 w-full grid-cols-4 rounded-2xl bg-card p-1.5">
+              <TabsTrigger value="tracking" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><LayoutDashboard className="hidden sm:block" /> <span>{t.tabs.tracking}</span></TabsTrigger>
+              <TabsTrigger value="care" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><ClipboardCheck className="hidden sm:block" /> <span>{t.tabs.care}</span></TabsTrigger>
+              <TabsTrigger value="medical" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><Stethoscope className="hidden sm:block" /> <span>{t.tabs.medical}</span></TabsTrigger>
+              <TabsTrigger value="history" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><History className="hidden sm:block" /> <span>{t.tabs.history}</span></TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="tracking" className="mt-5">
+            <TrackingPage
+              events={events}
+              running={running}
+              loading={loading}
+              stoolAlert={stoolAlert}
+              onChanged={refreshAll}
+              onEdit={setEditing}
+              onOpenCare={() => setActiveTab("care")}
+            />
+          </TabsContent>
+          <TabsContent value="care" className="mt-5">
+            <CarePage care={care} onChanged={refreshAll} />
+          </TabsContent>
+          <TabsContent value="medical" className="mt-5">
+            <MedicalPage settings={settings} refreshKey={refreshKey} onChanged={refreshAll} onEdit={setEditing} />
+          </TabsContent>
+          <TabsContent value="history" className="mt-5">
+            <HistoryPage refreshKey={refreshKey} onEdit={setEditing} />
+          </TabsContent>
+        </Tabs>
+        <AppFooter />
+        <EventEditor event={editing} onOpenChange={(open) => !open && setEditing(null)} onChanged={refreshAll} />
+        <Toaster position="bottom-center" richColors />
+      </div>
+    </I18nProvider>
   )
 }

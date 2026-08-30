@@ -1,3 +1,5 @@
+import { interpolate, useI18n } from "@/lib/i18n"
+
 const IDEAL_MIN = 36.5
 const IDEAL_MAX = 37.5
 
@@ -6,6 +8,7 @@ interface TemperatureSparklineProps {
 }
 
 export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
+  const { locale, t } = useI18n()
   if (values.length === 0) return null
 
   const width = 210
@@ -26,7 +29,10 @@ export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
   })
   const idealTop = yFor(IDEAL_MAX)
   const idealBottom = yFor(IDEAL_MIN)
-  const measurementLabel = `${values.length} mesure${values.length > 1 ? "s" : ""}`
+  const plural = values.length === 1 ? "" : "s"
+  const formatTemperature = (temperature: number) => locale === "fr"
+    ? temperature.toFixed(1).replace(".", ",")
+    : temperature.toFixed(1)
 
   return (
     <div className="min-w-0">
@@ -34,9 +40,9 @@ export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
         className="h-14 w-36 overflow-visible"
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={`Évolution sur ${measurementLabel}. Zone idéale de 36,5 à 37,5 °C.`}
+        aria-label={interpolate(t.temperatureSparkline.aria, { count: values.length, plural })}
       >
-        <title>Évolution de la température avec zone idéale de 36,5 à 37,5 °C</title>
+        <title>{t.temperatureSparkline.title}</title>
         <rect
           data-testid="ideal-temperature-zone"
           x={padding}
@@ -52,7 +58,7 @@ export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
             <g key={temperature}>
               <line x1={padding} y1={y} x2={chartRight} y2={y} className="stroke-emerald-500/45" strokeDasharray="3 3" />
               <text x={width - 1} y={y + 3} textAnchor="end" className="fill-emerald-600 text-[9px] dark:fill-emerald-400">
-                {temperature.toFixed(1).replace(".", ",")}°
+                {formatTemperature(temperature)}°
               </text>
             </g>
           )
@@ -75,7 +81,7 @@ export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
       </svg>
       <p className="mt-1 flex items-center justify-end gap-1 text-[9px] leading-none text-muted-foreground">
         <span className="size-2 rounded-sm bg-emerald-500/25" aria-hidden="true" />
-        Zone idéale 36,5–37,5 °C
+        {t.temperatureSparkline.legend}
       </p>
     </div>
   )

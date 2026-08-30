@@ -19,7 +19,24 @@ export const EVENT_LABELS = {
 
 export type EventType = keyof typeof EVENT_LABELS
 
-export const IRRITATION_LOCATIONS = ["Visage", "Cou", "Torse", "Dos", "Bras", "Jambes", "Fesses", "Autre"] as const
+export const IRRITATION_LOCATIONS = ["face", "neck", "chest", "back", "arms", "legs", "bottom", "other"] as const
+export type IrritationLocation = typeof IRRITATION_LOCATIONS[number]
+
+const LEGACY_IRRITATION_LOCATIONS: Record<string, IrritationLocation> = {
+  visage: "face",
+  cou: "neck",
+  torse: "chest",
+  dos: "back",
+  bras: "arms",
+  jambes: "legs",
+  fesses: "bottom",
+  autre: "other"
+}
+
+export function normalizeIrritationLocation(value: string) {
+  if ((IRRITATION_LOCATIONS as readonly string[]).includes(value)) return value as IrritationLocation
+  return LEGACY_IRRITATION_LOCATIONS[value] || value
+}
 
 export const ACCENT_OPTIONS = [
   { id: "orange", label: "Orange", value: "#FD6D01" },
@@ -37,6 +54,7 @@ export interface AppSettings {
   baby_name: string
   birth_date: string
   baby_sex: BabySex
+  language_preference: "system" | "fr" | "en"
 }
 
 export interface BabyEvent {

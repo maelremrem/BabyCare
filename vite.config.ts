@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { VitePWA } from "vite-plugin-pwa"
 
+const apiPort = Number(process.env.API_PORT || process.env.PORT) || 3000
+
 export default defineConfig({
   plugins: [
     react(),
@@ -27,6 +29,6 @@ export default defineConfig({
   server: {
     host: true,
     strictPort: true,
-    proxy: { "/api": "http://localhost:3000" }
+    proxy: { "/api": `http://localhost:${apiPort}` }
   }
 })

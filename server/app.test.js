@@ -164,6 +164,7 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
   assert.equal(initial.baby_name, "")
   assert.equal(initial.birth_date, "")
   assert.equal(initial.baby_sex, "")
+  assert.equal(initial.language_preference, "system")
 
   const saved = await fetch(`${baseUrl}/api/settings/profile`, {
     method: "PUT",
@@ -195,6 +196,20 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
   }).then((response) => response.json())
   assert.equal(color.accent_color, "green")
   assert.equal(color.baby_name, "Lou")
+
+  const language = await fetch(`${baseUrl}/api/settings/language`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ language: "en" })
+  }).then((response) => response.json())
+  assert.equal(language.language_preference, "en")
+
+  const invalidLanguage = await fetch(`${baseUrl}/api/settings/language`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ language: "de" })
+  })
+  assert.equal(invalidLanguage.status, 400)
 }))
 
 test("réinitialise toute la base de données et restaure les paramètres par défaut", () => withServer(async (baseUrl) => {
@@ -215,7 +230,7 @@ test("réinitialise toute la base de données et restaure les paramètres par d�
   const history = await fetch(`${baseUrl}/api/events`).then((response) => response.json())
   assert.equal(history.total, 0)
   const settings = await fetch(`${baseUrl}/api/settings`).then((response) => response.json())
-  assert.deepEqual(settings, { accent_color: "orange", baby_name: "", birth_date: "", baby_sex: "" })
+  assert.deepEqual(settings, { accent_color: "orange", baby_name: "", birth_date: "", baby_sex: "", language_preference: "system" })
 }))
 
 test("enregistre les mesures de poids et de taille", () => withServer(async (baseUrl) => {

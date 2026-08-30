@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { api } from "@/lib/api"
 import { dayHeading, groupEventsByDay } from "@/lib/dates"
+import { useI18n } from "@/lib/i18n"
 import { EVENT_LABELS, type BabyEvent, type EventType } from "@/lib/types"
 
 interface HistoryPageProps {
@@ -41,6 +42,7 @@ function periodParams(period: string) {
 }
 
 export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
+  const { locale, t } = useI18n()
   const [events, setEvents] = useState<BabyEvent[]>([])
   const [total, setTotal] = useState(0)
   const [period, setPeriod] = useState("7")
@@ -63,11 +65,11 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
       setEvents(result.events)
       setTotal(result.total)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Historique indisponible")
+      toast.error(error instanceof Error ? error.message : t.history.unavailable)
     } finally {
       setLoading(false)
     }
-  }, [params])
+  }, [params, t.history.unavailable])
 
   useEffect(() => {
     const timer = window.setTimeout(load, search ? 250 : 0)
@@ -82,11 +84,11 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Historique</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{total} événement{total > 1 ? "s" : ""} correspondant aux filtres</p>
+          <h2 className="text-2xl font-semibold tracking-tight">{t.history.title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{total} {total > 1 ? t.history.matchingPlural : t.history.matchingSingular}</p>
         </div>
         <Button className="h-11" asChild>
-          <a href={`/api/export/xlsx?${exportParams}`} download><Download /> Exporter Excel</a>
+          <a href={`/api/export/xlsx?${exportParams}`} download><Download /> {t.history.exportExcel}</a>
         </Button>
       </div>
 
@@ -95,23 +97,23 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="today">Aujourd’hui</SelectItem>
-              <SelectItem value="yesterday">Hier</SelectItem>
-              <SelectItem value="7">7 derniers jours</SelectItem>
-              <SelectItem value="30">30 derniers jours</SelectItem>
-              <SelectItem value="all">Tout</SelectItem>
+              <SelectItem value="today">{t.history.periods.today}</SelectItem>
+              <SelectItem value="yesterday">{t.history.periods.yesterday}</SelectItem>
+              <SelectItem value="7">{t.history.periods.seven}</SelectItem>
+              <SelectItem value="30">{t.history.periods.thirty}</SelectItem>
+              <SelectItem value="all">{t.history.periods.all}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={type} onValueChange={setType}>
             <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les types</SelectItem>
-              {Object.entries(EVENT_LABELS).map(([value, label]) => <SelectItem key={value} value={value as EventType}>{label}</SelectItem>)}
+              <SelectItem value="all">{t.history.allTypes}</SelectItem>
+              {Object.keys(EVENT_LABELS).map((value) => <SelectItem key={value} value={value as EventType}>{t.eventLabels[value as EventType]}</SelectItem>)}
             </SelectContent>
           </Select>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="h-11 pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher une observation…" />
+            <Input className="h-11 pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.history.searchPlaceholder} />
           </div>
         </CardContent>
       </Card>
@@ -119,13 +121,13 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
       <Card>
         <CardContent className="p-3 sm:p-5">
           {loading ? (
-            <ContentLoading label="Chargement de l’historique…" />
+            <ContentLoading label={t.history.loading} />
           ) : events.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">Aucun événement ne correspond à ces filtres.</p>
+            <p className="py-12 text-center text-sm text-muted-foreground">{t.history.empty}</p>
           ) : Object.entries(groups).map(([key, dayEvents], groupIndex) => (
             <div key={key}>
               {groupIndex > 0 && <Separator className="my-4" />}
-              <h3 className="px-2 py-2 text-xs font-semibold tracking-[.14em] text-muted-foreground">{dayHeading(key)}</h3>
+              <h3 className="px-2 py-2 text-xs font-semibold tracking-[.14em] text-muted-foreground">{dayHeading(key, locale)}</h3>
               {dayEvents?.map((event) => <EventRow key={event.id} event={event} onClick={() => onEdit(event)} />)}
             </div>
           ))}

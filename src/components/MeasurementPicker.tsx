@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Minus, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { interpolate, useI18n } from "@/lib/i18n"
 
 interface MeasurementPickerProps {
   value: number
@@ -16,6 +17,8 @@ interface MeasurementPickerProps {
 }
 
 export function MeasurementPicker({ value, onChange, min, max, step, decimals, unit, label, stepLabel }: MeasurementPickerProps) {
+  const { t } = useI18n()
+  const lowerLabel = label.toLowerCase()
   const currentValue = useRef(value)
   const dragY = useRef<number | null>(null)
   const wheelDelta = useRef(0)
@@ -69,13 +72,13 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
   return (
     <div className="select-none py-3">
       <div className="flex items-center justify-center gap-4 sm:gap-5">
-        <HoldStepButton label={`Diminuer ${label.toLowerCase()}`} disabled={value <= min} onStep={() => update(-1)}>
+        <HoldStepButton label={interpolate(t.measurement.decrease, { label: lowerLabel })} disabled={value <= min} onStep={() => update(-1)}>
           <Minus />
         </HoldStepButton>
         <div
           role={editing ? undefined : "spinbutton"}
           tabIndex={editing ? -1 : 0}
-          aria-label={editing ? undefined : `Sélecteur de ${label.toLowerCase()}`}
+          aria-label={editing ? undefined : interpolate(t.measurement.selector, { label: lowerLabel })}
           aria-valuemin={editing ? undefined : min}
           aria-valuemax={editing ? undefined : max}
           aria-valuenow={editing ? undefined : value}
@@ -130,13 +133,13 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
                 event.preventDefault()
                 beginEditing()
               } : undefined}
-              title={index === 2 ? "Double-cliquer pour saisir la valeur" : undefined}
+              title={index === 2 ? t.measurement.directEntryTitle : undefined}
             >
               {index === 2 && editing ? (
                 <span className="inline-flex items-center justify-center gap-1">
                   <Input
                     autoFocus
-                    aria-label={`Saisie directe de ${label.toLowerCase()}`}
+                    aria-label={interpolate(t.measurement.directEntry, { label: lowerLabel })}
                     className="h-11 w-28 text-center text-3xl font-semibold tabular-nums"
                     inputMode="decimal"
                     value={draft}
@@ -159,11 +162,11 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
             </div>
           ))}
         </div>
-        <HoldStepButton label={`Augmenter ${label.toLowerCase()}`} disabled={value >= max} onStep={() => update(1)}>
+        <HoldStepButton label={interpolate(t.measurement.increase, { label: lowerLabel })} disabled={value >= max} onStep={() => update(1)}>
           <Plus />
         </HoldStepButton>
       </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">Pas de {stepLabel} · maintenir +/− · double-clic pour saisir</p>
+      <p className="mt-2 text-center text-xs text-muted-foreground">{interpolate(t.measurement.instructions, { step: stepLabel })}</p>
     </div>
   )
 }

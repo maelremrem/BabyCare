@@ -1,5 +1,6 @@
 import { memo, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { interpolate, useI18n } from "@/lib/i18n"
 import type { AppSettings, BabyEvent } from "@/lib/types"
 import { getAgeInMonths, getWhoGrowthReferenceAtAge } from "@/lib/whoGrowth"
 
@@ -18,17 +19,20 @@ const WIDTH = 600
 const HEIGHT = 220
 const PADDING_X = 48
 const PADDING_Y = 28
-const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" })
-
-function shortDate(value: string) {
-  return SHORT_DATE_FORMATTER.format(new Date(value))
+function shortDate(value: string, locale: "fr" | "en") {
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", { day: "2-digit", month: "2-digit" }).format(new Date(value))
 }
 
-function formatMonth(value: number) {
-  return Number.isInteger(value) ? `${value} mois` : `${value.toFixed(1).replace(".", ",")} mois`
+function formatMonth(value: number, locale: "fr" | "en") {
+  const measurement = Number.isInteger(value)
+    ? String(value)
+    : locale === "fr" ? value.toFixed(1).replace(".", ",") : value.toFixed(1)
+  const unit = locale === "fr" ? "mois" : value === 1 ? "month" : "months"
+  return `${measurement} ${unit}`
 }
 
 export const MedicalChart = memo(function MedicalChart({ title, indicator, events, unit, decimals, settings, windowStart, windowEnd }: MedicalChartProps) {
+  const { locale, t } = useI18n()
   const referenceEnabled = Boolean(settings.birth_date && settings.baby_sex)
   const viewMonths = Math.max(0.25, windowEnd - windowStart)
   const referenceSamples = Math.ceil(viewMonths * 4) + 1
@@ -58,10 +62,10 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
       <Card>
         <CardHeader>
           <CardTitle>{title}</CardTitle>
-          <CardDescription>Aucune mesure enregistrée.</CardDescription>
+          <CardDescription>{t.chart.emptyDescription}</CardDescription>
         </CardHeader>
         <CardContent className="grid h-52 place-items-center text-sm text-muted-foreground">
-          Le graphique apparaîtra après la première mesure.
+          {t.chart.emptyBody}
         </CardContent>
       </Card>
     )
@@ -105,6 +109,7 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
       ].join(" ")
     : ""
   const medianPath = referencePoints.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.medianY.toFixed(1)}`).join(" ")
+  const measurementPlural = visibleMeasurements.length === 1 ? "" : "s"
 
   return (
     <Card>
@@ -113,8 +118,8 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
           <CardTitle>{title}</CardTitle>
           <CardDescription>
             {referenceEnabled
-              ? `${visibleMeasurements.length} mesure${visibleMeasurements.length > 1 ? "s" : ""} dans cette vue de ${formatMonth(viewMonths)}`
-              : `${visibleMeasurements.length} mesure${visibleMeasurements.length > 1 ? "s" : ""} affichée${visibleMeasurements.length > 1 ? "s" : ""}`}
+              ? interpolate(t.chart.measurementsInView, { count: visibleMeasurements.length, plural: measurementPlural, months: formatMonth(viewMonths, locale) })
+              : interpolate(t.chart.measurementsDisplayed, { count: visibleMeasurements.length, plural: measurementPlural })}
           </CardDescription>
         </div>
         <p className="font-mono text-xl font-semibold tabular-nums text-primary">
@@ -122,7 +127,7 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
         </p>
       </CardHeader>
       <CardContent>
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={`Évolution : ${title.toLowerCase()}`} className="h-52 w-full overflow-visible">
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={interpolate(t.chart.evolution, { title: title.toLowerCase() })} className="h-52 w-full overflow-visible">
           {[0, 1, 2, 3, 4].map((line) => {
             const y = PADDING_Y + line / 4 * drawableHeight
             const label = maximum - line / 4 * range
@@ -142,21 +147,21 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
           {points.length > 1 ? <path d={path} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /> : null}
           {points.map((point) => (
             <circle key={point.event.id} cx={point.x} cy={point.y} r="5" fill="var(--primary)" stroke="var(--card)" strokeWidth="3">
-              <title>{`${shortDate(point.event.started_at)} : ${point.event.value_real?.toFixed(decimals)} ${unit}`}</title>
+              <title>{`${shortDate(point.event.started_at, locale)} : ${point.event.value_real?.toFixed(decimals)} ${unit}`}</title>
             </circle>
           ))}
           <text x={PADDING_X} y={HEIGHT - 5} fill="currentColor" opacity="0.55" fontSize="11">
-            {referenceEnabled ? formatMonth(windowStart) : shortDate(visibleMeasurements[0].event.started_at)}
+            {referenceEnabled ? formatMonth(windowStart, locale) : shortDate(visibleMeasurements[0].event.started_at, locale)}
           </text>
           <text x={WIDTH - PADDING_X} y={HEIGHT - 5} textAnchor="end" fill="currentColor" opacity="0.55" fontSize="11">
-            {referenceEnabled ? formatMonth(windowEnd) : shortDate(visibleMeasurements.at(-1)?.event.started_at || "")}
+            {referenceEnabled ? formatMonth(windowEnd, locale) : shortDate(visibleMeasurements.at(-1)?.event.started_at || "", locale)}
           </text>
         </svg>
 
         {referenceEnabled ? (
           <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <span className="size-2.5 rounded-sm bg-emerald-500/25" aria-hidden="true" />
-            Zone de référence OMS (−2 à +2 z)
+            {t.chart.whoZone}
           </div>
         ) : null}
       </CardContent>
