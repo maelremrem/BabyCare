@@ -23,6 +23,7 @@ interface TrackingPageProps {
 export function TrackingPage({ events, running, loading, stoolAlert, onChanged, onEdit, onOpenCare }: TrackingPageProps) {
   const { locale, t } = useI18n()
   const lastFeeding = events.find((event) => event.type === "breast_left" || event.type === "breast_right")
+  const nextBreast = lastFeeding?.type === "breast_left" ? "breast_right" : "breast_left"
   const lastDiaper = events.find((event) => event.type === "diaper")
   const lastBath = events.find((event) => event.type === "bath")
   const recent = events.slice(0, 8)
@@ -77,7 +78,7 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
 
       <section>
         <SectionTitle>{t.tracking.quickActions}</SectionTitle>
-        <ActionGrid onChanged={onChanged} onOpenCare={onOpenCare} />
+        <ActionGrid nextBreast={nextBreast} onChanged={onChanged} onOpenCare={onOpenCare} />
       </section>
 
       {running.length > 0 && (

@@ -93,7 +93,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
           {event.type === "weight" && (
             <label className="grid gap-2 text-sm font-medium">
               {t.eventEditor.weight}
-              <Input type="number" min="0.3" max="30" step="0.05" value={value} onChange={(e) => setValue(e.target.value)} />
+              <Input type="number" min="0.3" max="30" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
           )}
           {event.type === "height" && (

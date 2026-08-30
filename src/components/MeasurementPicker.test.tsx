@@ -51,7 +51,7 @@ describe("MeasurementPicker", () => {
   })
 
   test.each([
-    { label: "Poids", value: 3.5, step: 0.05, decimals: 2, unit: "kg", expected: 3.55 },
+    { label: "Poids", value: 3.5, step: 0.01, decimals: 3, unit: "kg", expected: 3.51 },
     { label: "Taille", value: 50, step: 0.1, decimals: 1, unit: "cm", expected: 50.1 }
   ])("applique le pas prévu pour $label", async ({ label, value, step, decimals, unit, expected }) => {
     const user = userEvent.setup()

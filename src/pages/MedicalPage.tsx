@@ -52,7 +52,7 @@ const MEASUREMENT_CONFIG = {
     unit: "kg",
     min: 0.3,
     max: 30,
-    step: 0.05,
+    step: 0.01,
     decimals: 3,
     defaultValue: 3.5,
     icon: Scale
@@ -130,7 +130,7 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
     height: t.eventLabels.height
   }
   const measurementStepLabels = {
-    weight: "50 g",
+    weight: "10 g",
     height: locale === "fr" ? "0,1 cm" : "0.1 cm"
   }
   const MeasurementIcon = config?.icon
