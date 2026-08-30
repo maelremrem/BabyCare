@@ -9,7 +9,7 @@
     "dev:client": "vite",
     "dev:server": "node server/app.js",
     "build": "tsc -b && vite build",
-    "build:pages": "tsc -b && VITE_DEMO_MODE=true VITE_BASE_PATH=/BabyCare/ vite build",
+    "build:pages": "tsc -b && vite build --mode demo",
     "check": "npm run typecheck && npm run lint && npm test && npm run build",
     "lint": "eslint . --max-warnings=0",
     "start": "node server/app.js",

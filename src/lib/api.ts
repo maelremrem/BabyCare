@@ -2,7 +2,7 @@ import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList
 import type { LanguagePreference } from "@/lib/i18n"
 import { demoApi } from "@/lib/demoApi"
 
-export const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true"
+export const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true" || import.meta.env.MODE === "demo"
 
 export class ApiError extends Error {
   code: string | null
