@@ -1,11 +1,13 @@
 import { LoaderCircle } from "lucide-react"
 import { BabyCareIcon } from "@/components/BabyCareIcon"
 import { Skeleton } from "@/components/ui/skeleton"
+import { messages, resolveLocale } from "@/lib/i18n"
 import type { AccentColor } from "@/lib/types"
 
 export function AppLoading({ accentColor }: { accentColor: AccentColor }) {
+  const t = messages[resolveLocale("system")]
   return (
-    <div className="min-h-dvh bg-background px-4 py-6 text-foreground" role="status" aria-label="Chargement de BabyCare">
+    <div className="min-h-dvh bg-background px-4 py-6 text-foreground" role="status" aria-label={t.loading.appLabel}>
       <div className="mx-auto max-w-6xl">
         <div className="flex items-center gap-3 border-b border-border/70 pb-5">
           <BabyCareIcon accentColor={accentColor} className="size-11 rounded-xl" />
@@ -22,7 +24,7 @@ export function AppLoading({ accentColor }: { accentColor: AccentColor }) {
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-28 rounded-2xl" />)}
         </div>
-        <span className="sr-only">Chargement de l’application…</span>
+        <span className="sr-only">{t.loading.appText}</span>
       </div>
     </div>
   )

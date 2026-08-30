@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { EVENT_LABELS, type BabyEvent } from "@/lib/types"
+import { useI18n } from "@/lib/i18n"
+import { normalizeIrritationLocation, type BabyEvent } from "@/lib/types"
 import { formatDuration, formatTime } from "@/lib/dates"
 
 interface EventRowProps {
@@ -9,11 +10,12 @@ interface EventRowProps {
 }
 
 export function EventRow({ event, onClick }: EventRowProps) {
+  const { locale, t } = useI18n()
   const diaperType = typeof event.metadata?.diaper_type === "string" ? event.metadata.diaper_type : null
   const irritationLocations = Array.isArray(event.metadata?.locations)
-    ? event.metadata.locations
+      ? event.metadata.locations.map(normalizeIrritationLocation)
     : typeof event.metadata?.location === "string"
-      ? [event.metadata.location]
+      ? [normalizeIrritationLocation(event.metadata.location)]
       : []
   const detail = event.type === "temperature" && event.value_real != null
     ? `${event.value_real.toFixed(1)} °C`
@@ -22,16 +24,16 @@ export function EventRow({ event, onClick }: EventRowProps) {
       : event.type === "height" && event.value_real != null
         ? `${event.value_real.toFixed(1)} cm`
     : diaperType
-      ? { urine: "Urine", stool: "Selles", mixed: "Mixte" }[diaperType]
+      ? t.diaperTypes[diaperType as keyof typeof t.diaperTypes]
       : irritationLocations.length > 0
-        ? irritationLocations.map((location) => location.charAt(0).toUpperCase() + location.slice(1)).join(", ")
-        : formatDuration(event.duration_seconds)
+        ? irritationLocations.map((location) => t.irritationLocations[location as keyof typeof t.irritationLocations] || location.charAt(0).toUpperCase() + location.slice(1)).join(", ")
+        : formatDuration(event.duration_seconds, locale)
 
   return (
     <button type="button" onClick={onClick} className="grid w-full grid-cols-[3.5rem_1fr_auto] items-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-muted/50 active:bg-muted sm:grid-cols-[4.5rem_1fr_auto_auto]">
-      <time className="font-mono text-sm tabular-nums text-muted-foreground">{formatTime(event.started_at)}</time>
+      <time className="font-mono text-sm tabular-nums text-muted-foreground">{formatTime(event.started_at, locale)}</time>
       <div className="min-w-0">
-        <div className="font-medium">{EVENT_LABELS[event.type]}</div>
+        <div className="font-medium">{t.eventLabels[event.type]}</div>
         {event.notes && <p className="truncate text-xs text-muted-foreground">{event.notes}</p>}
       </div>
       {detail && <Badge variant="secondary" className="max-w-40 truncate">{detail}</Badge>}

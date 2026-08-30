@@ -1,0 +1,635 @@
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react"
+import type { BabySex, EventType } from "@/lib/types"
+
+export const SUPPORTED_LOCALES = ["fr", "en"] as const
+export type SupportedLocale = typeof SUPPORTED_LOCALES[number]
+export type LanguagePreference = "system" | SupportedLocale
+
+const localeTags: Record<SupportedLocale, string> = {
+  fr: "fr-FR",
+  en: "en-US"
+}
+
+const fr = {
+  common: {
+    appUnavailable: "Impossible de joindre BabyCare.",
+    cancel: "Annuler",
+    delete: "Supprimer",
+    save: "Enregistrer",
+    none: "Aucune",
+    noValue: "—",
+    optionalObservation: "Observation (facultative)",
+    observation: "Observation",
+    actionImpossible: "Action impossible"
+  },
+  loading: {
+    appLabel: "Chargement de BabyCare",
+    appText: "Chargement de l’application…"
+  },
+  footer: {
+    version: "version"
+  },
+  tabs: {
+    tracking: "Suivi",
+    care: "Soins",
+    medical: "Suivi médical",
+    history: "Historique"
+  },
+  eventLabels: {
+    temperature: "Température",
+    weight: "Poids",
+    height: "Taille",
+    diaper: "Couche",
+    breast_left: "Sein gauche",
+    breast_right: "Sein droit",
+    bath: "Bain",
+    face_care: "Visage",
+    cord_care: "Cordon",
+    face_cord_care: "Visage et cordon",
+    clothes_change: "Vêtements",
+    irritation: "Irritation",
+    observation: "Observation",
+    daily_care: "Soins quotidiens",
+    eye_care: "Yeux",
+    nose_care: "Nez"
+  } satisfies Record<EventType, string>,
+  diaperTypes: {
+    urine: "Urine",
+    stool: "Selles",
+    mixed: "Mixte"
+  },
+  irritationLocations: {
+    face: "Visage",
+    neck: "Cou",
+    chest: "Torse",
+    back: "Dos",
+    arms: "Bras",
+    legs: "Jambes",
+    bottom: "Fesses",
+    other: "Autre"
+  },
+  settings: {
+    open: "Ouvrir les paramètres",
+    title: "Paramètres de BabyCare",
+    description: "Gérez le profil du bébé, l’apparence de l’application et les données locales.",
+    profileTitle: "Profil du bébé",
+    profileDescription: "Ces informations restent dans la base locale.",
+    babyName: "Nom du bébé",
+    babyNamePlaceholder: "Ex. Emma",
+    birthDate: "Date de naissance",
+    birthDatePlaceholder: "jj/mm/aaaa",
+    chooseBirthDate: "Choisir la date de naissance",
+    chooseDate: "Choisir le {date}",
+    previousMonth: "Mois précédent",
+    nextMonth: "Mois suivant",
+    hiddenAge: "L’âge reste masqué tant que ce champ est vide.",
+    sex: "Sexe",
+    sexOptions: {
+      girl: "Fille",
+      boy: "Garçon"
+    } satisfies Record<Exclude<BabySex, "">, string>,
+    sexHelp: "Nécessaire avec la date de naissance pour afficher les références OMS.",
+    saveProfile: "Enregistrer le profil",
+    invalidBirthDate: "Utilisez le format jj/mm/aaaa pour la date de naissance.",
+    futureBirthDate: "La date de naissance ne peut pas être dans le futur.",
+    profileSaved: "Profil du bébé enregistré",
+    profileSaveError: "Impossible d’enregistrer le profil.",
+    accentTitle: "Couleur d’accent",
+    accentDescription: "L’icône et l’interface restent synchronisées.",
+    useAccent: "Utiliser la couleur {color}",
+    accentApplied: "Couleur {color} appliquée",
+    languageTitle: "Langue",
+    languageDescription: "Par défaut, BabyCare suit la langue du navigateur.",
+    languageLabel: "Langue de l’interface",
+    languageOptions: {
+      system: "Langue du navigateur",
+      fr: "Français",
+      en: "English"
+    } satisfies Record<LanguagePreference, string>,
+    languageUpdated: "Langue mise à jour",
+    dangerTitle: "Zone de danger",
+    dangerDescription: "Supprime définitivement le profil, les mesures, les soins et tout l’historique.",
+    resetDatabase: "Réinitialiser toute la base",
+    resetTitle: "Réinitialiser toute la base de données ?",
+    resetDescription: "Toutes les informations BabyCare seront supprimées définitivement. Cette action est irréversible.",
+    resetConfirm: "Confirmer la réinitialisation",
+    resetError: "Impossible de réinitialiser la base de données.",
+    bornOn: "Né(e) le {date}"
+  },
+  tracking: {
+    latestInfo: "Dernières informations",
+    quickActions: "Actions rapides",
+    activeTimer: "Chrono actif",
+    recentActivity: "Activité récente",
+    feeding: "Tétée",
+    diaper: "Couche",
+    bath: "Bain",
+    feedingsTodaySingular: "tétée aujourd’hui",
+    feedingsTodayPlural: "tétées aujourd’hui",
+    firstActions: "Les premières actions apparaîtront ici.",
+    activityLoading: "Chargement de l’activité…",
+    stoolAlertLabel: "Alerte transit",
+    stoolMissingTitle: "Suivi des selles à renseigner",
+    noStoolSince: "Aucune selle depuis {hours} h",
+    lastStool: "Dernière selle enregistrée {relative}.",
+    noStoolRecorded: "Aucune selle n’a encore été enregistrée.",
+    stoolThreshold: "Le seuil de surveillance est fixé à {hours} heures."
+  },
+  actions: {
+    faceCord: "Visage / Cordon",
+    addObservation: "Ajouter une observation",
+    leftBreast: "Sein Gauche",
+    rightBreast: "Sein Droit",
+    both: "Les deux",
+    temperatureDescription: "Sélectionnez la valeur mesurée.",
+    irritationDescription: "Sélectionnez une ou plusieurs zones, puis ajoutez une observation.",
+    freeObservationDescription: "Enregistrez une information libre dans l’historique.",
+    observationPlaceholder: "Votre observation…",
+    started: "{label} démarré",
+    recorded: "{label} enregistré",
+    faceCare: "Soin du visage",
+    cordCare: "Soin du cordon",
+    faceCordCare: "Soin du visage et du cordon",
+    clothesChanged: "Vêtements changés"
+  },
+  activeTimer: {
+    running: "En cours",
+    addObservation: "Ajouter une observation",
+    stop: "Terminer",
+    switchBreast: "Changer de sein",
+    switchedTo: "Passage au {label}"
+  },
+  eventEditor: {
+    description: "Modifiez les informations enregistrées.",
+    dateTime: "Date et heure",
+    temperature: "Température (°C)",
+    weight: "Poids (kg)",
+    height: "Taille (cm)",
+    diaperType: "Type de couche",
+    locations: "Zones",
+    updated: "Événement mis à jour",
+    deleteTitle: "Supprimer cet événement ?",
+    deleteDescription: "Cette action est définitive et retirera l’entrée de l’historique.",
+    deleted: "Événement supprimé"
+  },
+  care: {
+    title: "Soins quotidiens",
+    description: "La checklist se réinitialise après chaque validation et chaque jour.",
+    completed: "effectué",
+    todo: "à faire",
+    progress: "Progression",
+    validate: "Valider les soins du jour",
+    validated: "Soins du jour ajoutés à l’historique",
+    validationImpossible: "Validation impossible",
+    bathTitle: "Bain",
+    bathDescription: "Les étapes utiles pour préparer et terminer le bain.",
+    bathItems: {
+      towel: "Serviette préparée",
+      temperature: "Température vérifiée",
+      folds: "Sécher soigneusement les plis"
+    }
+  },
+  history: {
+    title: "Historique",
+    matchingSingular: "événement correspondant aux filtres",
+    matchingPlural: "événements correspondant aux filtres",
+    exportExcel: "Exporter Excel",
+    periods: {
+      today: "Aujourd’hui",
+      yesterday: "Hier",
+      seven: "7 derniers jours",
+      thirty: "30 derniers jours",
+      all: "Tout"
+    },
+    allTypes: "Tous les types",
+    searchPlaceholder: "Rechercher une observation…",
+    unavailable: "Historique indisponible",
+    loading: "Chargement de l’historique…",
+    empty: "Aucun événement ne correspond à ces filtres."
+  },
+  medical: {
+    title: "Suivi médical",
+    description: "Évolution du poids et de la taille.",
+    weightChart: "Courbe de poids",
+    heightChart: "Courbe de taille",
+    missingProfile: "Renseignez la date de naissance et le sexe dans les paramètres pour afficher les zones de référence OMS.",
+    displayedPeriod: "Période affichée",
+    sharedPeriod: "Le poids et la taille utilisent exactement la même période.",
+    browseGrowth: "Parcourir les courbes de 0 à 5 ans",
+    growthStart: "Début de la période des courbes",
+    growthEnd: "Fin de la période des courbes",
+    whoDisclaimer: "Ces zones sont des repères statistiques OMS et ne remplacent pas l’avis d’un professionnel de santé.",
+    addMeasurement: "Ajouter une mesure",
+    measurementsHistory: "Historique des mesures",
+    editHint: "Touchez une ligne pour modifier ou supprimer la mesure.",
+    loading: "Chargement des mesures…",
+    empty: "Aucune mesure enregistrée.",
+    noPreviousMeasurement: "Aucune mesure précédente. Sélectionnez la première valeur.",
+    lastMeasurement: "Dernière mesure : {value} {unit}, le {date}.",
+    saveError: "Mesure impossible à enregistrer",
+    unavailable: "Suivi médical indisponible"
+  },
+  chart: {
+    emptyDescription: "Aucune mesure enregistrée.",
+    emptyBody: "Le graphique apparaîtra après la première mesure.",
+    measurementsInView: "{count} mesure{plural} dans cette vue de {months}",
+    measurementsDisplayed: "{count} mesure{plural} affichée{plural}",
+    evolution: "Évolution : {title}",
+    whoZone: "Zone de référence OMS (−2 à +2 z)"
+  },
+  temperatureSparkline: {
+    aria: "Évolution sur {count} mesure{plural}. Zone idéale de 36,5 à 37,5 °C.",
+    title: "Évolution de la température avec zone idéale de 36,5 à 37,5 °C",
+    legend: "Zone idéale 36,5–37,5 °C"
+  },
+  measurement: {
+    decrease: "Diminuer {label}",
+    increase: "Augmenter {label}",
+    selector: "Sélecteur de {label}",
+    directEntry: "Saisie directe de {label}",
+    directEntryTitle: "Double-cliquer pour saisir la valeur",
+    instructions: "Pas de {step} · maintenir +/− · double-clic pour saisir"
+  },
+  apiErrors: {
+    invalid_accent_color: "Couleur d’accent invalide.",
+    invalid_language_preference: "Préférence de langue invalide.",
+    baby_name_too_long: "Le nom du bébé ne peut pas dépasser 80 caractères.",
+    invalid_birth_date: "La date de naissance est invalide ou située dans le futur.",
+    invalid_baby_sex: "Le sexe renseigné est invalide.",
+    invalid_event_type: "Type d’événement invalide.",
+    invalid_temperature: "La température doit être comprise entre 34 et 44 °C.",
+    invalid_weight: "Le poids doit être compris entre 0,3 et 30 kg.",
+    invalid_height: "La taille doit être comprise entre 20 et 200 cm.",
+    not_timer_event: "Cette action ne peut pas être chronométrée.",
+    event_not_found: "Événement introuvable.",
+    timer_already_completed: "Ce chrono est déjà terminé.",
+    incomplete_daily_care: "Terminez la checklist avant de valider les soins.",
+    invalid_daily_care: "Soin quotidien invalide.",
+    bath_session_not_found: "Session de bain introuvable.",
+    bath_item_not_found: "Élément de bain introuvable.",
+    internal_error: "Une erreur interne est survenue."
+  },
+  dates: {
+    yearSingular: "an",
+    yearPlural: "ans",
+    month: "mois",
+    daySingular: "jour",
+    dayPlural: "jours",
+    today: "AUJOURD’HUI",
+    yesterday: "HIER",
+    now: "à l’instant",
+    hourShort: "h",
+    minuteShort: "min",
+    secondShort: "s"
+  }
+}
+
+type DeepString<T> = {
+  [Key in keyof T]: T[Key] extends string ? string : DeepString<T[Key]>
+}
+
+export type Messages = DeepString<typeof fr>
+
+const en: Messages = {
+  common: {
+    appUnavailable: "Unable to reach BabyCare.",
+    cancel: "Cancel",
+    delete: "Delete",
+    save: "Save",
+    none: "None",
+    noValue: "—",
+    optionalObservation: "Observation (optional)",
+    observation: "Observation",
+    actionImpossible: "Action unavailable"
+  },
+  loading: {
+    appLabel: "Loading BabyCare",
+    appText: "Loading the app…"
+  },
+  footer: {
+    version: "version"
+  },
+  tabs: {
+    tracking: "Tracking",
+    care: "Care",
+    medical: "Medical",
+    history: "History"
+  },
+  eventLabels: {
+    temperature: "Temperature",
+    weight: "Weight",
+    height: "Height",
+    diaper: "Diaper",
+    breast_left: "Left breast",
+    breast_right: "Right breast",
+    bath: "Bath",
+    face_care: "Face",
+    cord_care: "Cord",
+    face_cord_care: "Face and cord",
+    clothes_change: "Clothes",
+    irritation: "Irritation",
+    observation: "Observation",
+    daily_care: "Daily care",
+    eye_care: "Eyes",
+    nose_care: "Nose"
+  },
+  diaperTypes: {
+    urine: "Urine",
+    stool: "Stool",
+    mixed: "Mixed"
+  },
+  irritationLocations: {
+    face: "Face",
+    neck: "Neck",
+    chest: "Chest",
+    back: "Back",
+    arms: "Arms",
+    legs: "Legs",
+    bottom: "Bottom",
+    other: "Other"
+  },
+  settings: {
+    open: "Open settings",
+    title: "BabyCare settings",
+    description: "Manage the baby profile, app appearance, and local data.",
+    profileTitle: "Baby profile",
+    profileDescription: "This information stays in the local database.",
+    babyName: "Baby name",
+    babyNamePlaceholder: "E.g. Emma",
+    birthDate: "Birth date",
+    birthDatePlaceholder: "mm/dd/yyyy",
+    chooseBirthDate: "Choose birth date",
+    chooseDate: "Choose {date}",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
+    hiddenAge: "The age stays hidden while this field is empty.",
+    sex: "Sex",
+    sexOptions: {
+      girl: "Girl",
+      boy: "Boy"
+    },
+    sexHelp: "Required with the birth date to show WHO reference ranges.",
+    saveProfile: "Save profile",
+    invalidBirthDate: "Use the mm/dd/yyyy format for the birth date.",
+    futureBirthDate: "The birth date cannot be in the future.",
+    profileSaved: "Baby profile saved",
+    profileSaveError: "Unable to save the profile.",
+    accentTitle: "Accent color",
+    accentDescription: "The icon and interface stay synchronized.",
+    useAccent: "Use {color}",
+    accentApplied: "{color} applied",
+    languageTitle: "Language",
+    languageDescription: "By default, BabyCare follows the browser language.",
+    languageLabel: "Interface language",
+    languageOptions: {
+      system: "Browser language",
+      fr: "Français",
+      en: "English"
+    },
+    languageUpdated: "Language updated",
+    dangerTitle: "Danger zone",
+    dangerDescription: "Permanently deletes the profile, measurements, care entries, and the full history.",
+    resetDatabase: "Reset the whole database",
+    resetTitle: "Reset the whole database?",
+    resetDescription: "All BabyCare information will be permanently deleted. This action cannot be undone.",
+    resetConfirm: "Confirm reset",
+    resetError: "Unable to reset the database.",
+    bornOn: "Born on {date}"
+  },
+  tracking: {
+    latestInfo: "Latest information",
+    quickActions: "Quick actions",
+    activeTimer: "Active timer",
+    recentActivity: "Recent activity",
+    feeding: "Feeding",
+    diaper: "Diaper",
+    bath: "Bath",
+    feedingsTodaySingular: "feeding today",
+    feedingsTodayPlural: "feedings today",
+    firstActions: "The first actions will appear here.",
+    activityLoading: "Loading activity…",
+    stoolAlertLabel: "Bowel movement alert",
+    stoolMissingTitle: "Bowel movement tracking needed",
+    noStoolSince: "No stool for {hours} h",
+    lastStool: "Last stool recorded {relative}.",
+    noStoolRecorded: "No stool has been recorded yet.",
+    stoolThreshold: "The monitoring threshold is set to {hours} hours."
+  },
+  actions: {
+    faceCord: "Face / Cord",
+    addObservation: "Add an observation",
+    leftBreast: "Left Breast",
+    rightBreast: "Right Breast",
+    both: "Both",
+    temperatureDescription: "Select the measured value.",
+    irritationDescription: "Select one or more areas, then add an observation.",
+    freeObservationDescription: "Save a free-form note in the history.",
+    observationPlaceholder: "Your observation…",
+    started: "{label} started",
+    recorded: "{label} recorded",
+    faceCare: "Face care",
+    cordCare: "Cord care",
+    faceCordCare: "Face and cord care",
+    clothesChanged: "Clothes changed"
+  },
+  activeTimer: {
+    running: "Running",
+    addObservation: "Add an observation",
+    stop: "Stop",
+    switchBreast: "Switch breast",
+    switchedTo: "Switched to {label}"
+  },
+  eventEditor: {
+    description: "Edit the saved information.",
+    dateTime: "Date and time",
+    temperature: "Temperature (°C)",
+    weight: "Weight (kg)",
+    height: "Height (cm)",
+    diaperType: "Diaper type",
+    locations: "Areas",
+    updated: "Event updated",
+    deleteTitle: "Delete this event?",
+    deleteDescription: "This action is permanent and will remove the entry from the history.",
+    deleted: "Event deleted"
+  },
+  care: {
+    title: "Daily care",
+    description: "The checklist resets after each validation and each day.",
+    completed: "done",
+    todo: "to do",
+    progress: "Progress",
+    validate: "Validate today’s care",
+    validated: "Today’s care added to history",
+    validationImpossible: "Validation unavailable",
+    bathTitle: "Bath",
+    bathDescription: "Helpful steps to prepare and finish the bath.",
+    bathItems: {
+      towel: "Towel prepared",
+      temperature: "Temperature checked",
+      folds: "Carefully dry skin folds"
+    }
+  },
+  history: {
+    title: "History",
+    matchingSingular: "event matching the filters",
+    matchingPlural: "events matching the filters",
+    exportExcel: "Export Excel",
+    periods: {
+      today: "Today",
+      yesterday: "Yesterday",
+      seven: "Last 7 days",
+      thirty: "Last 30 days",
+      all: "All"
+    },
+    allTypes: "All types",
+    searchPlaceholder: "Search observations…",
+    unavailable: "History unavailable",
+    loading: "Loading history…",
+    empty: "No event matches these filters."
+  },
+  medical: {
+    title: "Medical tracking",
+    description: "Weight and height trends.",
+    weightChart: "Weight curve",
+    heightChart: "Height curve",
+    missingProfile: "Enter the birth date and sex in settings to show WHO reference ranges.",
+    displayedPeriod: "Displayed period",
+    sharedPeriod: "Weight and height use exactly the same period.",
+    browseGrowth: "Browse the curves from 0 to 5 years",
+    growthStart: "Growth curve period start",
+    growthEnd: "Growth curve period end",
+    whoDisclaimer: "These ranges are WHO statistical references and do not replace medical advice.",
+    addMeasurement: "Add a measurement",
+    measurementsHistory: "Measurement history",
+    editHint: "Tap a row to edit or delete the measurement.",
+    loading: "Loading measurements…",
+    empty: "No measurement recorded.",
+    noPreviousMeasurement: "No previous measurement. Select the first value.",
+    lastMeasurement: "Last measurement: {value} {unit}, on {date}.",
+    saveError: "Unable to save measurement",
+    unavailable: "Medical tracking unavailable"
+  },
+  chart: {
+    emptyDescription: "No measurement recorded.",
+    emptyBody: "The chart will appear after the first measurement.",
+    measurementsInView: "{count} measurement{plural} in this {months} view",
+    measurementsDisplayed: "{count} measurement{plural} displayed",
+    evolution: "Trend: {title}",
+    whoZone: "WHO reference range (-2 to +2 z)"
+  },
+  temperatureSparkline: {
+    aria: "Trend over {count} measurement{plural}. Ideal range from 36.5 to 37.5 °C.",
+    title: "Temperature trend with ideal range from 36.5 to 37.5 °C",
+    legend: "Ideal range 36.5-37.5 °C"
+  },
+  measurement: {
+    decrease: "Decrease {label}",
+    increase: "Increase {label}",
+    selector: "{label} selector",
+    directEntry: "Direct {label} entry",
+    directEntryTitle: "Double-click to enter the value",
+    instructions: "{step} step · hold +/− · double-click to type"
+  },
+  apiErrors: {
+    invalid_accent_color: "Invalid accent color.",
+    invalid_language_preference: "Invalid language preference.",
+    baby_name_too_long: "The baby name cannot exceed 80 characters.",
+    invalid_birth_date: "The birth date is invalid or in the future.",
+    invalid_baby_sex: "The selected sex is invalid.",
+    invalid_event_type: "Invalid event type.",
+    invalid_temperature: "Temperature must be between 34 and 44 °C.",
+    invalid_weight: "Weight must be between 0.3 and 30 kg.",
+    invalid_height: "Height must be between 20 and 200 cm.",
+    not_timer_event: "This action cannot be timed.",
+    event_not_found: "Event not found.",
+    timer_already_completed: "This timer is already finished.",
+    incomplete_daily_care: "Finish the checklist before validating care.",
+    invalid_daily_care: "Invalid daily care item.",
+    bath_session_not_found: "Bath session not found.",
+    bath_item_not_found: "Bath item not found.",
+    internal_error: "An internal error occurred."
+  },
+  dates: {
+    yearSingular: "year",
+    yearPlural: "years",
+    month: "month",
+    daySingular: "day",
+    dayPlural: "days",
+    today: "TODAY",
+    yesterday: "YESTERDAY",
+    now: "just now",
+    hourShort: "h",
+    minuteShort: "min",
+    secondShort: "s"
+  }
+}
+
+export const messages: Record<SupportedLocale, Messages> = { fr, en }
+
+interface I18nContextValue {
+  locale: SupportedLocale
+  localeTag: string
+  languagePreference: LanguagePreference
+  t: Messages
+}
+
+const defaultLocale = "fr" satisfies SupportedLocale
+const I18nContext = createContext<I18nContextValue>({
+  locale: defaultLocale,
+  localeTag: localeTags[defaultLocale],
+  languagePreference: "system",
+  t: messages[defaultLocale]
+})
+
+export function resolveLocale(preference: LanguagePreference, languages?: readonly string[]): SupportedLocale {
+  if (preference !== "system") return preference
+
+  const browserLanguages = languages
+    ?? (typeof navigator === "undefined" ? [] : navigator.languages.length ? navigator.languages : [navigator.language])
+
+  for (const language of browserLanguages) {
+    const locale = language.toLowerCase().split("-")[0]
+    if (SUPPORTED_LOCALES.includes(locale as SupportedLocale)) return locale as SupportedLocale
+  }
+
+  return defaultLocale
+}
+
+export function getLocaleTag(locale: SupportedLocale) {
+  return localeTags[locale]
+}
+
+export function interpolate(template: string, values: Record<string, string | number>) {
+  return Object.entries(values).reduce(
+    (message, [key, value]) => message.replaceAll(`{${key}}`, String(value)),
+    template
+  )
+}
+
+export function localizedErrorMessage(error: unknown, t: Messages, fallback: string) {
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string") {
+    return t.apiErrors[error.code as keyof typeof t.apiErrors] || fallback
+  }
+  return error instanceof Error ? error.message : fallback
+}
+
+export function I18nProvider({ preference, children }: { preference: LanguagePreference, children: ReactNode }) {
+  const locale = resolveLocale(preference)
+  const value = useMemo<I18nContextValue>(() => ({
+    locale,
+    localeTag: localeTags[locale],
+    languagePreference: preference,
+    t: messages[locale]
+  }), [locale, preference])
+
+  useEffect(() => {
+    document.documentElement.lang = locale
+  }, [locale])
+
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
+}
+
+export function useI18n() {
+  return useContext(I18nContext)
+}

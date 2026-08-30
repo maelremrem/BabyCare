@@ -1,4 +1,5 @@
 import { MeasurementPicker } from "@/components/MeasurementPicker"
+import { useI18n } from "@/lib/i18n"
 
 interface TemperaturePickerProps {
   value: number
@@ -6,6 +7,7 @@ interface TemperaturePickerProps {
 }
 
 export function TemperaturePicker({ value, onChange }: TemperaturePickerProps) {
+  const { locale, t } = useI18n()
   return (
     <MeasurementPicker
       value={value}
@@ -15,8 +17,8 @@ export function TemperaturePicker({ value, onChange }: TemperaturePickerProps) {
       step={0.1}
       decimals={1}
       unit="°C"
-      label="Température"
-      stepLabel="0,1 °C"
+      label={t.eventLabels.temperature}
+      stepLabel={locale === "fr" ? "0,1 °C" : "0.1 °C"}
     />
   )
 }

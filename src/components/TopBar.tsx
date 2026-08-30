@@ -7,48 +7,50 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useClock } from "@/hooks/useClock"
 import { formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, formatShortDate, getAgeParts } from "@/lib/dates"
+import { getLocaleTag, interpolate, localizedErrorMessage, type LanguagePreference, useI18n } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AccentColor, type AppSettings, type BabySex } from "@/lib/types"
 
 interface TopBarProps {
   settings: AppSettings
   onAccentChange: (color: AccentColor) => Promise<void>
+  onLanguageChange: (language: LanguagePreference) => Promise<void>
   onProfileChange: (babyName: string, birthDate: string, babySex: BabySex) => Promise<void>
   onReset: () => Promise<void>
 }
 
-const SEX_OPTIONS = [
-  { value: "girl", label: "Fille", icon: Venus },
-  { value: "boy", label: "Garçon", icon: Mars }
+const SEX_OPTIONS: { value: Exclude<BabySex, "">, icon: typeof Venus }[] = [
+  { value: "girl", icon: Venus },
+  { value: "boy", icon: Mars }
 ] as const
 
-const WEEKDAYS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
-const MONTH_FORMATTER = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
+const LANGUAGE_OPTIONS: LanguagePreference[] = ["system", "fr", "en"]
 
-function formatFrenchDateInput(value: string) {
+function formatDateInput(value: string, locale: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (!match) return ""
-  return `${match[3]}/${match[2]}/${match[1]}`
+  return locale === "en" ? `${match[2]}/${match[3]}/${match[1]}` : `${match[3]}/${match[2]}/${match[1]}`
 }
 
-function formatFrenchDateDraft(value: string) {
+function formatDateDraft(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 8)
   if (digits.length <= 2) return digits
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
 }
 
-function parseFrenchDateInput(value: string) {
+function parseDateInput(value: string, locale: string) {
   const trimmed = value.trim()
   if (!trimmed) return ""
 
   const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed)
   if (!match) return null
 
-  const day = Number(match[1])
-  const month = Number(match[2])
+  const day = Number(locale === "en" ? match[2] : match[1])
+  const month = Number(locale === "en" ? match[1] : match[2])
   const year = Number(match[3])
   const date = new Date(year, month - 1, day, 12)
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null
@@ -88,11 +90,13 @@ function monthDays(month: Date) {
   })
 }
 
-export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: TopBarProps) {
+export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileChange, onReset }: TopBarProps) {
+  const { locale, t } = useI18n()
+  const localeTag = getLocaleTag(locale)
   const now = useClock()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [babyName, setBabyName] = useState(settings.baby_name)
-  const [birthDateInput, setBirthDateInput] = useState(() => formatFrenchDateInput(settings.birth_date))
+  const [birthDateInput, setBirthDateInput] = useState(() => formatDateInput(settings.birth_date, locale))
   const [birthDatePickerOpen, setBirthDatePickerOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => parseIsoDateOnly(settings.birth_date) ?? dateOnly(new Date()))
   const [babySex, setBabySex] = useState<BabySex>(settings.baby_sex)
@@ -104,23 +108,28 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
   useEffect(() => setBabyName(settings.baby_name), [settings.baby_name])
   useEffect(() => {
     const parsedBirthDate = parseIsoDateOnly(settings.birth_date)
-    setBirthDateInput(formatFrenchDateInput(settings.birth_date))
+    setBirthDateInput(formatDateInput(settings.birth_date, locale))
     if (parsedBirthDate) setCalendarMonth(parsedBirthDate)
-  }, [settings.birth_date])
+  }, [locale, settings.birth_date])
   useEffect(() => setBabySex(settings.baby_sex), [settings.baby_sex])
 
   const today = dateOnly(now)
-  const selectedBirthDate = parseIsoDateOnly(parseFrenchDateInput(birthDateInput) || "")
+  const selectedBirthDate = parseIsoDateOnly(parseDateInput(birthDateInput, locale) || "")
+  const weekdays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(2026, 0, 5 + index)
+    return new Intl.DateTimeFormat(localeTag, { weekday: "short" }).format(date)
+  })
+  const monthFormatter = new Intl.DateTimeFormat(localeTag, { month: "long", year: "numeric" })
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const parsedBirthDate = parseFrenchDateInput(birthDateInput)
+    const parsedBirthDate = parseDateInput(birthDateInput, locale)
     if (parsedBirthDate === null) {
-      toast.error("Utilisez le format jj/mm/aaaa pour la date de naissance.")
+      toast.error(t.settings.invalidBirthDate)
       return
     }
     if (parsedBirthDate && getAgeParts(parsedBirthDate, now) === null) {
-      toast.error("La date de naissance ne peut pas être dans le futur.")
+      toast.error(t.settings.futureBirthDate)
       return
     }
 
@@ -128,9 +137,9 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
     try {
       await onProfileChange(babyName.trim(), parsedBirthDate, babySex)
       setSettingsOpen(false)
-      toast.success("Profil du bébé enregistré")
+      toast.success(t.settings.profileSaved)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Impossible d’enregistrer le profil.")
+      toast.error(localizedErrorMessage(error, t, t.settings.profileSaveError))
     } finally {
       setSaving(false)
     }
@@ -143,7 +152,7 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
       setResetOpen(false)
       setResetting(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Impossible de réinitialiser la base de données.")
+      toast.error(localizedErrorMessage(error, t, t.settings.resetError))
       setResetting(false)
     }
   }
@@ -163,41 +172,41 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" className="h-8 shrink-0 rounded-lg px-1 text-[11px] font-medium text-primary sm:px-2 sm:text-sm">
-                {formatAgeCompact(age)}
+                {formatAgeCompact(age, locale)}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-72">
-              <p className="mt-1 text-sm text-foreground">{formatAgeDetailed(age)}</p>
-              <p className="mt-2 text-xs text-muted-foreground">Né(e) le {formatBirthDate(settings.birth_date)}</p>
+              <p className="mt-1 text-sm text-foreground">{formatAgeDetailed(age, locale)}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{interpolate(t.settings.bornOn, { date: formatBirthDate(settings.birth_date, locale) })}</p>
             </PopoverContent>
           </Popover>
         ) : null}
 
-        <p className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground md:hidden">{formatShortDate(now)}</p>
-        <p className="ml-auto hidden whitespace-nowrap text-sm text-muted-foreground md:block">{formatLongDate(now)}</p>
-        <time className="whitespace-nowrap font-mono text-xs font-medium tabular-nums sm:text-lg">{formatClock(now)}</time>
+        <p className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground md:hidden">{formatShortDate(now, locale)}</p>
+        <p className="ml-auto hidden whitespace-nowrap text-sm text-muted-foreground md:block">{formatLongDate(now, locale)}</p>
+        <time className="whitespace-nowrap font-mono text-xs font-medium tabular-nums sm:text-lg">{formatClock(now, locale)}</time>
 
         <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
           <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-9 shrink-0 rounded-xl sm:size-10" aria-label="Ouvrir les paramètres">
+            <Button variant="ghost" size="icon" className="size-9 shrink-0 rounded-xl sm:size-10" aria-label={t.settings.open}>
               <Settings className="size-5" />
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Paramètres de BabyCare</DialogTitle>
-              <DialogDescription>Gérez le profil du bébé, l’apparence de l’application et les données locales.</DialogDescription>
+              <DialogTitle>{t.settings.title}</DialogTitle>
+              <DialogDescription>{t.settings.description}</DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-5 md:grid-cols-2">
               <form onSubmit={saveProfile} autoComplete="off" className="space-y-4 rounded-2xl border bg-card/60 p-4">
                 <div>
-                  <p className="font-semibold">Profil du bébé</p>
-                  <p className="text-xs text-muted-foreground">Ces informations restent dans la base locale.</p>
+                  <p className="font-semibold">{t.settings.profileTitle}</p>
+                  <p className="text-xs text-muted-foreground">{t.settings.profileDescription}</p>
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="baby-name" className="text-sm font-medium">Nom du bébé</label>
+                  <label htmlFor="baby-name" className="text-sm font-medium">{t.settings.babyName}</label>
                   <Input
                     id="baby-name"
                     value={babyName}
@@ -205,13 +214,13 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                     autoComplete="off"
                     data-1p-ignore="true"
                     data-lpignore="true"
-                    placeholder="Ex. Emma"
+                    placeholder={t.settings.babyNamePlaceholder}
                     onChange={(event) => setBabyName(event.target.value)}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="birth-date" className="text-sm font-medium">Date de naissance</label>
+                  <label htmlFor="birth-date" className="text-sm font-medium">{t.settings.birthDate}</label>
                   <div className="flex gap-2">
                     <Input
                       id="birth-date"
@@ -220,13 +229,13 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                       autoComplete="off"
                       data-1p-ignore="true"
                       data-lpignore="true"
-                      placeholder="jj/mm/aaaa"
+                      placeholder={t.settings.birthDatePlaceholder}
                       value={birthDateInput}
-                      onChange={(event) => setBirthDateInput(formatFrenchDateDraft(event.target.value))}
+                      onChange={(event) => setBirthDateInput(formatDateDraft(event.target.value))}
                     />
                     <Popover open={birthDatePickerOpen} onOpenChange={setBirthDatePickerOpen}>
                       <PopoverTrigger asChild>
-                        <Button type="button" variant="outline" size="icon" className="shrink-0" aria-label="Choisir la date de naissance">
+                        <Button type="button" variant="outline" size="icon" className="shrink-0" aria-label={t.settings.chooseBirthDate}>
                           <Calendar className="size-4" />
                         </Button>
                       </PopoverTrigger>
@@ -236,17 +245,17 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            aria-label="Mois précédent"
+                            aria-label={t.settings.previousMonth}
                             onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1, 12))}
                           >
                             <ChevronLeft className="size-4" />
                           </Button>
-                          <p className="text-sm font-medium capitalize">{MONTH_FORMATTER.format(calendarMonth)}</p>
+                          <p className="text-sm font-medium capitalize">{monthFormatter.format(calendarMonth)}</p>
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            aria-label="Mois suivant"
+                            aria-label={t.settings.nextMonth}
                             disabled={new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1, 12) > today}
                             onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1, 12))}
                           >
@@ -254,7 +263,7 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                           </Button>
                         </div>
                         <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted-foreground">
-                          {WEEKDAYS.map((weekday) => (
+                          {weekdays.map((weekday) => (
                             <span key={weekday}>{weekday}</span>
                           ))}
                         </div>
@@ -273,9 +282,9 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                                 size="icon-sm"
                                 className={isOutsideMonth ? "text-muted-foreground/45" : ""}
                                 disabled={isFuture}
-                                aria-label={`Choisir le ${formatFrenchDateInput(isoDate)}`}
+                                aria-label={interpolate(t.settings.chooseDate, { date: formatDateInput(isoDate, locale) })}
                                 onClick={() => {
-                                  setBirthDateInput(formatFrenchDateInput(isoDate))
+                                  setBirthDateInput(formatDateInput(isoDate, locale))
                                   setBirthDatePickerOpen(false)
                                 }}
                               >
@@ -287,13 +296,13 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <p className="text-xs text-muted-foreground">L’âge reste masqué tant que ce champ est vide.</p>
+                  <p className="text-xs text-muted-foreground">{t.settings.hiddenAge}</p>
                 </div>
 
                 <fieldset className="space-y-2">
-                  <legend className="text-sm font-medium">Sexe</legend>
+                  <legend className="text-sm font-medium">{t.settings.sex}</legend>
                   <div className="grid grid-cols-2 gap-2">
-                    {SEX_OPTIONS.map(({ value, label, icon: Icon }) => (
+                    {SEX_OPTIONS.map(({ value, icon: Icon }) => (
                       <Button
                         key={value}
                         type="button"
@@ -301,23 +310,23 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                         aria-pressed={babySex === value}
                         onClick={() => setBabySex((current) => current === value ? "" : value)}
                       >
-                        <Icon aria-hidden="true" /> {label}
+                        <Icon aria-hidden="true" /> {t.settings.sexOptions[value]}
                       </Button>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">Nécessaire avec la date de naissance pour afficher les références OMS.</p>
+                  <p className="text-xs text-muted-foreground">{t.settings.sexHelp}</p>
                 </fieldset>
 
                 <Button type="submit" className="w-full" disabled={saving}>
                   {saving ? <LoaderCircle className="animate-spin" /> : null}
-                  Enregistrer le profil
+                  {t.settings.saveProfile}
                 </Button>
               </form>
 
               <div className="rounded-2xl border bg-card/60 p-4">
                 <div>
-                  <p className="font-semibold">Couleur d’accent</p>
-                  <p className="mb-3 text-xs text-muted-foreground">L’icône et l’interface restent synchronisées.</p>
+                  <p className="font-semibold">{t.settings.accentTitle}</p>
+                  <p className="mb-3 text-xs text-muted-foreground">{t.settings.accentDescription}</p>
                   <div className="grid grid-cols-5 gap-2">
                     {ACCENT_OPTIONS.map((option) => (
                       <Button
@@ -326,9 +335,9 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                         variant="outline"
                         size="icon"
                         className="relative size-10 rounded-xl p-0"
-                        aria-label={`Utiliser la couleur ${option.label}`}
+                        aria-label={interpolate(t.settings.useAccent, { color: option.label })}
                         aria-pressed={settings.accent_color === option.id}
-                        onClick={() => onAccentChange(option.id).catch((error) => toast.error(error.message))}
+                        onClick={() => onAccentChange(option.id).catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}
                       >
                         <span className="size-6 rounded-full" style={{ backgroundColor: option.value }} />
                         {settings.accent_color === option.id ? <Check className="absolute size-3 text-white drop-shadow" /> : null}
@@ -340,13 +349,31 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
                 <Separator className="my-5" />
 
                 <div>
-                  <p className="font-semibold text-destructive">Zone de danger</p>
-                  <p className="mb-3 text-xs text-muted-foreground">Supprime définitivement le profil, les mesures, les soins et tout l’historique.</p>
+                  <p className="font-semibold">{t.settings.languageTitle}</p>
+                  <p className="mb-3 text-xs text-muted-foreground">{t.settings.languageDescription}</p>
+                  <label htmlFor="language-preference" className="mb-2 block text-sm font-medium">{t.settings.languageLabel}</label>
+                  <Select value={settings.language_preference} onValueChange={(value) => onLanguageChange(value as LanguagePreference).catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}>
+                    <SelectTrigger id="language-preference" className="h-11 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>{t.settings.languageOptions[option]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator className="my-5" />
+
+                <div>
+                  <p className="font-semibold text-destructive">{t.settings.dangerTitle}</p>
+                  <p className="mb-3 text-xs text-muted-foreground">{t.settings.dangerDescription}</p>
                   <Button type="button" variant="destructive" className="w-full" onClick={() => {
                     setSettingsOpen(false)
                     setResetOpen(true)
                   }}>
-                    <Trash2 /> Réinitialiser toute la base
+                    <Trash2 /> {t.settings.resetDatabase}
                   </Button>
                 </div>
               </div>
@@ -358,16 +385,16 @@ export function TopBar({ settings, onAccentChange, onProfileChange, onReset }: T
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Réinitialiser toute la base de données ?</AlertDialogTitle>
+            <AlertDialogTitle>{t.settings.resetTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Toutes les informations BabyCare seront supprimées définitivement. Cette action est irréversible.
+              {t.settings.resetDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={resetting}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={resetting}>{t.common.cancel}</AlertDialogCancel>
             <AlertDialogAction variant="destructive" disabled={resetting} onClick={resetDatabase}>
               {resetting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
-              Confirmer la réinitialisation
+              {t.settings.resetConfirm}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

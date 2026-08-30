@@ -80,6 +80,9 @@ export function createDatabase(databasePath = process.env.DATABASE_PATH || path.
     INSERT OR IGNORE INTO app_settings (key, value, updated_at)
     VALUES ('baby_sex', '', datetime('now'));
 
+    INSERT OR IGNORE INTO app_settings (key, value, updated_at)
+    VALUES ('language_preference', 'system', datetime('now'));
+
     CREATE INDEX IF NOT EXISTS idx_events_started_at ON events(started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
     CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);

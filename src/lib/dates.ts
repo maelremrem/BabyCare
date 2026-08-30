@@ -1,13 +1,19 @@
-export function formatClock(date: Date) {
-  return new Intl.DateTimeFormat("fr-FR", {
+import { getLocaleTag, messages, type SupportedLocale } from "@/lib/i18n"
+
+function localeTag(locale: SupportedLocale = "fr") {
+  return getLocaleTag(locale)
+}
+
+export function formatClock(date: Date, locale: SupportedLocale = "fr") {
+  return new Intl.DateTimeFormat(localeTag(locale), {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit"
   }).format(date)
 }
 
-export function formatLongDate(date: Date) {
-  const value = new Intl.DateTimeFormat("fr-FR", {
+export function formatLongDate(date: Date, locale: SupportedLocale = "fr") {
+  const value = new Intl.DateTimeFormat(localeTag(locale), {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -16,8 +22,8 @@ export function formatLongDate(date: Date) {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-export function formatShortDate(date: Date) {
-  return new Intl.DateTimeFormat("fr-FR", {
+export function formatShortDate(date: Date, locale: SupportedLocale = "fr") {
+  return new Intl.DateTimeFormat(localeTag(locale), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric"
@@ -76,37 +82,43 @@ export function getAgeParts(birthDate: string, now = new Date()): AgeParts | nul
   return { years, months, days }
 }
 
-export function formatAgeCompact(age: AgeParts) {
-  if (age.years > 0) return `${age.years} ${age.years === 1 ? "an" : "ans"} ${age.months} mois`
-  if (age.months > 0) return `${age.months} mois ${age.days} j`
-  return `${age.days} ${age.days === 1 ? "jour" : "jours"}`
+export function formatAgeCompact(age: AgeParts, locale: SupportedLocale = "fr") {
+  const t = messages[locale].dates
+  const monthLabel = locale === "en" && age.months !== 1 ? `${t.month}s` : t.month
+  if (age.years > 0) return `${age.years} ${age.years === 1 ? t.yearSingular : t.yearPlural} ${age.months} ${monthLabel}`
+  if (age.months > 0) return locale === "fr"
+    ? `${age.months} ${t.month} ${age.days} j`
+    : `${age.months} ${monthLabel} ${age.days} d`
+  return `${age.days} ${age.days === 1 ? t.daySingular : t.dayPlural}`
 }
 
-export function formatAgeDetailed(age: AgeParts) {
-  const yearLabel = `${age.years} ${age.years === 1 ? "an" : "ans"}`
-  const monthLabel = `${age.months} mois`
-  const dayLabel = `${age.days} ${age.days === 1 ? "jour" : "jours"}`
-  return `${yearLabel}, ${monthLabel} et ${dayLabel}`
+export function formatAgeDetailed(age: AgeParts, locale: SupportedLocale = "fr") {
+  const t = messages[locale].dates
+  const yearLabel = `${age.years} ${age.years === 1 ? t.yearSingular : t.yearPlural}`
+  const monthLabel = `${age.months} ${age.months === 1 && locale === "en" ? t.month : locale === "en" ? `${t.month}s` : t.month}`
+  const dayLabel = `${age.days} ${age.days === 1 ? t.daySingular : t.dayPlural}`
+  return locale === "fr" ? `${yearLabel}, ${monthLabel} et ${dayLabel}` : `${yearLabel}, ${monthLabel}, and ${dayLabel}`
 }
 
-export function formatBirthDate(value: string) {
+export function formatBirthDate(value: string, locale: SupportedLocale = "fr") {
   const date = parseDateOnly(value)
   if (!date) return ""
-  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(date)
+  return new Intl.DateTimeFormat(localeTag(locale), { day: "numeric", month: "long", year: "numeric" }).format(date)
 }
 
-export function formatTime(value: string) {
-  return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
+export function formatTime(value: string, locale: SupportedLocale = "fr") {
+  return new Intl.DateTimeFormat(localeTag(locale), { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
 }
 
-export function formatDuration(seconds: number | null) {
+export function formatDuration(seconds: number | null, locale: SupportedLocale = "fr") {
   if (seconds == null) return ""
+  const t = messages[locale].dates
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   const rest = seconds % 60
-  if (hours) return `${hours} h ${String(minutes).padStart(2, "0")} min`
-  if (minutes) return `${minutes} min ${String(rest).padStart(2, "0")} s`
-  return `${rest} s`
+  if (hours) return `${hours} ${t.hourShort} ${String(minutes).padStart(2, "0")} ${t.minuteShort}`
+  if (minutes) return `${minutes} ${t.minuteShort} ${String(rest).padStart(2, "0")} ${t.secondShort}`
+  return `${rest} ${t.secondShort}`
 }
 
 export function formatTimer(seconds: number) {
@@ -122,25 +134,28 @@ export function dateKey(value: string) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 }
 
-export function dayHeading(key: string) {
+export function dayHeading(key: string, locale: SupportedLocale = "fr") {
+  const t = messages[locale].dates
   const [year, month, day] = key.split("-").map(Number)
   const date = new Date(year, month - 1, day)
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(today.getDate() - 1)
-  if (date.toDateString() === today.toDateString()) return `AUJOURD’HUI — ${day} ${date.toLocaleDateString("fr-FR", { month: "long" }).toUpperCase()}`
-  if (date.toDateString() === yesterday.toDateString()) return `HIER — ${day} ${date.toLocaleDateString("fr-FR", { month: "long" }).toUpperCase()}`
-  return date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).toUpperCase()
+  if (date.toDateString() === today.toDateString()) return `${t.today} — ${date.toLocaleDateString(localeTag(locale), { day: "numeric", month: "long" }).toUpperCase()}`
+  if (date.toDateString() === yesterday.toDateString()) return `${t.yesterday} — ${date.toLocaleDateString(localeTag(locale), { day: "numeric", month: "long" }).toUpperCase()}`
+  return date.toLocaleDateString(localeTag(locale), { weekday: "long", day: "numeric", month: "long", year: "numeric" }).toUpperCase()
 }
 
-export function relativeTime(value: string) {
+export function relativeTime(value: string, locale: SupportedLocale = "fr") {
+  const t = messages[locale].dates
   const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(value)) / 1000))
-  if (seconds < 60) return "à l’instant"
+  if (seconds < 60) return t.now
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `il y a ${minutes} min`
+  const formatter = new Intl.RelativeTimeFormat(localeTag(locale), { numeric: "auto", style: "short" })
+  if (minutes < 60) return formatter.format(-minutes, "minute")
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `il y a ${hours} h`
-  return `il y a ${Math.floor(hours / 24)} j`
+  if (hours < 24) return formatter.format(-hours, "hour")
+  return formatter.format(-Math.floor(hours / 24), "day")
 }
 
 export function groupEventsByDay<T extends { started_at: string }>(events: T[]) {

@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { dayHeading, groupEventsByDay } from "@/lib/dates"
+import { getLocaleTag, interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
 import type { AppSettings, BabyEvent } from "@/lib/types"
 import { getAgeInMonths } from "@/lib/whoGrowth"
 
@@ -31,8 +32,12 @@ function defaultGrowthWindow(birthDate: string): [number, number] {
   return [start, start + GROWTH_VIEW_MONTHS]
 }
 
-function formatGrowthMonth(value: number) {
-  return Number.isInteger(value) ? `${value} mois` : `${value.toFixed(1).replace(".", ",")} mois`
+function formatGrowthMonth(value: number, locale: "fr" | "en") {
+  const measurement = Number.isInteger(value)
+    ? String(value)
+    : locale === "fr" ? value.toFixed(1).replace(".", ",") : value.toFixed(1)
+  const unit = locale === "fr" ? "mois" : value === 1 ? "month" : "months"
+  return `${measurement} ${unit}`
 }
 
 interface MedicalPageProps {
@@ -42,27 +47,23 @@ interface MedicalPageProps {
   onEdit: (event: BabyEvent) => void
 }
 
-const MEASUREMENTS = {
+const MEASUREMENT_CONFIG = {
   weight: {
-    label: "Poids",
     unit: "kg",
     min: 0.3,
     max: 30,
     step: 0.05,
     decimals: 3,
     defaultValue: 3.5,
-    stepLabel: "50 g",
     icon: Scale
   },
   height: {
-    label: "Taille",
     unit: "cm",
     min: 20,
     max: 200,
     step: 0.1,
     decimals: 1,
     defaultValue: 50,
-    stepLabel: "0,1 cm",
     icon: Ruler
   }
 } as const
@@ -72,8 +73,8 @@ function medicalParams(type: MeasurementType) {
   return params
 }
 
-function measurementDate(value: string) {
-  return new Intl.DateTimeFormat("fr-FR", {
+function measurementDate(value: string, locale: "fr" | "en") {
+  return new Intl.DateTimeFormat(getLocaleTag(locale), {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -83,6 +84,7 @@ function measurementDate(value: string) {
 }
 
 export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: MedicalPageProps) {
+  const { locale, t } = useI18n()
   const [weights, setWeights] = useState<BabyEvent[]>([])
   const [heights, setHeights] = useState<BabyEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -103,11 +105,11 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
       setWeights(weightResult.events)
       setHeights(heightResult.events)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Suivi médical indisponible")
+      toast.error(localizedErrorMessage(error, t, t.medical.unavailable))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     loadMeasurements()
@@ -122,13 +124,21 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
     [weights, heights]
   )
   const groups = groupEventsByDay(history)
-  const config = measurementType ? MEASUREMENTS[measurementType] : null
+  const config = measurementType ? MEASUREMENT_CONFIG[measurementType] : null
+  const measurementLabels = {
+    weight: t.eventLabels.weight,
+    height: t.eventLabels.height
+  }
+  const measurementStepLabels = {
+    weight: "50 g",
+    height: locale === "fr" ? "0,1 cm" : "0.1 cm"
+  }
   const MeasurementIcon = config?.icon
   const measurements = measurementType === "weight" ? weights : heights
   const lastMeasurement = measurements[0]
 
   const openMeasurement = (type: MeasurementType) => {
-    const typeConfig = MEASUREMENTS[type]
+    const typeConfig = MEASUREMENT_CONFIG[type]
     const last = (type === "weight" ? weights : heights)[0]
     setMeasurementValue(last?.value_real ?? typeConfig.defaultValue)
     setNotes("")
@@ -140,11 +150,11 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
     setSaving(true)
     try {
       await api.createEvent({ type: measurementType, value_real: measurementValue, notes })
-      toast.success(`${config.label} · ${measurementValue.toFixed(config.decimals)} ${config.unit}`)
+      toast.success(`${measurementLabels[measurementType]} · ${measurementValue.toFixed(config.decimals)} ${config.unit}`)
       setMeasurementType(null)
       await onChanged()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Mesure impossible à enregistrer")
+      toast.error(localizedErrorMessage(error, t, t.medical.saveError))
     } finally {
       setSaving(false)
     }
@@ -153,32 +163,32 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Suivi médical</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Évolution du poids et de la taille.</p>
+        <h2 className="text-2xl font-semibold tracking-tight">{t.medical.title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t.medical.description}</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <MedicalChart title="Courbe de poids" indicator="weight" events={weights} unit="kg" decimals={3} settings={settings} windowStart={growthWindowStart} windowEnd={growthWindowEnd} />
-        <MedicalChart title="Courbe de taille" indicator="height" events={heights} unit="cm" decimals={1} settings={settings} windowStart={growthWindowStart} windowEnd={growthWindowEnd} />
+        <MedicalChart title={t.medical.weightChart} indicator="weight" events={weights} unit="kg" decimals={3} settings={settings} windowStart={growthWindowStart} windowEnd={growthWindowEnd} />
+        <MedicalChart title={t.medical.heightChart} indicator="height" events={heights} unit="cm" decimals={1} settings={settings} windowStart={growthWindowStart} windowEnd={growthWindowEnd} />
       </div>
 
       {!settings.birth_date || !settings.baby_sex ? (
         <p className="-mt-5 text-center text-xs text-muted-foreground">
-          Renseignez la date de naissance et le sexe dans les paramètres pour afficher les zones de référence OMS.
+          {t.medical.missingProfile}
         </p>
       ) : (
         <section aria-labelledby="growth-period-title" className="-mt-4 rounded-2xl border bg-card/70 p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h3 id="growth-period-title" className="text-sm font-semibold">Période affichée</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Le poids et la taille utilisent exactement la même période.</p>
+              <h3 id="growth-period-title" className="text-sm font-semibold">{t.medical.displayedPeriod}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">{t.medical.sharedPeriod}</p>
             </div>
             <span className="rounded-full bg-muted px-3 py-1 font-mono text-xs tabular-nums text-muted-foreground">
-              {formatGrowthMonth(growthWindowStart)} → {formatGrowthMonth(growthWindowEnd)}
+              {formatGrowthMonth(growthWindowStart, locale)} → {formatGrowthMonth(growthWindowEnd, locale)}
             </span>
           </div>
           <label className="mt-4 block text-xs text-muted-foreground" htmlFor="growth-window">
-            Parcourir les courbes de 0 à 5 ans
+            {t.medical.browseGrowth}
           </label>
           <div className="relative mt-2 h-8" data-testid="growth-range">
             <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-muted" aria-hidden="true" />
@@ -189,7 +199,7 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
             />
             <input
               id="growth-window"
-              aria-label="Début de la période des courbes"
+              aria-label={t.medical.growthStart}
               type="range"
               min="0"
               max={MAX_GROWTH_MONTH}
@@ -199,7 +209,7 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
               className="growth-range-input"
             />
             <input
-              aria-label="Fin de la période des courbes"
+              aria-label={t.medical.growthEnd}
               type="range"
               min="0"
               max={MAX_GROWTH_MONTH}
@@ -210,38 +220,38 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
             />
           </div>
           <p className="mt-3 text-center text-xs text-muted-foreground">
-            Ces zones sont des repères statistiques OMS et ne remplacent pas l’avis d’un professionnel de santé.
+            {t.medical.whoDisclaimer}
           </p>
         </section>
       )}
 
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-[.18em] text-muted-foreground">Ajouter une mesure</h3>
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-[.18em] text-muted-foreground">{t.medical.addMeasurement}</h3>
         <div className="grid grid-cols-2 gap-3">
           <Button variant="outline" className="h-24 flex-col gap-2 rounded-2xl bg-card text-sm font-semibold sm:h-28" onClick={() => openMeasurement("weight")}>
-            <Scale className="size-6 text-primary" /> Poids
+            <Scale className="size-6 text-primary" /> {t.eventLabels.weight}
           </Button>
           <Button variant="outline" className="h-24 flex-col gap-2 rounded-2xl bg-card text-sm font-semibold sm:h-28" onClick={() => openMeasurement("height")}>
-            <Ruler className="size-6 text-primary" /> Taille
+            <Ruler className="size-6 text-primary" /> {t.eventLabels.height}
           </Button>
         </div>
       </section>
 
       <section>
         <div className="mb-3">
-          <h3 className="text-xs font-semibold uppercase tracking-[.18em] text-muted-foreground">Historique des mesures</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Touchez une ligne pour modifier ou supprimer la mesure.</p>
+          <h3 className="text-xs font-semibold uppercase tracking-[.18em] text-muted-foreground">{t.medical.measurementsHistory}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{t.medical.editHint}</p>
         </div>
         <Card>
           <CardContent className="p-3 sm:p-5">
           {loading ? (
-              <ContentLoading label="Chargement des mesures…" />
+              <ContentLoading label={t.medical.loading} />
             ) : history.length === 0 ? (
-              <p className="py-12 text-center text-sm text-muted-foreground">Aucune mesure enregistrée.</p>
+              <p className="py-12 text-center text-sm text-muted-foreground">{t.medical.empty}</p>
             ) : Object.entries(groups).map(([key, events], groupIndex) => (
               <div key={key}>
                 {groupIndex > 0 ? <Separator className="my-4" /> : null}
-                <h4 className="px-2 py-2 text-xs font-semibold tracking-[.14em] text-muted-foreground">{dayHeading(key)}</h4>
+                <h4 className="px-2 py-2 text-xs font-semibold tracking-[.14em] text-muted-foreground">{dayHeading(key, locale)}</h4>
                 {events?.map((event) => <EventRow key={event.id} event={event} onClick={() => onEdit(event)} />)}
               </div>
             ))}
@@ -250,16 +260,16 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
       </section>
 
       <Dialog open={Boolean(measurementType)} onOpenChange={(open) => !open && setMeasurementType(null)}>
-        {config && MeasurementIcon ? (
+        {measurementType && config && MeasurementIcon ? (
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <MeasurementIcon className="text-primary" /> {config.label}
+                <MeasurementIcon className="text-primary" /> {measurementLabels[measurementType]}
               </DialogTitle>
               <DialogDescription>
                 {lastMeasurement?.value_real != null
-                  ? `Dernière mesure : ${lastMeasurement.value_real.toFixed(config.decimals)} ${config.unit}, le ${measurementDate(lastMeasurement.started_at)}.`
-                  : "Aucune mesure précédente. Sélectionnez la première valeur."}
+                  ? interpolate(t.medical.lastMeasurement, { value: lastMeasurement.value_real.toFixed(config.decimals), unit: config.unit, date: measurementDate(lastMeasurement.started_at, locale) })
+                  : t.medical.noPreviousMeasurement}
               </DialogDescription>
             </DialogHeader>
             <MeasurementPicker
@@ -270,12 +280,12 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
               step={config.step}
               decimals={config.decimals}
               unit={config.unit}
-              label={config.label}
-              stepLabel={config.stepLabel}
+              label={measurementLabels[measurementType]}
+              stepLabel={measurementStepLabels[measurementType]}
             />
-            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Observation (facultative)" />
+            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={t.common.optionalObservation} />
             <DialogFooter>
-              <Button className="h-12" disabled={saving} onClick={saveMeasurement}>Enregistrer</Button>
+              <Button className="h-12" disabled={saving} onClick={saveMeasurement}>{t.common.save}</Button>
             </DialogFooter>
           </DialogContent>
         ) : null}

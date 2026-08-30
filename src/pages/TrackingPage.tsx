@@ -6,7 +6,8 @@ import { EventRow } from "@/components/EventRow"
 import { TemperatureSparkline } from "@/components/TemperatureSparkline"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { EVENT_LABELS, type BabyEvent, type StoolAlert } from "@/lib/types"
+import { interpolate, useI18n } from "@/lib/i18n"
+import type { BabyEvent, StoolAlert } from "@/lib/types"
 import { dateKey, dayHeading, formatDuration, formatTime, groupEventsByDay, relativeTime } from "@/lib/dates"
 
 interface TrackingPageProps {
@@ -20,6 +21,7 @@ interface TrackingPageProps {
 }
 
 export function TrackingPage({ events, running, loading, stoolAlert, onChanged, onEdit, onOpenCare }: TrackingPageProps) {
+  const { locale, t } = useI18n()
   const lastFeeding = events.find((event) => event.type === "breast_left" || event.type === "breast_right")
   const lastDiaper = events.find((event) => event.type === "diaper")
   const lastBath = events.find((event) => event.type === "bath")
@@ -38,24 +40,24 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
 
   const info = [
     {
-      label: "Tétée",
+      label: t.tracking.feeding,
       icon: Milk,
-      primary: lastFeeding ? EVENT_LABELS[lastFeeding.type] : "Aucune",
-      secondary: lastFeeding ? formatDuration(lastFeeding.duration_seconds) || relativeTime(lastFeeding.started_at) : "",
-      caption: `${feedingsToday} ${feedingsToday === 1 ? "tétée" : "tétées"} aujourd’hui`
+      primary: lastFeeding ? t.eventLabels[lastFeeding.type] : t.common.none,
+      secondary: lastFeeding ? formatDuration(lastFeeding.duration_seconds, locale) || relativeTime(lastFeeding.started_at, locale) : "",
+      caption: `${feedingsToday} ${feedingsToday === 1 ? t.tracking.feedingsTodaySingular : t.tracking.feedingsTodayPlural}`
     },
     {
-      label: "Couche",
+      label: t.tracking.diaper,
       icon: WalletCards,
-      primary: lastDiaperType ? ({ urine: "Urine", stool: "Selles", mixed: "Mixte" }[lastDiaperType] || lastDiaperType) : "Aucune",
-      secondary: lastDiaper ? relativeTime(lastDiaper.started_at) : "",
+      primary: lastDiaperType ? (t.diaperTypes[lastDiaperType as keyof typeof t.diaperTypes] || lastDiaperType) : t.common.none,
+      secondary: lastDiaper ? relativeTime(lastDiaper.started_at, locale) : "",
       caption: undefined
     },
     {
-      label: "Bain",
+      label: t.tracking.bath,
       icon: Bath,
-      primary: lastBath ? formatTime(lastBath.started_at) : "Aucun",
-      secondary: lastBath ? relativeTime(lastBath.started_at) : "",
+      primary: lastBath ? formatTime(lastBath.started_at, locale) : t.common.none,
+      secondary: lastBath ? relativeTime(lastBath.started_at, locale) : "",
       caption: undefined
     }
   ]
@@ -65,7 +67,7 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
       {stoolAlert?.overdue ? <StoolAlertCard alert={stoolAlert} /> : null}
 
       <section>
-        <SectionTitle>Dernières informations</SectionTitle>
+        <SectionTitle>{t.tracking.latestInfo}</SectionTitle>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <InfoCard {...info[0]} />
           <TemperatureInfoCard events={temperatures} />
@@ -74,29 +76,29 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
       </section>
 
       <section>
-        <SectionTitle>Actions rapides</SectionTitle>
+        <SectionTitle>{t.tracking.quickActions}</SectionTitle>
         <ActionGrid onChanged={onChanged} onOpenCare={onOpenCare} />
       </section>
 
       {running.length > 0 && (
         <section id="active-timers" className="scroll-mt-40 space-y-3">
-          <SectionTitle>Chrono actif</SectionTitle>
+          <SectionTitle>{t.tracking.activeTimer}</SectionTitle>
           {running.map((event) => <ActiveTimer key={event.id} event={event} onChanged={onChanged} />)}
         </section>
       )}
 
       <section>
-        <SectionTitle>Activité récente</SectionTitle>
+        <SectionTitle>{t.tracking.recentActivity}</SectionTitle>
         <Card>
           <CardContent className="p-3 sm:p-5">
             {loading ? (
-              <ContentLoading label="Chargement de l’activité…" />
+              <ContentLoading label={t.tracking.activityLoading} />
             ) : recent.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">Les premières actions apparaîtront ici.</p>
+              <p className="py-10 text-center text-sm text-muted-foreground">{t.tracking.firstActions}</p>
             ) : Object.entries(groups).map(([key, dayEvents], groupIndex) => (
               <div key={key}>
                 {groupIndex > 0 && <Separator className="my-4" />}
-                <h3 className="px-2 py-2 text-xs font-semibold tracking-[.14em] text-muted-foreground">{dayHeading(key)}</h3>
+                <h3 className="px-2 py-2 text-xs font-semibold tracking-[.14em] text-muted-foreground">{dayHeading(key, locale)}</h3>
                 {dayEvents?.map((event) => <EventRow key={event.id} event={event} onClick={() => onEdit(event)} />)}
               </div>
             ))}
@@ -108,12 +110,13 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
 }
 
 function StoolAlertCard({ alert }: { alert: StoolAlert }) {
+  const { locale, t } = useI18n()
   const detail = alert.last_stool_at
-    ? `Dernière selle enregistrée ${relativeTime(alert.last_stool_at)}.`
-    : "Aucune selle n’a encore été enregistrée."
+    ? interpolate(t.tracking.lastStool, { relative: relativeTime(alert.last_stool_at, locale) })
+    : t.tracking.noStoolRecorded
 
   return (
-    <section aria-label="Alerte transit">
+    <section aria-label={t.tracking.stoolAlertLabel}>
       <Card role="alert" className="border-amber-500/45 bg-amber-500/10 shadow-sm">
         <CardContent className="flex items-start gap-3 p-4 sm:p-5">
           <span className="rounded-full bg-amber-500/15 p-2 text-amber-700 dark:text-amber-300">
@@ -121,10 +124,10 @@ function StoolAlertCard({ alert }: { alert: StoolAlert }) {
           </span>
           <div>
             <p className="font-semibold text-amber-950 dark:text-amber-100">
-              {alert.hours_since == null ? "Suivi des selles à renseigner" : `Aucune selle depuis ${alert.hours_since} h`}
+              {alert.hours_since == null ? t.tracking.stoolMissingTitle : interpolate(t.tracking.noStoolSince, { hours: alert.hours_since })}
             </p>
             <p className="mt-1 text-sm text-amber-900/75 dark:text-amber-100/75">
-              {detail} Le seuil de surveillance est fixé à {alert.threshold_hours} heures.
+              {detail} {interpolate(t.tracking.stoolThreshold, { hours: alert.threshold_hours })}
             </p>
           </div>
         </CardContent>
@@ -156,6 +159,7 @@ function InfoCard({ label, icon: Icon, primary, secondary, caption }: {
 }
 
 function TemperatureInfoCard({ events }: { events: BabyEvent[] }) {
+  const { locale, t } = useI18n()
   const values = events.map((event) => event.value_real as number)
   const latest = events.at(-1)
 
@@ -163,11 +167,11 @@ function TemperatureInfoCard({ events }: { events: BabyEvent[] }) {
     <Card className="bg-card/80">
       <CardContent className="p-4 sm:p-5">
         <Thermometer className="mb-3 size-5 text-primary sm:mb-5" aria-hidden="true" />
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Température</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.eventLabels.temperature}</p>
         <div className="mt-1 flex items-end justify-between gap-3">
           <div>
-            <p className="text-lg font-medium">{latest ? `${latest.value_real?.toFixed(1)} °C` : "Aucune"}</p>
-            <p className="text-sm text-muted-foreground">{latest ? relativeTime(latest.started_at) : "—"}</p>
+            <p className="text-lg font-medium">{latest ? `${latest.value_real?.toFixed(1)} °C` : t.common.none}</p>
+            <p className="text-sm text-muted-foreground">{latest ? relativeTime(latest.started_at, locale) : t.common.noValue}</p>
           </div>
           <TemperatureSparkline values={values} />
         </div>

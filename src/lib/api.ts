@@ -1,4 +1,17 @@
 import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, StoolAlert } from "./types"
+import type { LanguagePreference } from "@/lib/i18n"
+
+export class ApiError extends Error {
+  code: string | null
+  status: number
+
+  constructor(message: string, status: number, code: string | null) {
+    super(message)
+    this.name = "ApiError"
+    this.status = status
+    this.code = code
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -7,7 +20,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
-    throw new Error(body.error || "Impossible de joindre BabyCare.")
+    throw new ApiError(body.error || "Unable to reach BabyCare.", response.status, body.code || null)
   }
   return response.status === 204 ? undefined as T : response.json()
 }
@@ -37,6 +50,10 @@ export const api = {
   updateAccent: (color: AccentColor) => request<AppSettings>("/api/settings/accent", {
     method: "PUT",
     body: JSON.stringify({ color })
+  }),
+  updateLanguage: (language: LanguagePreference) => request<AppSettings>("/api/settings/language", {
+    method: "PUT",
+    body: JSON.stringify({ language })
   }),
   updateProfile: (babyName: string, birthDate: string, babySex: BabySex) => request<AppSettings>("/api/settings/profile", {
     method: "PUT",

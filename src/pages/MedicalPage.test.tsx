@@ -8,7 +8,8 @@ const settings: AppSettings = {
   accent_color: "orange",
   baby_name: "Lou",
   birth_date: "2026-01-01",
-  baby_sex: "girl"
+  baby_sex: "girl",
+  language_preference: "system"
 }
 
 describe("MedicalPage", () => {
