@@ -4,6 +4,8 @@ import { MedicalChart } from "@/components/MedicalChart"
 import type { AppSettings } from "@/lib/types"
 
 const settings: AppSettings = {
+  active_baby_id: 1,
+  babies: [{ id: 1, name: "Lou", birth_date: "2026-01-01", baby_sex: "girl", accent_color: "orange" }],
   accent_color: "orange",
   baby_name: "Lou",
   birth_date: "2026-01-01",

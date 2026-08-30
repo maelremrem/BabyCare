@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Calendar, Check, ChevronLeft, ChevronRight, LoaderCircle, Mars, Settings, Trash2, Venus } from "lucide-react"
+import { Baby, Calendar, Check, ChevronLeft, ChevronRight, LoaderCircle, Mars, Plus, Settings, Trash2, Venus } from "lucide-react"
 import { toast } from "sonner"
 import { BabyCareIcon } from "@/components/BabyCareIcon"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -16,9 +16,11 @@ import { ACCENT_OPTIONS, type AccentColor, type AppSettings, type BabySex } from
 
 interface TopBarProps {
   settings: AppSettings
-  onAccentChange: (color: AccentColor) => Promise<void>
+  onBabySelect: (babyId: number) => Promise<void>
+  onBabyAdd: (babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor) => Promise<void>
+  onBabyDelete: (babyId: number) => Promise<void>
   onLanguageChange: (language: LanguagePreference) => Promise<void>
-  onProfileChange: (babyName: string, birthDate: string, babySex: BabySex) => Promise<void>
+  onProfileChange: (babyName: string, birthDate: string, babySex: BabySex, accentColor: AccentColor) => Promise<void>
   onReset: () => Promise<void>
 }
 
@@ -90,19 +92,24 @@ function monthDays(month: Date) {
   })
 }
 
-export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileChange, onReset }: TopBarProps) {
+export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLanguageChange, onProfileChange, onReset }: TopBarProps) {
   const { locale, t } = useI18n()
   const localeTag = getLocaleTag(locale)
   const now = useClock()
+  const activeBabyColor = settings.babies.find((baby) => baby.id === settings.active_baby_id)?.accent_color || settings.accent_color
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [babyName, setBabyName] = useState(settings.baby_name)
   const [birthDateInput, setBirthDateInput] = useState(() => formatDateInput(settings.birth_date, locale))
   const [birthDatePickerOpen, setBirthDatePickerOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => parseIsoDateOnly(settings.birth_date) ?? dateOnly(new Date()))
   const [babySex, setBabySex] = useState<BabySex>(settings.baby_sex)
+  const [babyColor, setBabyColor] = useState<AccentColor>(activeBabyColor)
+  const [addingBaby, setAddingBaby] = useState(false)
   const [saving, setSaving] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [deleteBabyOpen, setDeleteBabyOpen] = useState(false)
+  const [deletingBaby, setDeletingBaby] = useState(false)
   const age = getAgeParts(settings.birth_date, now)
 
   useEffect(() => setBabyName(settings.baby_name), [settings.baby_name])
@@ -112,6 +119,7 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
     if (parsedBirthDate) setCalendarMonth(parsedBirthDate)
   }, [locale, settings.birth_date])
   useEffect(() => setBabySex(settings.baby_sex), [settings.baby_sex])
+  useEffect(() => setBabyColor(activeBabyColor), [activeBabyColor])
 
   const today = dateOnly(now)
   const selectedBirthDate = parseIsoDateOnly(parseDateInput(birthDateInput, locale) || "")
@@ -135,13 +143,46 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
 
     setSaving(true)
     try {
-      await onProfileChange(babyName.trim(), parsedBirthDate, babySex)
+      if (addingBaby) {
+        await onBabyAdd(babyName.trim(), parsedBirthDate, babySex, babyColor)
+        setAddingBaby(false)
+      } else {
+        await onProfileChange(babyName.trim(), parsedBirthDate, babySex, babyColor)
+      }
       setSettingsOpen(false)
       toast.success(t.settings.profileSaved)
     } catch (error) {
       toast.error(localizedErrorMessage(error, t, t.settings.profileSaveError))
     } finally {
       setSaving(false)
+    }
+  }
+
+  function startAddingBaby() {
+    setAddingBaby(true)
+    setBabyName("")
+    setBirthDateInput("")
+    setBabySex("")
+    setBabyColor("orange")
+  }
+
+  function cancelAddingBaby() {
+    setAddingBaby(false)
+    setBabyName(settings.baby_name)
+    setBirthDateInput(formatDateInput(settings.birth_date, locale))
+    setBabySex(settings.baby_sex)
+    setBabyColor(activeBabyColor)
+  }
+
+  async function deleteBaby() {
+    setDeletingBaby(true)
+    try {
+      await onBabyDelete(settings.active_baby_id)
+      setDeleteBabyOpen(false)
+    } catch (error) {
+      toast.error(localizedErrorMessage(error, t, t.common.actionImpossible))
+    } finally {
+      setDeletingBaby(false)
     }
   }
 
@@ -160,11 +201,21 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur-xl">
       <div className="mx-auto flex min-h-[73px] max-w-6xl items-center gap-1 px-3 py-3 sm:gap-3 sm:px-6">
-        <BabyCareIcon accentColor={settings.accent_color} className="size-10 shrink-0 rounded-xl sm:size-11" />
-        <div className="flex min-w-0 max-w-20 flex-col leading-tight sm:max-w-64 sm:flex-row sm:items-baseline sm:gap-2">
+        <BabyCareIcon accentColor={activeBabyColor} className="size-10 shrink-0 rounded-xl sm:size-11" />
+        <div className="flex min-w-0 max-w-28 flex-col leading-tight sm:max-w-64 sm:flex-row sm:items-center sm:gap-2">
           <p className="shrink-0 text-sm font-semibold tracking-tight sm:text-lg">BabyCare</p>
-          {settings.baby_name ? (
-            <p className="truncate text-xs font-medium text-muted-foreground sm:text-base sm:text-foreground">{settings.baby_name}</p>
+          {settings.babies.length ? (
+            <Select value={String(settings.active_baby_id)} onValueChange={(value) => onBabySelect(Number(value)).catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}>
+              <SelectTrigger aria-label={t.settings.selectBaby} className="h-7 min-w-0 border-0 bg-transparent px-1 text-xs font-medium shadow-none sm:text-base">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {settings.babies.map((baby) => {
+                  const color = ACCENT_OPTIONS.find((option) => option.id === baby.accent_color)?.value
+                  return <SelectItem key={baby.id} value={String(baby.id)}><span className="flex items-center gap-2"><span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />{baby.name || t.settings.unnamedBaby}</span></SelectItem>
+                })}
+              </SelectContent>
+            </Select>
           ) : null}
         </div>
 
@@ -201,8 +252,17 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
             <div className="grid gap-5 md:grid-cols-2">
               <form onSubmit={saveProfile} autoComplete="off" className="space-y-4 rounded-2xl border bg-card/60 p-4">
                 <div>
-                  <p className="font-semibold">{t.settings.profileTitle}</p>
-                  <p className="text-xs text-muted-foreground">{t.settings.profileDescription}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold">{addingBaby ? t.settings.addBabyTitle : t.settings.profileTitle}</p>
+                      <p className="text-xs text-muted-foreground">{addingBaby ? t.settings.addBabyDescription : t.settings.profileDescription}</p>
+                    </div>
+                    {addingBaby ? (
+                      <Button type="button" variant="ghost" size="sm" onClick={cancelAddingBaby}>{t.common.cancel}</Button>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" onClick={startAddingBaby}><Plus /> {t.settings.addBaby}</Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -210,6 +270,7 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
                   <Input
                     id="baby-name"
                     value={babyName}
+                    required={addingBaby}
                     maxLength={80}
                     autoComplete="off"
                     data-1p-ignore="true"
@@ -317,37 +378,25 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
                   <p className="text-xs text-muted-foreground">{t.settings.sexHelp}</p>
                 </fieldset>
 
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">{t.settings.babyColor}</legend>
+                  <div className="grid grid-cols-5 gap-2">
+                    {ACCENT_OPTIONS.map((option) => (
+                      <Button key={option.id} type="button" variant="outline" size="icon" className="relative size-10 rounded-xl p-0" aria-label={interpolate(t.settings.useBabyColor, { color: option.label })} aria-pressed={babyColor === option.id} onClick={() => setBabyColor(option.id)}>
+                        <span className="size-6 rounded-full" style={{ backgroundColor: option.value }} />
+                        {babyColor === option.id ? <Check className="absolute size-3 text-white drop-shadow" /> : null}
+                      </Button>
+                    ))}
+                  </div>
+                </fieldset>
+
                 <Button type="submit" className="w-full" disabled={saving}>
                   {saving ? <LoaderCircle className="animate-spin" /> : null}
-                  {t.settings.saveProfile}
+                  {addingBaby ? t.settings.createBaby : t.settings.saveProfile}
                 </Button>
               </form>
 
               <div className="rounded-2xl border bg-card/60 p-4">
-                <div>
-                  <p className="font-semibold">{t.settings.accentTitle}</p>
-                  <p className="mb-3 text-xs text-muted-foreground">{t.settings.accentDescription}</p>
-                  <div className="grid grid-cols-5 gap-2">
-                    {ACCENT_OPTIONS.map((option) => (
-                      <Button
-                        key={option.id}
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="relative size-10 rounded-xl p-0"
-                        aria-label={interpolate(t.settings.useAccent, { color: option.label })}
-                        aria-pressed={settings.accent_color === option.id}
-                        onClick={() => onAccentChange(option.id).catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}
-                      >
-                        <span className="size-6 rounded-full" style={{ backgroundColor: option.value }} />
-                        {settings.accent_color === option.id ? <Check className="absolute size-3 text-white drop-shadow" /> : null}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator className="my-5" />
-
                 <div>
                   <p className="font-semibold">{t.settings.languageTitle}</p>
                   <p className="mb-3 text-xs text-muted-foreground">{t.settings.languageDescription}</p>
@@ -369,6 +418,12 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
                 <div>
                   <p className="font-semibold text-destructive">{t.settings.dangerTitle}</p>
                   <p className="mb-3 text-xs text-muted-foreground">{t.settings.dangerDescription}</p>
+                  <Button type="button" variant="outline" className="mb-2 w-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={settings.babies.length <= 1} onClick={() => {
+                    setSettingsOpen(false)
+                    setDeleteBabyOpen(true)
+                  }}>
+                    <Baby /> {interpolate(t.settings.deleteBaby, { name: settings.baby_name || t.settings.unnamedBaby })}
+                  </Button>
                   <Button type="button" variant="destructive" className="w-full" onClick={() => {
                     setSettingsOpen(false)
                     setResetOpen(true)
@@ -395,6 +450,22 @@ export function TopBar({ settings, onAccentChange, onLanguageChange, onProfileCh
             <AlertDialogAction variant="destructive" disabled={resetting} onClick={resetDatabase}>
               {resetting ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
               {t.settings.resetConfirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteBabyOpen} onOpenChange={setDeleteBabyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{interpolate(t.settings.deleteBabyTitle, { name: settings.baby_name || t.settings.unnamedBaby })}</AlertDialogTitle>
+            <AlertDialogDescription>{interpolate(t.settings.deleteBabyDescription, { name: settings.baby_name || t.settings.unnamedBaby })}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingBaby}>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" disabled={deletingBaby} onClick={deleteBaby}>
+              {deletingBaby ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+              {t.settings.deleteBabyConfirm}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

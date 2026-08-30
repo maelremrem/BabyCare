@@ -179,11 +179,13 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
   const saved = await fetch(`${baseUrl}/api/settings/profile`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl" })
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl", accent_color: "green" })
   }).then((response) => response.json())
   assert.equal(saved.baby_name, "Lou")
   assert.equal(saved.birth_date, "2025-12-03")
   assert.equal(saved.baby_sex, "girl")
+  assert.equal(saved.accent_color, "green")
+  assert.equal(saved.babies[0].accent_color, "green")
 
   const future = await fetch(`${baseUrl}/api/settings/profile`, {
     method: "PUT",
@@ -199,13 +201,13 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
   })
   assert.equal(invalidSex.status, 400)
 
-  const color = await fetch(`${baseUrl}/api/settings/accent`, {
+  const invalidColor = await fetch(`${baseUrl}/api/settings/profile`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ color: "green" })
-  }).then((response) => response.json())
-  assert.equal(color.accent_color, "green")
-  assert.equal(color.baby_name, "Lou")
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl", accent_color: "teal" })
+  })
+  assert.equal(invalidColor.status, 400)
+  assert.equal((await invalidColor.json()).code, "invalid_accent_color")
 
   const language = await fetch(`${baseUrl}/api/settings/language`, {
     method: "PUT",
@@ -241,7 +243,62 @@ test("réinitialise toute la base de données et restaure les paramètres par d�
   const history = await fetch(`${baseUrl}/api/events`).then((response) => response.json())
   assert.equal(history.total, 0)
   const settings = await fetch(`${baseUrl}/api/settings`).then((response) => response.json())
-  assert.deepEqual(settings, { accent_color: "orange", baby_name: "", birth_date: "", baby_sex: "", language_preference: "system" })
+  assert.equal(settings.accent_color, "orange")
+  assert.equal(settings.baby_name, "")
+  assert.equal(settings.birth_date, "")
+  assert.equal(settings.baby_sex, "")
+  assert.equal(settings.language_preference, "system")
+  assert.equal(settings.babies.length, 1)
+  assert.equal(settings.active_baby_id, settings.babies[0].id)
+}))
+
+test("isole les données par bébé et sélectionne le profil actif", () => withServer(async (baseUrl) => {
+  await fetch(`${baseUrl}/api/settings/profile`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl", accent_color: "green" })
+  })
+  await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "temperature", value_real: 37.1 })
+  })
+
+  const mila = await fetch(`${baseUrl}/api/babies`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby_name: "Mila", birth_date: "2026-02-01", baby_sex: "girl", accent_color: "pink" })
+  }).then((response) => response.json())
+  assert.equal(mila.baby_name, "Mila")
+  assert.equal(mila.accent_color, "pink")
+  assert.equal(mila.babies.length, 2)
+  assert.equal((await fetch(`${baseUrl}/api/events`).then((response) => response.json())).total, 0)
+
+  await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "weight", value_real: 4.2 })
+  })
+  const louId = mila.babies.find((baby) => baby.name === "Lou").id
+  const selectedLou = await fetch(`${baseUrl}/api/babies/active`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby_id: louId })
+  }).then((response) => response.json())
+  assert.equal(selectedLou.baby_name, "Lou")
+  assert.equal(selectedLou.accent_color, "green")
+  const louEvents = await fetch(`${baseUrl}/api/events`).then((response) => response.json())
+  assert.equal(louEvents.total, 1)
+  assert.equal(louEvents.events[0].type, "temperature")
+
+  const afterDelete = await fetch(`${baseUrl}/api/babies/${louId}`, { method: "DELETE" }).then((response) => response.json())
+  assert.equal(afterDelete.baby_name, "Mila")
+  assert.equal(afterDelete.babies.length, 1)
+  const milaEvents = await fetch(`${baseUrl}/api/events`).then((response) => response.json())
+  assert.equal(milaEvents.total, 1)
+  assert.equal(milaEvents.events[0].type, "weight")
+  const deleteLast = await fetch(`${baseUrl}/api/babies/${afterDelete.active_baby_id}`, { method: "DELETE" })
+  assert.equal(deleteLast.status, 409)
 }))
 
 test("enregistre les mesures de poids et de taille", () => withServer(async (baseUrl) => {
