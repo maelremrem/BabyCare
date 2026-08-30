@@ -1,5 +1,8 @@
 import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, StoolAlert } from "./types"
 import type { LanguagePreference } from "@/lib/i18n"
+import { demoApi } from "@/lib/demoApi"
+
+export const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true"
 
 export class ApiError extends Error {
   code: string | null
@@ -25,7 +28,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.status === 204 ? undefined as T : response.json()
 }
 
-export const api = {
+const serverApi = {
   events: (params = new URLSearchParams()) => request<EventList>(`/api/events?${params}`),
   running: () => request<BabyEvent[]>("/api/events/running"),
   stoolAlert: () => request<StoolAlert>("/api/alerts/stool"),
@@ -72,3 +75,5 @@ export const api = {
   }),
   validateDailyCare: () => request<BabyEvent>("/api/routines/daily/validate", { method: "POST" })
 }
+
+export const api = isDemoMode ? demoApi : serverApi

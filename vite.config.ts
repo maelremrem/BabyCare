@@ -4,8 +4,10 @@ import tailwindcss from "@tailwindcss/vite"
 import { VitePWA } from "vite-plugin-pwa"
 
 const apiPort = Number(process.env.API_PORT || process.env.PORT) || 3000
+const base = process.env.VITE_BASE_PATH || "/"
 
 export default defineConfig({
+  base,
   plugins: [
     react(),
     tailwindcss(),
@@ -18,9 +20,9 @@ export default defineConfig({
         theme_color: "#FD6D01",
         background_color: "#000000",
         display: "standalone",
-        start_url: "/",
+        start_url: base,
         icons: [
-          { src: "/babycare-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
+          { src: `${base}babycare-icon.svg`, sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
         ]
       }
     })

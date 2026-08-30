@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { api } from "@/lib/api"
+import { api, isDemoMode } from "@/lib/api"
 import { dayHeading, groupEventsByDay } from "@/lib/dates"
 import { localizedErrorMessage, useI18n } from "@/lib/i18n"
 import { EVENT_LABELS, type BabyEvent, type EventType } from "@/lib/types"
@@ -81,6 +81,21 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
   exportParams.delete("limit")
   exportParams.set("locale", locale)
 
+  const exportDemoCsv = async () => {
+    const result = await api.events(exportParams)
+    const header = ["started_at", "type", "value_real", "value_text", "notes"]
+    const rows = result.events.map((event) => header.map((key) => {
+      const value = String(event[key as keyof BabyEvent] ?? "")
+      return `"${value.replaceAll("\"", "\"\"")}"`
+    }).join(","))
+    const blob = new Blob([[header.join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.download = "BabyCare_demo_export.csv"
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
@@ -88,9 +103,15 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
           <h2 className="text-2xl font-semibold tracking-tight">{t.history.title}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{total} {total > 1 ? t.history.matchingPlural : t.history.matchingSingular}</p>
         </div>
-        <Button className="h-11" asChild>
-          <a href={`/api/export/xlsx?${exportParams}`} download><Download /> {t.history.exportExcel}</a>
-        </Button>
+        {isDemoMode ? (
+          <Button className="h-11" onClick={() => exportDemoCsv().catch((error) => toast.error(localizedErrorMessage(error, t, t.history.unavailable)))}>
+            <Download /> {t.history.exportExcel}
+          </Button>
+        ) : (
+          <Button className="h-11" asChild>
+            <a href={`/api/export/xlsx?${exportParams}`} download><Download /> {t.history.exportExcel}</a>
+          </Button>
+        )}
       </div>
 
       <Card>
