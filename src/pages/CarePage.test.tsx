@@ -16,7 +16,7 @@ describe("CarePage", () => {
   test("présente les soins dans l’ordre recommandé avec leurs conseils", () => {
     render(<CarePage care={care} onChanged={vi.fn(async () => undefined)} />)
 
-    const headings = ["2. 👁️ Yeux", "3. 🙂 Visage", "4. 👃 Nez", "5. 🩹 Cordon ombilical"]
+    const headings = ["2. Yeux", "3. Visage", "4. Nez", "5. Cordon ombilical"]
       .map((title) => screen.getByText(title))
 
     headings.slice(1).forEach((heading, index) => {
@@ -30,7 +30,7 @@ describe("CarePage", () => {
     render(<CarePage care={care} onChanged={vi.fn(async () => undefined)} />)
 
     expect(screen.getByText("1. Préparer le bain")).toBeInTheDocument()
-    expect(screen.getByText("8. 🩹 Cordon après le bain")).toBeInTheDocument()
+    expect(screen.getByText("8. Cordon après le bain")).toBeInTheDocument()
     expect(screen.getByText(/Ne jamais laisser bébé seul dans le bain/)).toBeInTheDocument()
     expect(screen.getByText(/Préparation → Fesses si souillées → Mise à l’eau/)).toBeInTheDocument()
   })

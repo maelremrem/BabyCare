@@ -99,9 +99,9 @@ export function ActionGrid({ nextBreast, onChanged, onOpenCare }: ActionGridProp
             <Button variant="outline" className={actionClass}><Smile className="size-6" /> {t.actions.faceCord}</Button>
           </PopoverTrigger>
           <PopoverContent className="w-56 p-2">
-            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await start("face_care", t.actions.faceCare); setCareOpen(false) }}>{t.eventLabels.face_care}</Button>
-            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await start("cord_care", t.actions.cordCare); setCareOpen(false) }}>{t.eventLabels.cord_care}</Button>
-            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await start("face_cord_care", t.actions.faceCordCare); setCareOpen(false) }}>{t.actions.both}</Button>
+            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await create("face_care", { type: "face_care" }, t.actions.faceCare); setCareOpen(false) }}>{t.eventLabels.face_care}</Button>
+            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await create("cord_care", { type: "cord_care" }, t.actions.cordCare); setCareOpen(false) }}>{t.eventLabels.cord_care}</Button>
+            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await create("face_cord_care", { type: "face_cord_care" }, t.actions.faceCordCare); setCareOpen(false) }}>{t.actions.both}</Button>
           </PopoverContent>
         </Popover>
 

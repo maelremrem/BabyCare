@@ -114,7 +114,14 @@ test("génère un export Excel filtrable", () => withServer(async (baseUrl) => {
 }))
 
 test("gère le soin combiné, les irritations multiples et les observations", () => withServer(async (baseUrl) => {
-  const combined = await fetch(`${baseUrl}/api/events/start`, {
+  const combinedTimer = await fetch(`${baseUrl}/api/events/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "face_cord_care" })
+  })
+  assert.equal(combinedTimer.status, 400)
+
+  const combined = await fetch(`${baseUrl}/api/events`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ type: "face_cord_care" })

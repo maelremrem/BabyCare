@@ -23,7 +23,7 @@ const EVENT_TYPES = new Set([
   "eye_care",
   "nose_care"
 ])
-const TIMER_TYPES = new Set(["breast_left", "breast_right", "face_care", "cord_care", "face_cord_care"])
+const TIMER_TYPES = new Set(["breast_left", "breast_right"])
 const ACCENT_COLORS = new Set(["orange", "blue", "green", "pink", "purple"])
 const BABY_SEXES = new Set(["", "girl", "boy"])
 const LANGUAGE_PREFERENCES = new Set(["system", "fr", "en"])

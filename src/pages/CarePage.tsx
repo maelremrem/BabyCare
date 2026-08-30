@@ -1,5 +1,20 @@
 import { useState } from "react"
-import { Check, ChevronDown, ClipboardCheck, Droplets } from "lucide-react"
+import {
+  Baby,
+  Bandage,
+  Bath,
+  Check,
+  ChevronDown,
+  ClipboardCheck,
+  Droplets,
+  Eye,
+  Hand,
+  type LucideIcon,
+  Shirt,
+  ShowerHead,
+  Smile,
+  Wind
+} from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,15 +28,39 @@ import type { DailyCare } from "@/lib/types"
 interface CarePageProps {
   care: DailyCare[]
   onChanged: () => Promise<void>
+  onValidated?: () => void
 }
 
-function GuideSection({ section, checked, onCheckedChange }: {
+const dailyCareIcons: Record<DailyCare["care_type"], LucideIcon> = {
+  eyes: Eye,
+  face: Smile,
+  nose: Wind,
+  cord: Bandage
+}
+
+const bathIcons: Record<string, LucideIcon> = {
+  "1": Bath,
+  "2": Baby,
+  "3": Hand,
+  "4": ShowerHead,
+  "5": Droplets,
+  "6": Hand,
+  "7": Shirt,
+  "8": Bandage
+}
+
+function guideNumber(title: string) {
+  return title.split(".")[0]
+}
+
+function GuideSection({ section, checked, onCheckedChange, icon: Icon }: {
   section: CareGuideSection
   checked?: boolean
   onCheckedChange?: (checked: boolean) => Promise<void>
+  icon?: LucideIcon
 }) {
   return (
-    <details className="group rounded-2xl border border-border bg-muted/20 open:bg-muted/30">
+    <details className="group rounded-xl border border-border bg-muted/20 open:bg-muted/30">
       <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
         {onCheckedChange ? (
           <Checkbox
@@ -31,6 +70,11 @@ function GuideSection({ section, checked, onCheckedChange }: {
             onCheckedChange={(value) => void onCheckedChange(Boolean(value))}
             className="size-6 shrink-0"
           />
+        ) : null}
+        {Icon ? (
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <Icon className="size-5" />
+          </span>
         ) : null}
         <span className="flex-1 text-base font-semibold">{section.title}</span>
         {checked ? <Check className="size-5 shrink-0 text-primary" /> : null}
@@ -57,7 +101,7 @@ function GuideSection({ section, checked, onCheckedChange }: {
   )
 }
 
-export function CarePage({ care, onChanged }: CarePageProps) {
+export function CarePage({ care, onChanged, onValidated }: CarePageProps) {
   const { locale, t } = useI18n()
   const guide = careGuides[locale]
   const completed = care.filter((item) => item.completed).length
@@ -77,6 +121,7 @@ export function CarePage({ care, onChanged }: CarePageProps) {
       await api.validateDailyCare()
       toast.success(t.care.validated)
       await onChanged()
+      onValidated?.()
     } catch (error) {
       toast.error(localizedErrorMessage(error, t, t.care.validationImpossible))
     } finally {
@@ -92,7 +137,7 @@ export function CarePage({ care, onChanged }: CarePageProps) {
           <CardDescription>{t.care.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <GuideSection section={guide.daily.preparation} />
+          <GuideSection section={guide.daily.preparation} icon={ClipboardCheck} />
           {guide.daily.sections.map((section) => {
             const item = section.careType ? careByType.get(section.careType) : undefined
             if (!item) return null
@@ -101,6 +146,7 @@ export function CarePage({ care, onChanged }: CarePageProps) {
                 key={item.care_type}
                 section={section}
                 checked={Boolean(item.completed)}
+                icon={dailyCareIcons[item.care_type]}
                 onCheckedChange={async (checked) => {
                   await api.updateDailyCare(item.care_type, checked)
                   toast.success(`${careLabel(item.care_type)} ${checked ? t.care.completed : t.care.todo}`)
@@ -132,7 +178,7 @@ export function CarePage({ care, onChanged }: CarePageProps) {
           <CardDescription>{t.care.bathDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {guide.bath.sections.map((section) => <GuideSection key={section.title} section={section} />)}
+          {guide.bath.sections.map((section) => <GuideSection key={section.title} section={section} icon={bathIcons[guideNumber(section.title)]} />)}
           <div className="rounded-2xl bg-muted px-4 py-3 text-sm">
             <p className="font-semibold">{guide.bath.orderLabel}</p>
             <p className="mt-1 text-muted-foreground">{guide.bath.order}</p>

@@ -127,7 +127,7 @@ export default function App() {
             />
           </TabsContent>
           <TabsContent value="care" className="mt-5">
-            <CarePage care={care} onChanged={refreshAll} />
+            <CarePage care={care} onChanged={refreshAll} onValidated={() => setActiveTab("tracking")} />
           </TabsContent>
           <TabsContent value="medical" className="mt-5">
             <MedicalPage settings={settings} refreshKey={refreshKey} onChanged={refreshAll} onEdit={setEditing} />

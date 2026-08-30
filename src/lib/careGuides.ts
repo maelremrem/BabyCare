@@ -47,7 +47,7 @@ const fr: CareGuideContent = {
     },
     sections: [
       {
-        title: "2. 👁️ Yeux",
+        title: "2. Yeux",
         careType: "eyes",
         groups: [
           { title: "Matériel", items: ["2 compresses, une différente pour chaque œil.", "Sérum physiologique."] },
@@ -66,7 +66,7 @@ const fr: CareGuideContent = {
         notes: ["Le sens extérieur → intérieur est celui recommandé actuellement par l’Assurance Maladie."]
       },
       {
-        title: "3. 🙂 Visage",
+        title: "3. Visage",
         careType: "face",
         groups: [
           { title: "Matériel", items: ["Compresse propre ou coton doux.", "Eau tiède."] },
@@ -84,7 +84,7 @@ const fr: CareGuideContent = {
         notes: ["Pour le visage, de l’eau tiède suffit généralement."]
       },
       {
-        title: "4. 👃 Nez",
+        title: "4. Nez",
         careType: "nose",
         groups: [
           { title: "Matériel", items: ["2 petites fusettes ou mèches de coton.", "Sérum physiologique."] },
@@ -107,7 +107,7 @@ const fr: CareGuideContent = {
         ]
       },
       {
-        title: "5. 🩹 Cordon ombilical",
+        title: "5. Cordon ombilical",
         careType: "cord",
         groups: [
           {
@@ -183,7 +183,7 @@ const fr: CareGuideContent = {
         notes: ["Ne jamais laisser bébé seul dans le bain, même quelques secondes."]
       },
       {
-        title: "4. 🧴 Lavage",
+        title: "4. Lavage",
         intro: "Principe : aller du plus propre vers le plus sale.",
         groups: [
           {
@@ -208,11 +208,11 @@ const fr: CareGuideContent = {
         notes: ["Le shampooing n’est pas nécessaire quotidiennement : 2 à 3 fois par semaine suffisent généralement."]
       },
       {
-        title: "5. 💧 Rinçage",
+        title: "5. Rinçage",
         groups: [{ items: ["Rincer doucement avec l’eau du bain.", "Retirer les résidus de produit lavant.", "Éviter d’asperger directement le visage."] }]
       },
       {
-        title: "6. 🧺 Sortie du bain",
+        title: "6. Sortie du bain",
         groups: [{ items: ["Sortir bébé en le maintenant à deux mains.", "Le poser immédiatement sur la serviette.", "Envelopper rapidement le corps et la tête."] }]
       },
       {
@@ -230,7 +230,7 @@ const fr: CareGuideContent = {
         notes: ["L’objectif est de ne laisser aucune zone humide dans les plis."]
       },
       {
-        title: "8. 🩹 Cordon après le bain",
+        title: "8. Cordon après le bain",
         intro: "Si le cordon est encore présent :",
         groups: [
           {
@@ -260,7 +260,7 @@ const en: CareGuideContent = {
     },
     sections: [
       {
-        title: "2. 👁️ Eyes",
+        title: "2. Eyes",
         careType: "eyes",
         groups: [
           { title: "Supplies", items: ["2 compresses, a different one for each eye.", "Saline solution."] },
@@ -269,7 +269,7 @@ const en: CareGuideContent = {
         notes: ["The direction currently recommended by the French national health insurance is outside → inward."]
       },
       {
-        title: "3. 🙂 Face",
+        title: "3. Face",
         careType: "face",
         groups: [
           { title: "Supplies", items: ["Clean compress or soft cotton.", "Warm water."] },
@@ -278,7 +278,7 @@ const en: CareGuideContent = {
         notes: ["Warm water is generally enough for the face."]
       },
       {
-        title: "4. 👃 Nose",
+        title: "4. Nose",
         careType: "nose",
         groups: [
           { title: "Supplies", items: ["2 small cotton wicks.", "Saline solution."] },
@@ -287,7 +287,7 @@ const en: CareGuideContent = {
         notes: ["Do not push deeply into the nostril.", "If the nose is truly congested, cotton wicks do not replace nasal rinsing with saline. For an infant, this can be done with a saline pod while the baby lies on their side."]
       },
       {
-        title: "5. 🩹 Umbilical cord",
+        title: "5. Umbilical cord",
         careType: "cord",
         groups: [
           { title: "Supplies", items: ["Clean compresses.", "Warm water.", "Mild soap if needed.", "Dry compress."] },
@@ -319,7 +319,7 @@ const en: CareGuideContent = {
         notes: ["Never leave the baby alone in the bath, even for a few seconds."]
       },
       {
-        title: "4. 🧴 Washing",
+        title: "4. Washing",
         intro: "Principle: wash from the cleanest area to the dirtiest.",
         groups: [
           { title: "Practical order", ordered: true, items: ["Head and hair.", "Neck.", "Shoulders and arms.", "Hands and between the fingers.", "Chest.", "Tummy.", "Back.", "Legs.", "Feet and between the toes.", "Genitals.", "Bottom last."] },
@@ -327,8 +327,8 @@ const en: CareGuideContent = {
         ],
         notes: ["Shampoo is not needed every day: 2 to 3 times a week is generally enough."]
       },
-      { title: "5. 💧 Rinsing", groups: [{ items: ["Rinse gently with the bath water.", "Remove any remaining cleanser.", "Avoid splashing water directly onto the face."] }] },
-      { title: "6. 🧺 Getting out of the bath", groups: [{ items: ["Lift the baby out while holding them with both hands.", "Place them immediately on the towel.", "Quickly wrap the body and head."] }] },
+      { title: "5. Rinsing", groups: [{ items: ["Rinse gently with the bath water.", "Remove any remaining cleanser.", "Avoid splashing water directly onto the face."] }] },
+      { title: "6. Getting out of the bath", groups: [{ items: ["Lift the baby out while holding them with both hands.", "Place them immediately on the towel.", "Quickly wrap the body and head."] }] },
       {
         title: "7. Drying the body",
         intro: "Use a soft towel rather than cotton for the whole body.",
@@ -336,7 +336,7 @@ const en: CareGuideContent = {
         notes: ["The goal is to leave no moisture in any skin fold."]
       },
       {
-        title: "8. 🩹 Umbilical cord after the bath",
+        title: "8. Umbilical cord after the bath",
         intro: "If the umbilical cord is still present:",
         groups: [{ ordered: true, items: ["Check that it is clean.", "Take a dry compress.", "Pat the cord dry, especially its base and the surrounding area.", "Leave it exposed to air.", "Fold the diaper below the cord."] }],
         notes: ["Bathing is possible before the cord falls off; the important point is to dry it completely afterward."]

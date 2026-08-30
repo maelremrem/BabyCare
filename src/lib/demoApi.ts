@@ -12,7 +12,7 @@ interface DemoState {
 
 const STORAGE_KEY = "babycare-demo-state-v1"
 const DAILY_CARE_TYPES: DailyCare["care_type"][] = ["eyes", "face", "nose", "cord"]
-const TIMER_TYPES = new Set<EventType>(["breast_left", "breast_right", "face_care", "cord_care", "face_cord_care"])
+const TIMER_TYPES = new Set<EventType>(["breast_left", "breast_right"])
 const DEFAULT_BABY_NAME = "Charlie"
 
 function nowIso() {
