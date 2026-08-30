@@ -8,7 +8,7 @@ import { TopBar } from "@/components/TopBar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Toaster } from "@/components/ui/sonner"
 import { useEvents } from "@/hooks/useEvents"
-import { api } from "@/lib/api"
+import { api, subscribeToServerChanges } from "@/lib/api"
 import { I18nProvider, localizedErrorMessage, messages, resolveLocale, type LanguagePreference } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AppSettings, type BabyEvent, type DailyCare, type StoolAlert } from "@/lib/types"
 import { CarePage } from "@/pages/CarePage"
@@ -61,6 +61,12 @@ export default function App() {
       })
       .finally(() => setBootstrapLoading(false))
   }, [])
+
+  useEffect(() => subscribeToServerChanges(() => {
+    Promise.all([refreshAll(), api.settings()])
+      .then(([, nextSettings]) => setSettings(nextSettings))
+      .catch(() => undefined)
+  }), [refreshAll])
 
   useEffect(() => {
     const accent = ACCENT_OPTIONS.find((option) => option.id === activeColor) || ACCENT_OPTIONS[0]

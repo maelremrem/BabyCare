@@ -8,8 +8,9 @@ describe("TemperatureSparkline", () => {
 
     expect(screen.getByRole("img", { name: /Zone idéale de 36,5 à 37,5 °C/i })).toBeInTheDocument()
     expect(screen.getByText("Zone idéale 36,5–37,5 °C")).toBeInTheDocument()
-    expect(screen.getByText("36,5°")).toBeInTheDocument()
-    expect(screen.getByText("37,5°")).toBeInTheDocument()
+    expect(screen.getByText("36,5°")).toHaveClass("text-[13px]")
+    expect(screen.getByText("37,5°")).toHaveClass("text-[13px]")
+    expect(screen.getByRole("img")).toHaveClass("h-36", "w-full")
     expect(screen.getByTestId("ideal-temperature-zone")).toHaveAttribute("height")
   })
 

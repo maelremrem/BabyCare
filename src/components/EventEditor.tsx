@@ -28,6 +28,9 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
   const [startedAt, setStartedAt] = useState("")
   const [value, setValue] = useState("")
   const [detail, setDetail] = useState("")
+  const [durationHours, setDurationHours] = useState("0")
+  const [durationMinutes, setDurationMinutes] = useState("0")
+  const [durationSeconds, setDurationSeconds] = useState("0")
   const [irritationLocations, setIrritationLocations] = useState<string[]>([])
 
   useEffect(() => {
@@ -40,6 +43,10 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
         ? event.value_real.toFixed(3)
         : event.value_real.toFixed(1))
     setDetail(typeof event.metadata?.diaper_type === "string" ? event.metadata.diaper_type : "")
+    const duration = event.duration_seconds || 0
+    setDurationHours(String(Math.floor(duration / 3600)))
+    setDurationMinutes(String(Math.floor((duration % 3600) / 60)))
+    setDurationSeconds(String(duration % 60))
     const storedLocations = event.metadata?.locations
     const legacyLocation = event.metadata?.location
     setIrritationLocations(
@@ -55,6 +62,8 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
 
   const save = async () => {
     const isNumericMeasurement = event.type === "temperature" || event.type === "weight" || event.type === "height"
+    const isTimer = event.type === "breast_left" || event.type === "breast_right"
+    const duration = Number(durationHours) * 3600 + Number(durationMinutes) * 60 + Number(durationSeconds)
     const metadata = event.type === "diaper"
       ? { ...event.metadata, diaper_type: detail }
       : event.type === "irritation"
@@ -65,6 +74,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
       started_at: new Date(startedAt).toISOString(),
       value_real: isNumericMeasurement ? Number(value) : event.value_real,
       value_text: !isNumericMeasurement && event.value_text != null ? value : event.value_text,
+      duration_seconds: isTimer ? Math.round(duration) : undefined,
       metadata
     })
     toast.success(t.eventEditor.updated)
@@ -101,6 +111,25 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
               {t.eventEditor.height}
               <Input type="number" min="20" max="200" step="0.1" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
+          )}
+          {(event.type === "breast_left" || event.type === "breast_right") && (
+            <fieldset className="grid gap-2">
+              <legend className="text-sm font-medium">{t.eventEditor.duration}</legend>
+              <div className="grid grid-cols-3 gap-3">
+                <label className="grid gap-1 text-xs text-muted-foreground">
+                  {t.eventEditor.hours}
+                  <Input aria-label={t.eventEditor.hours} type="number" min="0" step="1" value={durationHours} onChange={(e) => setDurationHours(e.target.value)} />
+                </label>
+                <label className="grid gap-1 text-xs text-muted-foreground">
+                  {t.eventEditor.minutes}
+                  <Input aria-label={t.eventEditor.minutes} type="number" min="0" max="59" step="1" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} />
+                </label>
+                <label className="grid gap-1 text-xs text-muted-foreground">
+                  {t.eventEditor.seconds}
+                  <Input aria-label={t.eventEditor.seconds} type="number" min="0" max="59" step="1" value={durationSeconds} onChange={(e) => setDurationSeconds(e.target.value)} />
+                </label>
+              </div>
+            </fieldset>
           )}
           {event.type === "diaper" && (
             <div className="grid gap-2 text-sm font-medium">

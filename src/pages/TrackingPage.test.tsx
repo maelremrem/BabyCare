@@ -64,6 +64,10 @@ describe("TrackingPage", () => {
       expect(labels[index].compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
     expect(informationSection).toHaveTextContent("Zone idéale 36,5–37,5 °C")
+    expect(screen.getByTestId("temperature-info-card")).toHaveClass("lg:col-span-2")
+    const compactStack = screen.getByTestId("bath-diaper-stack")
+    expect(within(compactStack).getByText("Couche", { exact: true })).toBeInTheDocument()
+    expect(within(compactStack).getByText("Bain", { exact: true })).toBeInTheDocument()
   })
 
   test("masque l’alerte lorsque le transit est à jour", () => {

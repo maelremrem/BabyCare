@@ -66,6 +66,7 @@ const API_ERRORS = {
   invalid_temperature: "La température doit être comprise entre 34 et 44 °C.",
   invalid_weight: "Le poids doit être compris entre 0,3 et 30 kg.",
   invalid_height: "La taille doit être comprise entre 20 et 200 cm.",
+  invalid_duration: "La durée doit être un nombre positif.",
   not_timer_event: "Cette action ne peut pas être chronométrée.",
   event_not_found: "Événement introuvable.",
   timer_already_completed: "Ce chrono est déjà terminé.",
@@ -306,8 +307,40 @@ function displayDetail(metadata, locale) {
 
 export function createApp({ db = createDatabase() } = {}) {
   const app = express()
+  const changeStreams = new Set()
   app.disable("x-powered-by")
   app.use(express.json({ limit: "100kb" }))
+
+  function broadcastChange() {
+    const message = `event: change\ndata: ${JSON.stringify({ changed_at: nowIso() })}\n\n`
+    changeStreams.forEach((stream) => stream.write(message))
+  }
+
+  app.get("/api/changes", (request, response) => {
+    response.set({
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive"
+    })
+    response.flushHeaders()
+    response.write("event: connected\ndata: {}\n\n")
+    changeStreams.add(response)
+    const heartbeat = setInterval(() => response.write(": heartbeat\n\n"), 25_000)
+    heartbeat.unref()
+    request.on("close", () => {
+      clearInterval(heartbeat)
+      changeStreams.delete(response)
+    })
+  })
+
+  app.use((request, response, next) => {
+    if (request.method !== "GET" && request.path.startsWith("/api/")) {
+      response.on("finish", () => {
+        if (response.statusCode >= 200 && response.statusCode < 300) broadcastChange()
+      })
+    }
+    next()
+  })
 
   app.get("/api/health", (_request, response) => {
     response.json({ status: "ok" })
@@ -542,8 +575,7 @@ export function createApp({ db = createDatabase() } = {}) {
     const event = db.prepare("SELECT * FROM events WHERE id = ? AND baby_id = ?").get(request.params.id, activeBabyId(db))
     if (!event) return sendApiError(response, 404, "event_not_found")
 
-    const updates = Object.entries(request.body).filter(([key]) => EDITABLE_FIELDS.has(key))
-    if (updates.some(([key, value]) => key === "type" && !EVENT_TYPES.has(value))) {
+    if (request.body.type !== undefined && !EVENT_TYPES.has(request.body.type)) {
       return sendApiError(response, 400, "invalid_event_type")
     }
     const updatedType = request.body.type || event.type
@@ -565,6 +597,22 @@ export function createApp({ db = createDatabase() } = {}) {
         return sendApiError(response, 400, "invalid_height")
       }
     }
+    if (request.body.duration_seconds !== undefined) {
+      if (!TIMER_TYPES.has(updatedType)) {
+        return sendApiError(response, 400, "not_timer_event")
+      }
+      const duration = Number(request.body.duration_seconds)
+      if (!Number.isFinite(duration) || duration < 0) {
+        return sendApiError(response, 400, "invalid_duration")
+      }
+      request.body.duration_seconds = Math.round(duration)
+    }
+    if (event.status === "completed" && (request.body.started_at !== undefined || request.body.duration_seconds !== undefined)) {
+      const startedAt = request.body.started_at || event.started_at
+      const duration = request.body.duration_seconds ?? event.duration_seconds
+      if (duration != null) request.body.ended_at = new Date(Date.parse(startedAt) + duration * 1000).toISOString()
+    }
+    const updates = Object.entries(request.body).filter(([key]) => EDITABLE_FIELDS.has(key))
     if (!updates.length) return response.json(parseEvent(event))
 
     const set = updates.map(([key]) => `${key} = @${key}`).concat("updated_at = @updated_at").join(", ")
@@ -607,11 +655,10 @@ export function createApp({ db = createDatabase() } = {}) {
 
       const timestamp = nowIso()
       const event = db.prepare(`
-        INSERT INTO events (baby_id, type, status, started_at, ended_at, duration_seconds, value_text, notes, metadata, created_at, updated_at)
-        VALUES (?, 'daily_care', 'completed', ?, ?, 0, '4 / 4', ?, ?, ?, ?)
+        INSERT INTO events (baby_id, type, status, started_at, value_text, notes, metadata, created_at, updated_at)
+        VALUES (?, 'daily_care', 'completed', ?, '4 / 4', ?, ?, ?, ?)
       `).run(
         babyId,
-        timestamp,
         timestamp,
         "Yeux, nez, cordon et visage effectués",
         JSON.stringify({ date, care_types: DAILY_CARE_TYPES }),
@@ -661,9 +708,9 @@ export function createApp({ db = createDatabase() } = {}) {
     const babyId = activeBabyId(db)
     const transaction = db.transaction(() => {
       const event = db.prepare(`
-        INSERT INTO events (baby_id, type, status, started_at, ended_at, duration_seconds, created_at, updated_at)
-        VALUES (?, 'bath', 'completed', ?, ?, 0, ?, ?)
-      `).run(babyId, timestamp, timestamp, timestamp, timestamp)
+        INSERT INTO events (baby_id, type, status, started_at, created_at, updated_at)
+        VALUES (?, 'bath', 'completed', ?, ?, ?)
+      `).run(babyId, timestamp, timestamp, timestamp)
       const session = db.prepare("INSERT INTO bath_sessions (baby_id, event_id, started_at, completed_at) VALUES (?, ?, ?, ?)").run(babyId, event.lastInsertRowid, timestamp, timestamp)
       const insert = db.prepare("INSERT INTO bath_checks (bath_session_id, item) VALUES (?, ?)")
       BATH_ITEMS.forEach((item) => insert.run(session.lastInsertRowid, item))

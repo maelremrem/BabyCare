@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Download, Search } from "lucide-react"
+import { Clock3, Download, Search, Thermometer, Utensils } from "lucide-react"
 import { toast } from "sonner"
 import { EventRow } from "@/components/EventRow"
 import { ContentLoading } from "@/components/ContentLoading"
@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { api, isDemoMode } from "@/lib/api"
-import { dayHeading, groupEventsByDay } from "@/lib/dates"
-import { localizedErrorMessage, useI18n } from "@/lib/i18n"
+import { dayHeading, formatDuration, groupEventsByDay } from "@/lib/dates"
+import { calculateHistoryStatistics } from "@/lib/historyStatistics"
+import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
 import { EVENT_LABELS, type BabyEvent, type EventType } from "@/lib/types"
 
 interface HistoryPageProps {
@@ -41,6 +42,31 @@ function periodParams(period: string) {
   return params
 }
 
+function currentMonthParams() {
+  const today = new Date()
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+  const params = new URLSearchParams({ from: isoDate(firstDay), to: isoDate(today), limit: "250" })
+  return params
+}
+
+async function fetchAllEvents(params: URLSearchParams) {
+  const allEvents: BabyEvent[] = []
+  let offset = 0
+
+  while (true) {
+    const pageParams = new URLSearchParams(params)
+    pageParams.set("offset", String(offset))
+    const page = await api.events(pageParams)
+    allEvents.push(...page.events)
+    offset += page.events.length
+    if (page.events.length === 0 || offset >= page.total) return allEvents
+  }
+}
+
+function percentage(count: number, total: number) {
+  return total ? Math.round((count / total) * 100) : 0
+}
+
 export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
   const { locale, t } = useI18n()
   const [events, setEvents] = useState<BabyEvent[]>([])
@@ -49,6 +75,8 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
   const [type, setType] = useState("all")
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
+  const [statisticsEvents, setStatisticsEvents] = useState<BabyEvent[]>([])
+  const [statisticsLoading, setStatisticsLoading] = useState(true)
 
   const params = useMemo(() => {
     const next = periodParams(period)
@@ -76,7 +104,34 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
     return () => window.clearTimeout(timer)
   }, [load, search, refreshKey])
 
+  useEffect(() => {
+    let active = true
+    setStatisticsLoading(true)
+    fetchAllEvents(currentMonthParams())
+      .then((monthlyEvents) => {
+        if (active) setStatisticsEvents(monthlyEvents)
+      })
+      .catch((error) => {
+        if (active) toast.error(localizedErrorMessage(error, t, t.history.unavailable))
+      })
+      .finally(() => {
+        if (active) setStatisticsLoading(false)
+      })
+    return () => { active = false }
+  }, [refreshKey, t])
+
   const groups = groupEventsByDay(events)
+  const statistics = useMemo(() => calculateHistoryStatistics(statisticsEvents), [statisticsEvents])
+  const monthLabel = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", { month: "long", year: "numeric" }).format(new Date())
+  const formatTemperature = (value: number | null) => value == null
+    ? "—"
+    : `${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)} °C`
+  const feedingAverage = statistics.feeding.averageDurationSeconds == null
+    ? "—"
+    : formatDuration(Math.round(statistics.feeding.averageDurationSeconds), locale)
+  const stoolAverage = statistics.averageStoolIntervalSeconds == null
+    ? "—"
+    : formatDuration(Math.round(statistics.averageStoolIntervalSeconds), locale)
   const exportParams = new URLSearchParams(params)
   exportParams.delete("limit")
   exportParams.set("locale", locale)
@@ -113,6 +168,67 @@ export function HistoryPage({ refreshKey, onEdit }: HistoryPageProps) {
           </Button>
         )}
       </div>
+
+      <section aria-labelledby="history-statistics-title" className="space-y-3">
+        <h3 id="history-statistics-title" className="text-sm font-semibold tracking-wide text-muted-foreground first-letter:uppercase">
+          {interpolate(t.history.statisticsTitle, { month: monthLabel })}
+        </h3>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <Card data-testid="temperature-statistics" className="gap-4 border-chart-1/30 bg-card/80 py-5">
+            <CardContent className="space-y-4 px-5">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-chart-1/15 text-chart-1"><Thermometer className="size-5" /></span>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t.history.temperatureAverage}</p>
+                  <p className="mt-1 text-2xl font-semibold">{statisticsLoading ? "—" : formatTemperature(statistics.temperature.average)}</p>
+                </div>
+              </div>
+              {statisticsLoading ? (
+                <p className="text-sm text-muted-foreground">{t.history.loading}</p>
+              ) : statistics.temperature.count ? (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.minimum}</span><strong className="mt-1 block">{formatTemperature(statistics.temperature.minimum)}</strong></div>
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.maximum}</span><strong className="mt-1 block">{formatTemperature(statistics.temperature.maximum)}</strong></div>
+                </div>
+              ) : <p className="text-sm text-muted-foreground">{t.history.noMonthlyData}</p>}
+            </CardContent>
+          </Card>
+
+          <Card data-testid="feeding-statistics" className="gap-4 border-chart-2/30 bg-card/80 py-5">
+            <CardContent className="space-y-4 px-5">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-chart-2/15 text-chart-2"><Utensils className="size-5" /></span>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t.history.feedingAverage}</p>
+                  <p className="mt-1 text-2xl font-semibold">{statisticsLoading ? "—" : feedingAverage}</p>
+                  <p className="text-xs text-muted-foreground">{t.history.average}</p>
+                </div>
+              </div>
+              {statisticsLoading ? (
+                <p className="text-sm text-muted-foreground">{t.history.loading}</p>
+              ) : statistics.feeding.total ? (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.leftBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.leftCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.leftCount})</span></strong></div>
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.rightBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.rightCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.rightCount})</span></strong></div>
+                </div>
+              ) : <p className="text-sm text-muted-foreground">{t.history.noMonthlyData}</p>}
+            </CardContent>
+          </Card>
+
+          <Card data-testid="stool-statistics" className="gap-4 border-chart-3/30 bg-card/80 py-5">
+            <CardContent className="space-y-4 px-5">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-chart-3/15 text-chart-3"><Clock3 className="size-5" /></span>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t.history.stoolIntervalAverage}</p>
+                  <p className="mt-1 text-2xl font-semibold">{statisticsLoading ? "—" : stoolAverage}</p>
+                </div>
+              </div>
+              {!statisticsLoading && statistics.stoolIntervalCount === 0 && <p className="text-sm text-muted-foreground">{t.history.notEnoughStools}</p>}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
       <Card>
         <CardContent className="grid gap-3 p-4 md:grid-cols-[12rem_14rem_1fr]">

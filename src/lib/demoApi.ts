@@ -400,8 +400,6 @@ export const demoApi = {
     if (todayItems.some((item) => !item.completed)) throw new Error("Complete the checklist before validating care.")
     const event = addCompletedEvent(state, {
       type: "daily_care",
-      duration_seconds: 0,
-      ended_at: nowIso(),
       value_text: "4 / 4",
       notes: "Eyes, nose, cord and face completed",
       metadata: { date: localDate(), care_types: DAILY_CARE_TYPES }

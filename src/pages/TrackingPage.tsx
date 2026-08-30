@@ -69,10 +69,12 @@ export function TrackingPage({ events, running, loading, stoolAlert, onChanged, 
 
       <section>
         <SectionTitle>{t.tracking.latestInfo}</SectionTitle>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
           <InfoCard {...info[0]} />
           <TemperatureInfoCard events={temperatures} />
-          {info.slice(1).map((item) => <InfoCard key={item.label} {...item} />)}
+          <div data-testid="bath-diaper-stack" className="grid gap-3">
+            {info.slice(1).map((item) => <CompactInfoCard key={item.label} {...item} />)}
+          </div>
         </div>
       </section>
 
@@ -146,7 +148,7 @@ function InfoCard({ label, icon: Icon, primary, secondary, caption }: {
 }) {
   return (
     <Card className="bg-card/80">
-      <CardContent className="flex items-center gap-4 p-4 sm:block sm:p-5">
+      <CardContent className="flex items-center gap-4 px-4 py-0 sm:block sm:px-5 sm:py-0">
         <Icon className="size-5 shrink-0 text-primary sm:mb-5" aria-hidden="true" />
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
@@ -159,19 +161,41 @@ function InfoCard({ label, icon: Icon, primary, secondary, caption }: {
   )
 }
 
+function CompactInfoCard({ label, icon: Icon, primary, secondary }: {
+  label: string
+  icon: typeof Milk
+  primary: string
+  secondary: string
+}) {
+  return (
+    <Card className="bg-card/80">
+      <CardContent className="flex min-h-0 items-center gap-3 px-3 py-0 sm:px-4 sm:py-0">
+        <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <p className="font-medium">{primary}</p>
+            <p className="text-xs text-muted-foreground">{secondary || "—"}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function TemperatureInfoCard({ events }: { events: BabyEvent[] }) {
   const { locale, t } = useI18n()
   const values = events.map((event) => event.value_real as number)
   const latest = events.at(-1)
 
   return (
-    <Card className="bg-card/80">
-      <CardContent className="p-4 sm:p-5">
+    <Card data-testid="temperature-info-card" className="bg-card/80 lg:col-span-2">
+      <CardContent className="px-4 py-0 sm:px-5 sm:py-0">
         <Thermometer className="mb-3 size-5 text-primary sm:mb-5" aria-hidden="true" />
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.eventLabels.temperature}</p>
-        <div className="mt-1 flex items-end justify-between gap-3">
+        <div className="mt-2 grid gap-4 sm:grid-cols-[minmax(7rem,auto)_minmax(0,1fr)] sm:items-start">
           <div>
-            <p className="text-lg font-medium">{latest ? `${latest.value_real?.toFixed(1)} °C` : t.common.none}</p>
+            <p className="text-2xl font-semibold">{latest ? `${latest.value_real?.toFixed(1)} °C` : t.common.none}</p>
             <p className="text-sm text-muted-foreground">{latest ? relativeTime(latest.started_at, locale) : t.common.noValue}</p>
           </div>
           <TemperatureSparkline values={values} />

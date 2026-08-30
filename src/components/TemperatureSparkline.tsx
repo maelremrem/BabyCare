@@ -11,10 +11,10 @@ export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
   const { locale, t } = useI18n()
   if (values.length === 0) return null
 
-  const width = 210
-  const height = 58
-  const padding = 4
-  const chartRight = 172
+  const width = 380
+  const height = 144
+  const padding = 8
+  const chartRight = 318
   const rawMin = Math.min(...values, IDEAL_MIN)
   const rawMax = Math.max(...values, IDEAL_MAX)
   const domainMin = rawMin - 0.2
@@ -35,9 +35,9 @@ export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
     : temperature.toFixed(1)
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 w-full">
       <svg
-        className="h-14 w-36 overflow-visible"
+        className="h-36 w-full overflow-visible"
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={interpolate(t.temperatureSparkline.aria, { count: values.length, plural })}
@@ -49,15 +49,15 @@ export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
           y={idealTop}
           width={chartRight - padding}
           height={idealBottom - idealTop}
-          rx="3"
+          rx="5"
           className="fill-emerald-500/15"
         />
         {[IDEAL_MAX, IDEAL_MIN].map((temperature) => {
           const y = yFor(temperature)
           return (
             <g key={temperature}>
-              <line x1={padding} y1={y} x2={chartRight} y2={y} className="stroke-emerald-500/45" strokeDasharray="3 3" />
-              <text x={width - 1} y={y + 3} textAnchor="end" className="fill-emerald-600 text-[9px] dark:fill-emerald-400">
+              <line x1={padding} y1={y} x2={chartRight} y2={y} className="stroke-emerald-500/45" strokeDasharray="5 4" />
+              <text x={width - 1} y={y + 4} textAnchor="end" className="fill-emerald-600 text-[13px] font-semibold dark:fill-emerald-400">
                 {formatTemperature(temperature)}°
               </text>
             </g>
@@ -68,7 +68,7 @@ export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
             points={points.join(" ")}
             fill="none"
             stroke="currentColor"
-            strokeWidth="3"
+            strokeWidth="4"
             strokeLinecap="round"
             strokeLinejoin="round"
             className="text-primary"
@@ -76,11 +76,11 @@ export function TemperatureSparkline({ values }: TemperatureSparklineProps) {
         ) : null}
         {points.map((point, index) => {
           const [cx, cy] = point.split(",")
-          return <circle key={`${point}-${index}`} cx={cx} cy={cy} r={index === values.length - 1 ? 4 : 2.5} className="fill-primary" />
+          return <circle key={`${point}-${index}`} cx={cx} cy={cy} r={index === values.length - 1 ? 5 : 3.5} className="fill-primary" />
         })}
       </svg>
-      <p className="mt-1 flex items-center justify-end gap-1 text-[9px] leading-none text-muted-foreground">
-        <span className="size-2 rounded-sm bg-emerald-500/25" aria-hidden="true" />
+      <p className="mt-2 flex items-center justify-end gap-1.5 text-xs font-medium leading-none text-muted-foreground">
+        <span className="size-2.5 rounded-sm bg-emerald-500/25" aria-hidden="true" />
         {t.temperatureSparkline.legend}
       </p>
     </div>

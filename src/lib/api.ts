@@ -77,3 +77,10 @@ const serverApi = {
 }
 
 export const api = isDemoMode ? demoApi : serverApi
+
+export function subscribeToServerChanges(onChange: () => void) {
+  if (isDemoMode || typeof EventSource === "undefined") return () => undefined
+  const stream = new EventSource("/api/changes")
+  stream.addEventListener("change", onChange)
+  return () => stream.close()
+}

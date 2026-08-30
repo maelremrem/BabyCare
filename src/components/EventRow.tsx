@@ -17,6 +17,7 @@ export function EventRow({ event, onClick }: EventRowProps) {
     : typeof event.metadata?.location === "string"
       ? [normalizeIrritationLocation(event.metadata.location)]
       : []
+  const isTimer = event.type === "breast_left" || event.type === "breast_right"
   const detail = event.type === "temperature" && event.value_real != null
     ? `${event.value_real.toFixed(1)} °C`
     : event.type === "weight" && event.value_real != null
@@ -27,7 +28,9 @@ export function EventRow({ event, onClick }: EventRowProps) {
       ? t.diaperTypes[diaperType as keyof typeof t.diaperTypes]
       : irritationLocations.length > 0
         ? irritationLocations.map((location) => t.irritationLocations[location as keyof typeof t.irritationLocations] || location.charAt(0).toUpperCase() + location.slice(1)).join(", ")
-        : formatDuration(event.duration_seconds, locale)
+        : isTimer
+          ? formatDuration(event.duration_seconds, locale)
+          : ""
 
   return (
     <button type="button" onClick={onClick} className="grid w-full grid-cols-[3.5rem_1fr_auto] items-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-muted/50 active:bg-muted sm:grid-cols-[4.5rem_1fr_auto_auto]">

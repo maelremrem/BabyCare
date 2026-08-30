@@ -57,6 +57,47 @@ test("conserve puis termine un chrono", () => withServer(async (baseUrl) => {
   assert.ok(stopped.duration_seconds >= 0)
 }))
 
+test("modifie la durée d’un événement chronométré et recalcule sa fin", () => withServer(async (baseUrl) => {
+  const started = await fetch(`${baseUrl}/api/events/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "breast_left" })
+  }).then((response) => response.json())
+  await fetch(`${baseUrl}/api/events/${started.id}/stop`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })
+
+  const startedAt = "2026-08-30T10:00:00.000Z"
+  const updated = await fetch(`${baseUrl}/api/events/${started.id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ started_at: startedAt, duration_seconds: 900, notes: "Tétée corrigée" })
+  }).then((response) => response.json())
+
+  assert.equal(updated.duration_seconds, 900)
+  assert.equal(updated.ended_at, "2026-08-30T10:15:00.000Z")
+  assert.equal(updated.notes, "Tétée corrigée")
+}))
+
+test("diffuse les changements aux autres clients", () => withServer(async (baseUrl) => {
+  const controller = new AbortController()
+  const streamResponse = await fetch(`${baseUrl}/api/changes`, { signal: controller.signal })
+  assert.match(streamResponse.headers.get("content-type"), /text\/event-stream/)
+  const reader = streamResponse.body.getReader()
+  const decoder = new TextDecoder()
+  let received = decoder.decode((await reader.read()).value)
+
+  await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "observation", notes: "Depuis un autre appareil" })
+  })
+  while (!received.includes("event: change")) {
+    received += decoder.decode((await reader.read()).value)
+  }
+
+  assert.match(received, /event: change/)
+  controller.abort()
+}))
+
 test("initialise et met à jour la checklist quotidienne", () => withServer(async (baseUrl) => {
   const care = await fetch(`${baseUrl}/api/routines/daily`).then((response) => response.json())
   assert.equal(care.length, 4)
@@ -69,6 +110,22 @@ test("initialise et met à jour la checklist quotidienne", () => withServer(asyn
   }).then((response) => response.json())
   assert.equal(updated.completed, 1)
   assert.ok(updated.completed_at)
+}))
+
+test("n’attribue pas de durée aux soins et refuse de les chronométrer", () => withServer(async (baseUrl) => {
+  const bath = await fetch(`${baseUrl}/api/baths`, { method: "POST" }).then((response) => response.json())
+  const history = await fetch(`${baseUrl}/api/events`).then((response) => response.json())
+  const bathEvent = history.events.find((event) => event.id === bath.event_id)
+  assert.equal(bathEvent.duration_seconds, null)
+  assert.equal(bathEvent.ended_at, null)
+
+  const patched = await fetch(`${baseUrl}/api/events/${bath.event_id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ duration_seconds: 120 })
+  })
+  assert.equal(patched.status, 400)
+  assert.equal((await patched.json()).code, "not_timer_event")
 }))
 
 test("initialise la checklist du bain dans l’ordre recommandé", () => withServer(async (baseUrl) => {
@@ -374,6 +431,8 @@ test("réinitialise la checklist après chaque validation", () => withServer(asy
   assert.equal(validatedResponse.status, 201)
   const validated = await validatedResponse.json()
   assert.equal(validated.type, "daily_care")
+  assert.equal(validated.duration_seconds, null)
+  assert.equal(validated.ended_at, null)
 
   const care = await fetch(`${baseUrl}/api/routines/daily`).then((response) => response.json())
   assert.equal(care.length, 4)
