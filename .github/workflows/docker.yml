@@ -19,14 +19,21 @@ permissions:
   packages: write
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            architecture: amd64
+            platform: linux/amd64
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -38,49 +45,69 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract image metadata
-        id: metadata
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/maelremrem/babycare
-          tags: |
-            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ env.RELEASE_TAG }}
-            type=semver,pattern={{major}},value=${{ env.RELEASE_TAG }}
-            type=raw,value=latest,enable=${{ env.PUBLISH_LATEST }}
-
-      - name: Extract updater image metadata
-        id: updater-metadata
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/maelremrem/babycare-updater
-          tags: |
-            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ env.RELEASE_TAG }}
-            type=raw,value=latest,enable=${{ env.PUBLISH_LATEST }}
-
-      - name: Build and publish
+      - name: Build and publish architecture image
         uses: docker/build-push-action@v6
         with:
           context: .
           target: runtime
           build-args: |
             APP_VERSION=${{ env.RELEASE_TAG }}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ghcr.io/maelremrem/babycare:${{ env.RELEASE_TAG }}-${{ matrix.architecture }}
+          cache-from: type=gha,scope=runtime-${{ matrix.architecture }}
+          cache-to: type=gha,mode=max,scope=runtime-${{ matrix.architecture }}
 
-      - name: Build and publish updater
+      - name: Build and publish updater architecture image
         uses: docker/build-push-action@v6
         with:
           context: .
           target: updater
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ steps.updater-metadata.outputs.tags }}
-          labels: ${{ steps.updater-metadata.outputs.labels }}
-          cache-from: type=gha,scope=updater
-          cache-to: type=gha,mode=max,scope=updater
+          tags: ghcr.io/maelremrem/babycare-updater:${{ env.RELEASE_TAG }}-${{ matrix.architecture }}
+          cache-from: type=gha,scope=updater-${{ matrix.architecture }}
+          cache-to: type=gha,mode=max,scope=updater-${{ matrix.architecture }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish multi-architecture manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          minor="${version%.*}"
+          major="${version%%.*}"
+
+          runtime_tags=(
+            --tag "ghcr.io/maelremrem/babycare:${version}"
+            --tag "ghcr.io/maelremrem/babycare:${minor}"
+            --tag "ghcr.io/maelremrem/babycare:${major}"
+          )
+          updater_tags=(
+            --tag "ghcr.io/maelremrem/babycare-updater:${version}"
+            --tag "ghcr.io/maelremrem/babycare-updater:${minor}"
+          )
+          if [ "${PUBLISH_LATEST}" = "true" ]; then
+            runtime_tags+=(--tag "ghcr.io/maelremrem/babycare:latest")
+            updater_tags+=(--tag "ghcr.io/maelremrem/babycare-updater:latest")
+          fi
+
+          docker buildx imagetools create "${runtime_tags[@]}" \
+            "ghcr.io/maelremrem/babycare:${RELEASE_TAG}-amd64" \
+            "ghcr.io/maelremrem/babycare:${RELEASE_TAG}-arm64"
+          docker buildx imagetools create "${updater_tags[@]}" \
+            "ghcr.io/maelremrem/babycare-updater:${RELEASE_TAG}-amd64" \
+            "ghcr.io/maelremrem/babycare-updater:${RELEASE_TAG}-arm64"
