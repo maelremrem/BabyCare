@@ -3,6 +3,16 @@ name: Publish Docker image
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to publish
+        required: true
+        type: string
+
+env:
+  RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+  PUBLISH_LATEST: ${{ github.event_name == 'workflow_dispatch' || !github.event.release.prerelease }}
 
 permissions:
   contents: read
@@ -34,10 +44,10 @@ jobs:
         with:
           images: ghcr.io/maelremrem/babycare
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
+            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.RELEASE_TAG }}
+            type=semver,pattern={{major}},value=${{ env.RELEASE_TAG }}
+            type=raw,value=latest,enable=${{ env.PUBLISH_LATEST }}
 
       - name: Extract updater image metadata
         id: updater-metadata
@@ -45,9 +55,9 @@ jobs:
         with:
           images: ghcr.io/maelremrem/babycare-updater
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
+            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.RELEASE_TAG }}
+            type=raw,value=latest,enable=${{ env.PUBLISH_LATEST }}
 
       - name: Build and publish
         uses: docker/build-push-action@v6
@@ -55,7 +65,7 @@ jobs:
           context: .
           target: runtime
           build-args: |
-            APP_VERSION=${{ github.event.release.tag_name }}
+            APP_VERSION=${{ env.RELEASE_TAG }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
