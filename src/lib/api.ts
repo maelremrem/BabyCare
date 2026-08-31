@@ -1,4 +1,4 @@
-import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, FeedingType, StoolAlert } from "./types"
+import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, FeedingType, StoolAlert, UpdateStatus, VersionInfo } from "./types"
 import type { LanguagePreference } from "@/lib/i18n"
 import { demoApi } from "@/lib/demoApi"
 
@@ -67,6 +67,10 @@ const serverApi = {
     body: JSON.stringify({ baby_id: babyId })
   }),
   deleteBaby: (babyId: number) => request<AppSettings>(`/api/babies/${babyId}`, { method: "DELETE" }),
+  versionInfo: (refresh = false) => request<VersionInfo>(`/api/version${refresh ? "?refresh=true" : ""}`),
+  updateStatus: () => request<UpdateStatus>("/api/update/status"),
+  startUpdate: () => request<UpdateStatus>("/api/update", { method: "POST" }),
+  rollbackUpdate: () => request<UpdateStatus>("/api/update/rollback", { method: "POST" }),
   resetDatabase: () => request<void>("/api/database", { method: "DELETE" }),
   dailyCare: () => request<DailyCare[]>("/api/routines/daily"),
   updateDailyCare: (careType: DailyCare["care_type"], completed: boolean) => request<DailyCare>(`/api/routines/daily/${careType}`, {

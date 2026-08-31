@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for BabyCare update requests
+
+[Path]
+PathChanged=/var/lib/babycare-update/request.json
+Unit=babycare-update.service
+
+[Install]
+WantedBy=multi-user.target

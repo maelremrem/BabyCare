@@ -1,4 +1,4 @@
-import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, FeedingType, StoolAlert } from "@/lib/types"
+import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, FeedingType, StoolAlert, UpdateStatus, VersionInfo } from "@/lib/types"
 import type { LanguagePreference } from "@/lib/i18n"
 
 interface DemoState {
@@ -11,9 +11,71 @@ interface DemoState {
 }
 
 const STORAGE_KEY = "babycare-demo-state-v1"
+const UPDATE_STORAGE_KEY = "babycare-demo-update-v1"
 const DAILY_CARE_TYPES: DailyCare["care_type"][] = ["eyes", "face", "nose", "cord"]
 const TIMER_TYPES = new Set<EventType>(["breast_left", "breast_right", "nap"])
 const DEFAULT_BABY_NAME = "Charlie"
+
+interface DemoUpdateState {
+  currentVersion: string
+  state: UpdateStatus["state"]
+  startedAt: number | null
+  targetVersion: string | null
+  canRollback: boolean
+  rollbackVersion: string | null
+}
+
+const DEMO_UPDATE_STEPS = [
+  { after: 0, state: "queued" as const, progress: 0, command: "Préparation de BabyCare v0.2.0" },
+  { after: 1000, state: "downloading" as const, progress: 20, command: "Téléchargement de la version v0.2.0" },
+  { after: 2500, state: "verifying" as const, progress: 42, command: "Vérification de l’intégrité du paquet" },
+  { after: 3500, state: "extracting" as const, progress: 60, command: "Extraction des fichiers" },
+  { after: 5000, state: "installing" as const, progress: 78, command: "Installation de BabyCare v0.2.0" },
+  { after: 7000, state: "restarting" as const, progress: 94, command: "Redémarrage du service BabyCare" }
+] as const
+
+function readDemoUpdate(): DemoUpdateState {
+  try {
+    const raw = window.localStorage.getItem(UPDATE_STORAGE_KEY)
+    if (raw) return JSON.parse(raw) as DemoUpdateState
+  } catch { /* localStorage unavailable in isolated tests */ }
+  return { currentVersion: __APP_VERSION__, state: "idle", startedAt: null, targetVersion: null, canRollback: false, rollbackVersion: null }
+}
+
+function writeDemoUpdate(update: DemoUpdateState) {
+  window.localStorage.setItem(UPDATE_STORAGE_KEY, JSON.stringify(update))
+}
+
+function demoUpdateStatus(): UpdateStatus {
+  const update = readDemoUpdate()
+  if (update.startedAt && update.state !== "complete" && update.state !== "error") {
+    const elapsed = Date.now() - update.startedAt
+    if (elapsed >= 8500) {
+      update.state = "complete"
+      update.currentVersion = update.targetVersion || update.currentVersion
+      update.canRollback = true
+      update.rollbackVersion = __APP_VERSION__
+      writeDemoUpdate(update)
+    } else {
+      const step = [...DEMO_UPDATE_STEPS].reverse().find((candidate) => elapsed >= candidate.after) || DEMO_UPDATE_STEPS[0]
+      update.state = step.state
+      writeDemoUpdate(update)
+    }
+  }
+  const step = DEMO_UPDATE_STEPS.find((candidate) => candidate.state === update.state)
+  const active = update.state !== "idle" && update.state !== "complete" && update.state !== "error"
+  return {
+    state: update.state,
+    progress: update.state === "complete" ? 100 : step?.progress || 0,
+    command: step?.command || (update.state === "complete" ? "Mise à jour terminée" : ""),
+    message: "",
+    targetVersion: update.targetVersion,
+    updatedAt: update.startedAt ? new Date(update.startedAt).toISOString() : null,
+    canRollback: update.canRollback,
+    rollbackVersion: update.rollbackVersion,
+    active
+  }
+}
 
 function nowIso() {
   return new Date().toISOString()
@@ -396,8 +458,47 @@ export const demoApi = {
     return saveSettings(state)
   },
 
+  async versionInfo(): Promise<VersionInfo> {
+    const update = readDemoUpdate()
+    const status = demoUpdateStatus()
+    const availableVersion = update.currentVersion === __APP_VERSION__ ? "0.2.0" : null
+    return {
+      currentVersion: update.currentVersion,
+      enabled: true,
+      updateAvailable: Boolean(availableVersion),
+      availableVersion,
+      releaseUrl: null,
+      supported: true,
+      status
+    }
+  },
+
+  async updateStatus(): Promise<UpdateStatus> {
+    return demoUpdateStatus()
+  },
+
+  async startUpdate(): Promise<UpdateStatus> {
+    const state = readDemoUpdate()
+    if (state.state !== "idle" && state.state !== "complete" && state.state !== "error") throw new Error("Une mise à jour est déjà en cours.")
+    const runningTimers = readState().events.filter((event) => event.status === "running" && TIMER_TYPES.has(event.type))
+    if (runningTimers.length) throw new Error("Arrêtez tous les chronos avant de lancer une mise à jour.")
+    if (state.currentVersion !== __APP_VERSION__) throw new Error("Aucune nouvelle version n’est disponible.")
+    const next = { ...state, state: "queued" as const, startedAt: Date.now(), targetVersion: "0.2.0", canRollback: false, rollbackVersion: null }
+    writeDemoUpdate(next)
+    return demoUpdateStatus()
+  },
+
+  async rollbackUpdate(): Promise<UpdateStatus> {
+    const state = readDemoUpdate()
+    if (!state.canRollback) throw new Error("Aucune version précédente n’est disponible pour le rollback.")
+    const next = { ...state, state: "queued" as const, startedAt: Date.now(), targetVersion: state.rollbackVersion }
+    writeDemoUpdate(next)
+    return demoUpdateStatus()
+  },
+
   async resetDatabase(): Promise<void> {
     writeState(initialState())
+    window.localStorage.removeItem(UPDATE_STORAGE_KEY)
   },
 
   async dailyCare(): Promise<DailyCare[]> {

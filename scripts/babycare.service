@@ -7,19 +7,21 @@ Wants=network-online.target
 Type=simple
 User=babycare
 Group=babycare
-WorkingDirectory=/opt/babycare
-ExecStart=/usr/bin/node /opt/babycare/server/app.js
+WorkingDirectory=/opt/babycare/current
+ExecStart=/usr/bin/node /opt/babycare/current/server/app.js
 Restart=on-failure
 RestartSec=3
 Environment=NODE_ENV=production
 Environment=PORT=3000
-Environment=DATABASE_PATH=/opt/babycare/data/babycare.db
+Environment=DATABASE_PATH=/var/lib/babycare/babycare.db
+Environment=BABYCARE_UPDATE_ENABLED=true
+Environment=BABYCARE_UPDATE_DIR=/var/lib/babycare-update
 Environment=TZ=Europe/Paris
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/opt/babycare/data
+ReadWritePaths=/var/lib/babycare /var/lib/babycare-update
 
 [Install]
 WantedBy=multi-user.target

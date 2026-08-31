@@ -1,0 +1,56 @@
+name: babycare
+
+services:
+  babycare:
+    image: ghcr.io/maelremrem/babycare:latest
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    read_only: true
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_PATH: /data/babycare.db
+      BABYCARE_UPDATE_ENABLED: "true"
+      BABYCARE_UPDATE_RUNTIME: docker
+      BABYCARE_UPDATE_DIR: /update
+      TZ: Europe/Paris
+    volumes:
+      - babycare-data:/data
+      - babycare-update:/update
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+  updater:
+    image: ghcr.io/maelremrem/babycare-updater:latest
+    build:
+      context: .
+      target: updater
+    restart: unless-stopped
+    environment:
+      BABYCARE_UPDATE_DIR: /update
+      BABYCARE_COMPOSE_FILE: /config/compose.yml
+      BABYCARE_COMPOSE_PROJECT: babycare
+      BABYCARE_COMPOSE_SERVICE: babycare
+      BABYCARE_DOCKER_IMAGE: ghcr.io/maelremrem/babycare
+      BABYCARE_HEALTH_URL: http://babycare:3000/api/health
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./compose.yml:/config/compose.yml:ro
+      - babycare-update:/update
+    depends_on:
+      babycare:
+        condition: service_started
+
+volumes:
+  babycare-data:
+  babycare-update:

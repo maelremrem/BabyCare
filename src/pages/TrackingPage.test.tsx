@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, test, vi } from "vitest"
+import { afterEach, describe, expect, test, vi } from "vitest"
 import type { BabyEvent, StoolAlert } from "@/lib/types"
 import { TrackingPage } from "@/pages/TrackingPage"
 
@@ -47,6 +47,10 @@ function renderTracking(stoolAlert: StoolAlert) {
   )
 }
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe("TrackingPage", () => {
   test("place l’alerte avant les informations et la température en deuxième", () => {
     renderTracking(overdueAlert)
@@ -92,6 +96,42 @@ describe("TrackingPage", () => {
     expect(screen.getByRole("button", { name: "Température" })).not.toHaveClass("text-primary")
     expect(screen.getByRole("button", { name: "Sein Gauche" })).not.toHaveClass("text-primary")
     expect(screen.getByRole("button", { name: "Sein Droit" })).toHaveClass("text-primary")
+  })
+
+  test("affiche le temps écoulé depuis la dernière tétée ou le dernier biberon", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-29T20:30:00.000Z"))
+
+    const { rerender } = render(
+      <TrackingPage
+        events={[leftBreastEvent, temperatureEvent]}
+        running={[]}
+        loading={false}
+        stoolAlert={{ ...overdueAlert, overdue: false }}
+        onChanged={vi.fn(async () => undefined)}
+        onEdit={vi.fn()}
+        onOpenCare={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText("Depuis la dernière tétée : 2 h 30 min")).toBeInTheDocument()
+
+    const bottle = { ...temperatureEvent, id: 3, type: "bottle" as const, value_real: 120 }
+    rerender(
+      <TrackingPage
+        events={[bottle, temperatureEvent]}
+        running={[]}
+        loading={false}
+        stoolAlert={{ ...overdueAlert, overdue: false }}
+        feedingType="bottle"
+        onChanged={vi.fn(async () => undefined)}
+        onEdit={vi.fn()}
+        onOpenCare={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText("Depuis le dernier biberon : 2 h 30 min")).toBeInTheDocument()
+    expect(within(screen.getByTestId("feeding-info-card")).queryByText("il y a 2 h")).not.toBeInTheDocument()
   })
 
   test("remplace les seins par une saisie de biberon en mode biberon", async () => {

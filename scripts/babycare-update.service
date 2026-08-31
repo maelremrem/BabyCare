@@ -1,0 +1,18 @@
+[Unit]
+Description=Install a verified BabyCare release
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/babycare/current
+ExecStart=/usr/bin/node /opt/babycare/current/scripts/update-worker.js
+Environment=BABYCARE_APP_ROOT=/opt/babycare
+Environment=BABYCARE_UPDATE_DIR=/var/lib/babycare-update
+Environment=BABYCARE_SERVICE_NAME=babycare.service
+Environment=BABYCARE_HEALTH_URL=http://127.0.0.1:3000/api/health
+UMask=0027
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/babycare /var/lib/babycare-update

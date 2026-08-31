@@ -4,6 +4,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { cleanupTemporaryData, createDatabase } from "./database.js"
+import { createUpdateService } from "./update-service.js"
 
 const EVENT_TYPES = new Set([
   "temperature",
@@ -79,6 +80,12 @@ const API_ERRORS = {
   invalid_daily_care: "Soin quotidien invalide.",
   bath_session_not_found: "Session de bain introuvable.",
   bath_item_not_found: "Élément de bain introuvable.",
+  update_not_configured: "Les mises à jour depuis l’interface ne sont pas configurées sur cette installation.",
+  update_timer_running: "Arrêtez tous les chronos avant de lancer une mise à jour.",
+  update_already_running: "Une mise à jour est déjà en cours.",
+  no_update_available: "Aucune nouvelle version n’est disponible.",
+  unsupported_release: "Cette release n’est pas disponible pour l’architecture du serveur.",
+  rollback_unavailable: "Aucune version précédente n’est disponible pour le rollback.",
   internal_error: "Une erreur interne est survenue."
 }
 const EXPORT_LOCALES = new Set(["fr", "en"])
@@ -325,7 +332,7 @@ function displayDetail(metadata, locale) {
   return ""
 }
 
-export function createApp({ db = createDatabase() } = {}) {
+export function createApp({ db = createDatabase(), updateService = createUpdateService() } = {}) {
   const app = express()
   const changeStreams = new Set()
   app.disable("x-powered-by")
@@ -363,7 +370,52 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   app.get("/api/health", (_request, response) => {
-    response.json({ status: "ok" })
+    response.setHeader("Cache-Control", "no-store")
+    response.json({ status: "ok", version: updateService.currentVersion })
+  })
+
+  app.get("/api/version", async (request, response, next) => {
+    try {
+      response.setHeader("Cache-Control", "no-store")
+      response.json(await updateService.versionInfo({ force: request.query.refresh === "true" }))
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.get("/api/update/status", (_request, response) => {
+    response.setHeader("Cache-Control", "no-store")
+    response.json(updateService.status())
+  })
+
+  app.post("/api/update", async (_request, response, next) => {
+    try {
+      const runningTimers = db.prepare("SELECT COUNT(*) AS count FROM events WHERE status = 'running'").get().count
+      if (runningTimers > 0) return sendApiError(response, 409, "update_timer_running")
+      const result = await updateService.requestUpdate()
+      if (result.error) {
+        const status = result.error === "update_not_configured" ? 503 : 409
+        return sendApiError(response, status, result.error)
+      }
+      response.status(202).json(result)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.post("/api/update/rollback", (_request, response, next) => {
+    try {
+      const runningTimers = db.prepare("SELECT COUNT(*) AS count FROM events WHERE status = 'running'").get().count
+      if (runningTimers > 0) return sendApiError(response, 409, "update_timer_running")
+      const result = updateService.requestRollback()
+      if (result.error) {
+        const status = result.error === "update_not_configured" ? 503 : 409
+        return sendApiError(response, status, result.error)
+      }
+      response.status(202).json(result)
+    } catch (error) {
+      next(error)
+    }
   })
 
   app.get("/api/settings", (_request, response) => {

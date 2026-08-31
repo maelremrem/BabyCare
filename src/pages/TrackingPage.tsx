@@ -6,6 +6,7 @@ import { EventRow } from "@/components/EventRow"
 import { TemperatureSparkline } from "@/components/TemperatureSparkline"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { useClock } from "@/hooks/useClock"
 import { interpolate, useI18n } from "@/lib/i18n"
 import type { BabyEvent, FeedingType, StoolAlert } from "@/lib/types"
 import { dateKey, dayHeading, formatDuration, formatTime, groupEventsByDay, relativeTime } from "@/lib/dates"
@@ -23,6 +24,7 @@ interface TrackingPageProps {
 
 export function TrackingPage({ events, running, loading, stoolAlert, feedingType = "breast", onChanged, onEdit, onOpenCare }: TrackingPageProps) {
   const { locale, t } = useI18n()
+  const now = useClock()
   const lastFeeding = events.find((event) => feedingType === "bottle"
     ? event.type === "bottle"
     : event.type === "breast_left" || event.type === "breast_right")
@@ -33,11 +35,14 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
   const recent = events.slice(0, 8)
   const groups = groupEventsByDay(recent)
   const lastDiaperType = typeof lastDiaper?.metadata?.diaper_type === "string" ? lastDiaper.metadata.diaper_type : null
-  const today = dateKey(new Date().toISOString())
+  const today = dateKey(now.toISOString())
   const feedingsToday = events.reduce((count, event) => {
     const isFeeding = feedingType === "bottle" ? event.type === "bottle" : event.type === "breast_left" || event.type === "breast_right"
     return count + (isFeeding && dateKey(event.started_at) === today ? 1 : 0)
   }, 0)
+  const lastFeedingElapsed = lastFeeding
+    ? formatDuration(Math.max(0, Math.floor((now.getTime() - Date.parse(lastFeeding.started_at)) / 1000)), locale)
+    : ""
   const temperatures = events
     .filter((event) => event.type === "temperature" && event.value_real != null)
     .slice(0, 10)
@@ -52,7 +57,17 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
           ? `${lastFeeding.value_real.toFixed(0)} ml`
           : t.eventLabels[lastFeeding.type]
         : t.common.none,
-      secondary: lastFeeding ? formatDuration(lastFeeding.duration_seconds, locale) || relativeTime(lastFeeding.started_at, locale) : "",
+      // A bottle is an instantaneous event, so its relative time is already
+      // represented by `elapsed` below. Showing it here would duplicate the
+      // same information in the latest-feeding card.
+      secondary: lastFeeding
+        ? feedingType === "bottle"
+          ? formatDuration(lastFeeding.duration_seconds, locale)
+          : formatDuration(lastFeeding.duration_seconds, locale) || relativeTime(lastFeeding.started_at, locale)
+        : "",
+      elapsed: lastFeedingElapsed
+        ? interpolate(feedingType === "bottle" ? t.tracking.sinceLastBottle : t.tracking.sinceLastFeeding, { duration: `\n${lastFeedingElapsed}` })
+        : undefined,
       caption: `${feedingsToday} ${feedingType === "bottle"
         ? feedingsToday === 1 ? t.tracking.bottlesTodaySingular : t.tracking.bottlesTodayPlural
         : feedingsToday === 1 ? t.tracking.feedingsTodaySingular : t.tracking.feedingsTodayPlural}`
@@ -149,21 +164,23 @@ function StoolAlertCard({ alert }: { alert: StoolAlert }) {
   )
 }
 
-function InfoCard({ label, icon: Icon, primary, secondary, caption }: {
+function InfoCard({ label, icon: Icon, primary, secondary, elapsed, caption }: {
   label: string
   icon: typeof Milk
   primary: string
   secondary: string
+  elapsed?: string
   caption?: string
 }) {
   return (
-    <Card className="bg-card/80">
+    <Card data-testid="feeding-info-card" className="bg-card/80">
       <CardContent className="flex items-center gap-4 px-4 py-0 sm:block sm:px-5 sm:py-0">
         <Icon className="size-5 shrink-0 text-primary sm:mb-5" aria-hidden="true" />
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
           <p className="mt-1 text-lg font-medium">{primary}</p>
           <p className="text-sm text-muted-foreground">{secondary || "—"}</p>
+          {elapsed ? <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{elapsed}</p> : null}
           {caption ? <p className="mt-1 text-xs font-medium text-primary">{caption}</p> : null}
         </div>
       </CardContent>

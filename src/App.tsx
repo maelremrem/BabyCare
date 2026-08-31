@@ -113,6 +113,7 @@ export default function App() {
             await api.resetDatabase()
             window.location.reload()
           }}
+          hasRunningTimer={running.length > 0}
         />
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-14 sm:px-6">
           <div className="sticky top-[73px] z-30 -mx-4 bg-background/95 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">

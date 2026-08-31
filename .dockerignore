@@ -5,5 +5,9 @@ dist-ios15
 data
 .git
 .github
+Dockerfile
+compose.yml
+README.md
+docs
 *.log
 .DS_Store

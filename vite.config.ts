@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react"
 import legacy from "@vitejs/plugin-legacy"
 import tailwindcss from "@tailwindcss/vite"
 import { VitePWA } from "vite-plugin-pwa"
+import packageJson from "./package.json" with { type: "json" }
 
 const apiPort = Number(process.env.API_PORT || process.env.PORT) || 3000
 
@@ -13,6 +14,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
+    define: { __APP_VERSION__: JSON.stringify(packageJson.version) },
     plugins: [
       react(),
       tailwindcss(),

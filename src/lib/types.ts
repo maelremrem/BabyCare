@@ -103,6 +103,33 @@ export interface StoolAlert {
   threshold_hours: number
 }
 
+export type UpdateState = "idle" | "queued" | "downloading" | "verifying" | "extracting" | "installing" | "restarting" | "checking" | "complete" | "error"
+
+export interface UpdateStatus {
+  state: UpdateState
+  progress: number
+  command: string
+  message: string
+  targetVersion: string | null
+  updatedAt: string | null
+  canRollback: boolean
+  rollbackVersion: string | null
+  active: boolean
+}
+
+export interface VersionInfo {
+  currentVersion: string
+  enabled: boolean
+  runtime?: "systemd" | "docker"
+  updateAvailable: boolean
+  availableVersion: string | null
+  releaseUrl: string | null
+  publishedAt?: string | null
+  supported: boolean
+  checkError?: string
+  status: UpdateStatus
+}
+
 export interface EventList {
   events: BabyEvent[]
   total: number
