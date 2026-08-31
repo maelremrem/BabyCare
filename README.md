@@ -161,7 +161,7 @@ In this mode BabyCare does not call `/api`. It uses a browser-only demo adapter 
 
 ```text
 BabyCare/
-├── .github/workflows/      GitHub Pages deployment workflow
+├── .github/workflows/      CI, GitHub Pages and Docker publishing workflows
 ├── docs/                   Functional and design documentation
 ├── public/                 Icons and PWA assets
 ├── scripts/                Debian installer and systemd service
@@ -177,6 +177,8 @@ BabyCare/
 │   ├── App.tsx             Navigation and main state
 │   └── main.tsx            React entrypoint
 ├── data/                   Local SQLite database, not committed
+├── Dockerfile              Multi-stage production image
+├── compose.yaml            One-container self-hosting setup
 ├── package.json
 └── vite.config.ts
 ```
@@ -220,6 +222,51 @@ sudo journalctl -u babycare -f
 ```
 
 To update, run the same install command again. The script uses `git pull --ff-only`, rebuilds the app and restarts the service while preserving local data.
+
+## Docker
+
+The official image uses one container, one port and one persistent volume. It runs as a non-root user and supports `linux/amd64` and `linux/arm64`:
+
+```bash
+mkdir babycare && cd babycare
+curl -O https://raw.githubusercontent.com/maelremrem/BabyCare/main/compose.yaml
+docker compose up -d
+```
+
+Open `http://SERVER_IP:3000`. The Compose file stores the SQLite database and its WAL files in `./data` and uses the image `ghcr.io/maelremrem/babycare:latest`.
+
+Without Compose:
+
+```bash
+docker run -d \
+  --name babycare \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -e TZ=Europe/Paris \
+  -v "$(pwd)/data:/data" \
+  ghcr.io/maelremrem/babycare:latest
+```
+
+To update while preserving data:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+SQLite uses WAL mode, so do not copy only `babycare.db` while BabyCare is running. Back up the complete data directory while the container is stopped:
+
+```bash
+docker compose stop
+tar czf babycare-backup.tar.gz data/
+docker compose start
+```
+
+To build the image locally instead of pulling it:
+
+```bash
+docker build -t babycare:local .
+```
 
 ## PWA and HTTPS
 
@@ -440,7 +487,7 @@ Dans ce mode, BabyCare n’appelle pas `/api`. L’application utilise un adapta
 
 ```text
 BabyCare/
-├── .github/workflows/      Workflow de déploiement GitHub Pages
+├── .github/workflows/      Workflows CI, GitHub Pages et publication Docker
 ├── docs/                   Documentation fonctionnelle
 ├── public/                 Icônes et ressources PWA
 ├── scripts/                Installateur Debian et service systemd
@@ -456,6 +503,8 @@ BabyCare/
 │   ├── App.tsx             Navigation et état principal
 │   └── main.tsx            Entrée React
 ├── data/                   Base SQLite locale, non versionnée
+├── Dockerfile              Image de production multi-stage
+├── compose.yaml            Déploiement auto-hébergé à un conteneur
 ├── package.json
 └── vite.config.ts
 ```
@@ -499,6 +548,51 @@ sudo journalctl -u babycare -f
 ```
 
 Pour mettre à jour, relancez la même commande d’installation. Le script utilise `git pull --ff-only`, reconstruit l’application et redémarre le service en conservant les données locales.
+
+## Docker
+
+L’image officielle utilise un conteneur, un port et un volume persistant. Elle s’exécute avec un utilisateur non-root et prend en charge `linux/amd64` et `linux/arm64` :
+
+```bash
+mkdir babycare && cd babycare
+curl -O https://raw.githubusercontent.com/maelremrem/BabyCare/main/compose.yaml
+docker compose up -d
+```
+
+Ouvrez `http://ADRESSE_DU_SERVEUR:3000`. Le fichier Compose conserve la base SQLite et ses fichiers WAL dans `./data` et utilise l’image `ghcr.io/maelremrem/babycare:latest`.
+
+Sans Compose :
+
+```bash
+docker run -d \
+  --name babycare \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -e TZ=Europe/Paris \
+  -v "$(pwd)/data:/data" \
+  ghcr.io/maelremrem/babycare:latest
+```
+
+Pour mettre à jour l’application sans perdre les données :
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+SQLite utilise le mode WAL : ne copiez donc pas seulement `babycare.db` pendant que BabyCare fonctionne. Sauvegardez tout le répertoire de données pendant que le conteneur est arrêté :
+
+```bash
+docker compose stop
+tar czf babycare-backup.tar.gz data/
+docker compose start
+```
+
+Pour construire l’image localement au lieu de la télécharger :
+
+```bash
+docker build -t babycare:local .
+```
 
 ## PWA Et HTTPS
 
