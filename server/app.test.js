@@ -7,10 +7,10 @@ import test from "node:test"
 import { createApp } from "./app.js"
 import { createDatabase } from "./database.js"
 
-async function withServer(run) {
+async function withServer(run, appOptions = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "babycare-test-"))
   const db = createDatabase(path.join(directory, "test.db"))
-  const server = createApp({ db }).listen(0, "127.0.0.1")
+  const server = createApp({ db, ...appOptions }).listen(0, "127.0.0.1")
   await new Promise((resolve) => server.once("listening", resolve))
   const address = server.address()
   try {
@@ -21,6 +21,38 @@ async function withServer(run) {
     fs.rmSync(directory, { recursive: true, force: true })
   }
 }
+
+function updateServiceStub() {
+  const idle = { state: "idle", progress: 0, command: "", message: "", targetVersion: null, updatedAt: null, canRollback: false, rollbackVersion: null, active: false }
+  return {
+    currentVersion: "0.1.0",
+    status: () => idle,
+    versionInfo: async () => ({ currentVersion: "0.1.0", enabled: true, updateAvailable: true, availableVersion: "0.2.0", releaseUrl: null, supported: true, status: idle }),
+    requestUpdate: async () => ({ ...idle, state: "queued", active: true }),
+    requestRollback: () => ({ error: "rollback_unavailable" })
+  }
+}
+
+test("expose la version et bloque une mise à jour tant qu’un chrono existe", () => withServer(async (baseUrl) => {
+  const version = await fetch(`${baseUrl}/api/version`).then((response) => response.json())
+  assert.equal(version.currentVersion, "0.1.0")
+  assert.equal(version.availableVersion, "0.2.0")
+
+  await fetch(`${baseUrl}/api/events/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "nap" })
+  })
+  const blocked = await fetch(`${baseUrl}/api/update`, { method: "POST" })
+  assert.equal(blocked.status, 409)
+  assert.equal((await blocked.json()).code, "update_timer_running")
+}, { updateService: updateServiceStub() }))
+
+test("accepte une mise à jour sans chrono actif", () => withServer(async (baseUrl) => {
+  const response = await fetch(`${baseUrl}/api/update`, { method: "POST" })
+  assert.equal(response.status, 202)
+  assert.equal((await response.json()).state, "queued")
+}, { updateService: updateServiceStub() }))
 
 test("crée et liste un événement instantané", () => withServer(async (baseUrl) => {
   const created = await fetch(`${baseUrl}/api/events`, {

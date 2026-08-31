@@ -8,6 +8,12 @@ readonly REPOSITORY_URL="https://github.com/maelremrem/BabyCare.git"
 readonly REPOSITORY_BRANCH="main"
 readonly SERVICE_NAME="babycare.service"
 readonly SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}"
+readonly UPDATE_SERVICE_NAME="babycare-update.service"
+readonly UPDATE_PATH_NAME="babycare-update.path"
+readonly RELEASES_DIR="${APP_DIR}/releases"
+readonly CURRENT_LINK="${APP_DIR}/current"
+readonly DATA_DIR="/var/lib/babycare"
+readonly UPDATE_DIR="/var/lib/babycare-update"
 
 detect_server_ip() {
   local detected_ip=""
@@ -103,19 +109,40 @@ fi
 if ! id "${APP_USER}" >/dev/null 2>&1; then
   useradd --system --home-dir "${APP_DIR}" --shell /usr/sbin/nologin "${APP_USER}"
 fi
-install -d -m 0750 -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}/data"
-chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/data"
+install -d -m 0750 -o "${APP_USER}" -g "${APP_USER}" "${DATA_DIR}"
+install -d -m 0770 -o "${APP_USER}" -g "${APP_USER}" "${UPDATE_DIR}"
+if [[ ! -e "${DATA_DIR}/babycare.db" && -e "${APP_DIR}/data/babycare.db" ]]; then
+  echo "Migration conservatrice de la base vers ${DATA_DIR}"
+  cp -a "${APP_DIR}/data/babycare.db"* "${DATA_DIR}/"
+  chown -R "${APP_USER}:${APP_USER}" "${DATA_DIR}"
+fi
 
 echo "[4/6] Installation des dépendances et compilation"
 cd "${APP_DIR}"
 npm ci
-npm run build
+npm run build:distribution
 npm prune --omit=dev --no-save
 
-echo "[5/6] Installation du service systemd"
+echo "[5/6] Préparation de la release locale et des services systemd"
+release_version="$(node -p "require('./package.json').version")"
+release_dir="${RELEASES_DIR}/${release_version}"
+release_staging="${RELEASES_DIR}/.${release_version}-install-$$"
+install -d -m 0755 "${RELEASES_DIR}" "${release_staging}"
+cp -a package.json node_modules server dist-modern dist-ios15 scripts "${release_staging}/"
+chown -R "${APP_USER}:${APP_USER}" "${release_staging}"
+if [[ -e "${release_dir}" ]]; then
+  mv "${release_dir}" "${release_dir}.replaced-$(date +%Y%m%d-%H%M%S)"
+fi
+mv "${release_staging}" "${release_dir}"
+ln -s "${release_dir}" "${CURRENT_LINK}.new"
+mv -Tf "${CURRENT_LINK}.new" "${CURRENT_LINK}"
+
 install -m 0644 "${APP_DIR}/scripts/babycare.service" "${SERVICE_PATH}"
+install -m 0644 "${APP_DIR}/scripts/${UPDATE_SERVICE_NAME}" "/etc/systemd/system/${UPDATE_SERVICE_NAME}"
+install -m 0644 "${APP_DIR}/scripts/${UPDATE_PATH_NAME}" "/etc/systemd/system/${UPDATE_PATH_NAME}"
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}"
+systemctl enable --now "${UPDATE_PATH_NAME}"
 systemctl restart "${SERVICE_NAME}"
 
 echo "[6/6] Vérification du service"

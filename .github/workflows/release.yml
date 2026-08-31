@@ -1,0 +1,66 @@
+name: Publish BabyCare release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            architecture: amd64
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Align package version with tag
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+      - name: Install and verify
+        run: npm ci && npm run check
+      - name: Build distribution variants
+        run: npm run build:distribution
+      - name: Keep production dependencies
+        run: npm prune --omit=dev
+      - name: Create runtime archive
+        env:
+          RELEASE_ARCH: ${{ matrix.architecture }}
+        run: |
+          archive="babycare-${GITHUB_REF_NAME}-linux-${RELEASE_ARCH}.tar.gz"
+          tar -czf "${archive}" package.json node_modules server dist-modern dist-ios15 scripts
+          sha256sum "${archive}" > "${archive}.sha256"
+      - name: Upload runtime archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: babycare-linux-${{ matrix.architecture }}
+          path: |
+            babycare-*.tar.gz
+            babycare-*.tar.gz.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download archives
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" release-assets/* --repo "${GITHUB_REPOSITORY}" --generate-notes --verify-tag

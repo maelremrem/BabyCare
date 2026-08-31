@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Baby, Calendar, Check, ChevronLeft, ChevronRight, LoaderCircle, Mars, Plus, Settings, Trash2, Venus } from "lucide-react"
+import { Baby, Calendar, Check, ChevronLeft, ChevronRight, Download, LoaderCircle, Mars, Plus, RotateCcw, Settings, Trash2, Venus } from "lucide-react"
 import { toast } from "sonner"
 import { BabyCareIcon } from "@/components/BabyCareIcon"
+import { UpdateProgressDialog } from "@/components/UpdateProgressDialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -10,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useClock } from "@/hooks/useClock"
+import { useAppUpdate } from "@/hooks/useAppUpdate"
 import { formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, formatShortDate, getAgeParts } from "@/lib/dates"
 import { getLocaleTag, interpolate, localizedErrorMessage, type LanguagePreference, useI18n } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AccentColor, type AppSettings, type BabySex, type FeedingType } from "@/lib/types"
@@ -22,6 +24,7 @@ interface TopBarProps {
   onLanguageChange: (language: LanguagePreference) => Promise<void>
   onProfileChange: (babyName: string, birthDate: string, babySex: BabySex, feedingType: FeedingType, accentColor: AccentColor) => Promise<void>
   onReset: () => Promise<void>
+  hasRunningTimer?: boolean
 }
 
 const SEX_OPTIONS: { value: Exclude<BabySex, "">, icon: typeof Venus }[] = [
@@ -92,7 +95,7 @@ function monthDays(month: Date) {
   })
 }
 
-export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLanguageChange, onProfileChange, onReset }: TopBarProps) {
+export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLanguageChange, onProfileChange, onReset, hasRunningTimer = false }: TopBarProps) {
   const { locale, t } = useI18n()
   const localeTag = getLocaleTag(locale)
   const now = useClock()
@@ -112,6 +115,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
   const [deleteBabyOpen, setDeleteBabyOpen] = useState(false)
   const [deletingBaby, setDeletingBaby] = useState(false)
   const age = getAgeParts(settings.birth_date, now)
+  const appUpdate = useAppUpdate()
 
   useEffect(() => setBabyName(settings.baby_name), [settings.baby_name])
   useEffect(() => {
@@ -243,8 +247,16 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
 
         <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
           <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-9 shrink-0 rounded-xl sm:size-10" aria-label={t.settings.open}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative size-9 shrink-0 rounded-xl sm:size-10"
+              aria-label={appUpdate.versionInfo?.updateAvailable
+                ? `${t.settings.open} — ${interpolate(t.update.available, { version: appUpdate.versionInfo.availableVersion || "" })}`
+                : t.settings.open}
+            >
               <Settings className="size-5" />
+              {appUpdate.versionInfo?.updateAvailable ? <span className="absolute right-1 top-1 size-2.5 rounded-full border-2 border-background bg-destructive" aria-hidden="true" /> : null}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
@@ -254,6 +266,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
             </DialogHeader>
 
             <div className="grid gap-5 md:grid-cols-2">
+              <div className="flex flex-col gap-5">
               <form onSubmit={saveProfile} autoComplete="off" className="space-y-4 rounded-2xl border bg-card/60 p-4">
                 <div>
                   <div className="flex items-start justify-between gap-2">
@@ -418,6 +431,8 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                 </Button>
               </form>
 
+              </div>
+
               <div className="rounded-2xl border bg-card/60 p-4">
                 <div>
                   <p className="font-semibold">{t.settings.languageTitle}</p>
@@ -434,6 +449,73 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                     </SelectContent>
                   </Select>
                 </div>
+
+                <Separator className="my-5" />
+
+                <section aria-labelledby="update-settings-title">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p id="update-settings-title" className="font-semibold">{t.update.title}</p>
+                      <p className="text-xs text-muted-foreground">{t.update.description}</p>
+                    </div>
+                    {appUpdate.versionInfo?.updateAvailable ? <span className="mt-1 size-2.5 shrink-0 rounded-full bg-destructive" aria-label={interpolate(t.update.available, { version: appUpdate.versionInfo.availableVersion || "" })} /> : null}
+                  </div>
+                  {appUpdate.versionInfo ? (
+                    <p className="mt-3 text-xs text-muted-foreground">{interpolate(t.update.current, { version: appUpdate.versionInfo.currentVersion })}</p>
+                  ) : null}
+                  <Button
+                    type="button"
+                    className="mt-3 min-h-11 w-full whitespace-normal"
+                    variant={appUpdate.versionInfo?.updateAvailable ? "default" : "outline"}
+                    disabled={appUpdate.checking
+                      || Boolean(hasRunningTimer && appUpdate.versionInfo?.updateAvailable)
+                      || Boolean(appUpdate.versionInfo && !appUpdate.versionInfo.updateAvailable && !appUpdate.versionInfo.checkError)}
+                    onClick={() => {
+                      if (!appUpdate.versionInfo || appUpdate.versionInfo.checkError) {
+                        appUpdate.refresh(true).catch((error) => toast.error(localizedErrorMessage(error, t, t.update.checkError)))
+                        return
+                      }
+                      setSettingsOpen(false)
+                      if (appUpdate.status?.active) {
+                        appUpdate.setProgressOpen(true)
+                        return
+                      }
+                      appUpdate.startUpdate().catch((error) => {
+                        appUpdate.setProgressOpen(false)
+                        toast.error(localizedErrorMessage(error, t, t.update.startError))
+                      })
+                    }}
+                  >
+                    {appUpdate.checking || appUpdate.status?.active ? <LoaderCircle className="animate-spin" /> : appUpdate.versionInfo?.updateAvailable ? <Download /> : null}
+                    {hasRunningTimer && appUpdate.versionInfo?.updateAvailable
+                      ? t.update.timerWaiting
+                      : appUpdate.versionInfo?.updateAvailable
+                        ? t.update.availableAction
+                        : appUpdate.versionInfo && !appUpdate.versionInfo.checkError
+                          ? t.update.noneAvailable
+                          : t.update.check}
+                  </Button>
+                  {appUpdate.status?.canRollback ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-2 w-full"
+                      disabled={hasRunningTimer || appUpdate.status.active}
+                      onClick={() => {
+                        setSettingsOpen(false)
+                        appUpdate.rollback().catch((error) => {
+                          appUpdate.setProgressOpen(false)
+                          toast.error(localizedErrorMessage(error, t, t.update.startError))
+                        })
+                      }}
+                    >
+                      <RotateCcw />
+                      {appUpdate.status.rollbackVersion
+                        ? interpolate(t.update.rollback, { version: appUpdate.status.rollbackVersion })
+                        : t.update.rollbackFallback}
+                    </Button>
+                  ) : null}
+                </section>
 
                 <Separator className="my-5" />
 
@@ -458,6 +540,8 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
           </DialogContent>
         </Dialog>
       </div>
+
+      <UpdateProgressDialog open={appUpdate.progressOpen} status={appUpdate.status} onOpenChange={appUpdate.setProgressOpen} />
 
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent>

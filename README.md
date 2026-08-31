@@ -47,6 +47,7 @@ BabyCare is designed for parents and caregivers sharing baby care inside the sam
 - CSV history export in GitHub Pages demo mode;
 - French and English interface;
 - responsive PWA interface;
+- verified in-app updates with progress, automatic restart and rollback on Debian/LXC and Docker installations;
 - full confirmed database reset from settings.
 
 ## Tech Stack
@@ -206,15 +207,35 @@ The server accepts these environment variables:
 | `PORT` | `3000` | Express HTTP port |
 | `DATABASE_PATH` | `./data/babycare.db` | SQLite database path |
 | `TZ` | `Europe/Paris` | Time zone used for daily routines |
+| `BABYCARE_UPDATE_ENABLED` | `false` | Enables the in-app updater; configured automatically by the Debian installer |
+| `BABYCARE_UPDATE_RUNTIME` | `systemd` | Update engine: `systemd` or `docker` |
+| `BABYCARE_UPDATE_DIR` | `./data/update` | Shared directory for updater requests and progress |
+| `BABYCARE_RELEASE_API_URL` | GitHub latest release API | Optional alternative release metadata endpoint |
 
 Example:
 
 ```bash
 PORT=3000 \
-DATABASE_PATH=/opt/babycare/data/babycare.db \
+DATABASE_PATH=/var/lib/babycare/babycare.db \
 TZ=Europe/Paris \
 npm start
 ```
+
+## In-app updates and releases
+
+The Debian installer enables a least-privilege update path:
+
+1. the unprivileged web server checks the latest GitHub Release and writes an update request;
+2. `babycare-update.path` starts the root-owned one-shot updater;
+3. the updater downloads the archive for the server architecture, validates its SHA-256 checksum and extracts it into `/opt/babycare/releases`;
+4. `/opt/babycare/current` is switched atomically, the service restarts, and a health check validates the new release;
+5. a failed health check automatically restores the previous symlink and restarts BabyCare.
+
+The update action is rejected while any timer is running. Connected clients compare their bundled version with `/api/version` every 30 seconds and refresh when the server version changes. SQLite lives separately in `/var/lib/babycare`, updater state in `/var/lib/babycare-update`, and application releases in `/opt/babycare`.
+
+To publish a release, create and push a semantic version tag such as `v0.2.0`. The `release.yml` workflow runs the complete checks, builds modern and iOS 15 distributions for AMD64 and ARM64, packages production dependencies, creates checksum files, and publishes the GitHub Release automatically.
+
+Docker uses the same release metadata but delegates image replacement to the separate `babycare-updater` sidecar. The web container never receives the Docker socket. The sidecar pulls only versioned images published to GHCR, recreates the web service, validates `/api/health`, and retags the previous image for automatic or manual rollback.
 
 ## Recommended Debian LXC Hosting
 
@@ -226,7 +247,7 @@ Recommended minimum container: Debian 13, 1 vCPU, 512 MB RAM and 4 GB disk.
 curl -fsSL https://raw.githubusercontent.com/maelremrem/BabyCare/main/scripts/install.sh | sudo bash
 ```
 
-The script installs system dependencies, clones BabyCare into `/opt/babycare`, builds the app, creates a restricted `babycare` system user, preserves `/opt/babycare/data`, installs `babycare.service`, and starts it.
+The script installs system dependencies, clones BabyCare into `/opt/babycare`, builds the app, creates a restricted `babycare` system user, stores SQLite separately in `/var/lib/babycare`, installs `babycare.service`, and starts it. Existing databases under `/opt/babycare/data` are copied conservatively during migration and left in place as a fallback.
 
 Useful diagnostics:
 
@@ -239,15 +260,21 @@ To update, run the same install command again. The script uses `git pull --ff-on
 
 ## Docker
 
-The official image runs both browser builds (modern and iOS 15 compatible) behind Express, with SQLite persisted in `./data`:
+The official image runs both browser builds behind Express. Use the provided Compose definition to enable in-app updates:
 
 ```bash
 mkdir babycare && cd babycare
-curl -O https://raw.githubusercontent.com/maelremrem/BabyCare/main/compose.yaml
+curl -O https://raw.githubusercontent.com/maelremrem/BabyCare/main/compose.yml
 docker compose up -d
 ```
 
-Open `http://SERVER_IP:3000`. To update while preserving data, run `docker compose pull && docker compose up -d`.
+Open `http://SERVER_IP:3000`. Storage is deliberately split:
+
+- `babycare-data` is mounted only at `/data` and contains the SQLite database;
+- `babycare-update` is mounted only at `/update` and contains transient requests, progress and rollback metadata;
+- application code and dependencies remain immutable inside the image.
+
+The updater sidecar is the only container with `/var/run/docker.sock`. Anyone able to control that container effectively controls Docker, so keep the Compose stack and host restricted to trusted administrators. A manual update remains possible with `docker compose pull && docker compose up -d`.
 
 The image can also be built locally with `docker build -t babycare:local .`.
 
@@ -262,7 +289,7 @@ For a durable tablet install, put BabyCare behind a local reverse proxy such as 
 The important data is stored in one file:
 
 ```text
-/opt/babycare/data/babycare.db
+/var/lib/babycare/babycare.db
 ```
 
 Back it up regularly. To guarantee a consistent copy while the app is running, use SQLite backup tooling or briefly stop the service before copying the file.
@@ -515,15 +542,26 @@ Le serveur accepte les variables d’environnement suivantes :
 | `PORT` | `3000` | Port HTTP du serveur Express |
 | `DATABASE_PATH` | `./data/babycare.db` | Emplacement de la base SQLite |
 | `TZ` | `Europe/Paris` | Fuseau utilisé pour les routines quotidiennes |
+| `BABYCARE_UPDATE_ENABLED` | `false` | Active les mises à jour depuis l’interface |
+| `BABYCARE_UPDATE_RUNTIME` | `systemd` | Moteur de mise à jour : `systemd` ou `docker` |
+| `BABYCARE_UPDATE_DIR` | `./data/update` | Répertoire partagé des demandes et de la progression |
 
 Exemple :
 
 ```bash
 PORT=3000 \
-DATABASE_PATH=/opt/babycare/data/babycare.db \
+DATABASE_PATH=/var/lib/babycare/babycare.db \
 TZ=Europe/Paris \
 npm start
 ```
+
+## Mises À Jour Et Releases
+
+Les installations Debian/LXC téléchargent les archives GitHub Releases correspondant à leur architecture, vérifient leur checksum SHA-256, basculent atomiquement `/opt/babycare/current`, puis effectuent un contrôle de santé avec rollback automatique en cas d’échec.
+
+Les installations Docker utilisent un sidecar séparé. Il télécharge l’image versionnée depuis GHCR, recrée uniquement le service web et conserve l’image précédente pour le rollback. Le conteneur web n’accède jamais au socket Docker. Dans les deux modes, une mise à jour est refusée tant qu’un chrono est actif et tous les clients se rafraîchissent lorsque la version serveur change.
+
+La base SQLite est toujours isolée du système applicatif : `/var/lib/babycare/babycare.db` en LXC, ou le volume Docker `babycare-data` monté sur `/data`. Les états de mise à jour utilisent `/var/lib/babycare-update` en LXC et un second volume Docker `babycare-update` monté sur `/update`.
 
 ## Hébergement Recommandé Dans Un LXC Debian
 
@@ -535,7 +573,7 @@ Configuration minimale recommandée : Debian 13, 1 vCPU, 512 Mo de RAM et 4 Go d
 curl -fsSL https://raw.githubusercontent.com/maelremrem/BabyCare/main/scripts/install.sh | sudo bash
 ```
 
-Le script installe les dépendances système, clone BabyCare dans `/opt/babycare`, compile l’application, crée l’utilisateur système limité `babycare`, préserve `/opt/babycare/data`, installe `babycare.service` et démarre le service.
+Le script installe les dépendances système, clone BabyCare dans `/opt/babycare`, compile l’application, crée l’utilisateur système limité `babycare`, stocke SQLite séparément dans `/var/lib/babycare`, installe `babycare.service` et démarre le service. Une base existante sous `/opt/babycare/data` est copiée sans supprimer l’original lors de la migration.
 
 Commandes de diagnostic utiles :
 
@@ -545,6 +583,16 @@ sudo journalctl -u babycare -f
 ```
 
 Pour mettre à jour, relancez la même commande d’installation. Le script utilise `git pull --ff-only`, reconstruit l’application et redémarre le service en conservant les données locales.
+
+## Docker
+
+```bash
+mkdir babycare && cd babycare
+curl -O https://raw.githubusercontent.com/maelremrem/BabyCare/main/compose.yml
+docker compose up -d
+```
+
+La base est conservée dans le volume `babycare-data`, les états du mécanisme de mise à jour dans `babycare-update`, et tout le code reste dans l’image immuable. Le sidecar `babycare-updater` est seul à recevoir le socket Docker afin d’effectuer les mises à jour et rollbacks demandés depuis l’interface.
 
 ## PWA Et HTTPS
 
@@ -557,7 +605,7 @@ Pour une installation durable sur tablette, placez BabyCare derrière un reverse
 La donnée importante se trouve dans un seul fichier :
 
 ```text
-/opt/babycare/data/babycare.db
+/var/lib/babycare/babycare.db
 ```
 
 Sauvegardez régulièrement ce fichier. Pour garantir une copie cohérente pendant que l’application fonctionne, utilisez la commande de sauvegarde SQLite ou arrêtez brièvement le service avant la copie.

@@ -39,13 +39,38 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
 
+      - name: Extract updater image metadata
+        id: updater-metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/maelremrem/babycare-updater
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
+
       - name: Build and publish
         uses: docker/build-push-action@v6
         with:
           context: .
+          target: runtime
+          build-args: |
+            APP_VERSION=${{ github.event.release.tag_name }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build and publish updater
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: updater
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.updater-metadata.outputs.tags }}
+          labels: ${{ steps.updater-metadata.outputs.labels }}
+          cache-from: type=gha,scope=updater
+          cache-to: type=gha,mode=max,scope=updater
