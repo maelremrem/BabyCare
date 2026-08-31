@@ -55,7 +55,7 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
         return reference ? { ...reference, ageMonths } : null
       }).filter((reference) => reference != null)
     : []
-  const latest = allMeasurements.at(-1)
+  const latest = allMeasurements[allMeasurements.length - 1]
 
   if (visibleMeasurements.length === 0 && references.length === 0) {
     return (
@@ -154,7 +154,7 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
             {referenceEnabled ? formatMonth(windowStart, locale) : shortDate(visibleMeasurements[0].event.started_at, locale)}
           </text>
           <text x={WIDTH - PADDING_X} y={HEIGHT - 5} textAnchor="end" fill="currentColor" opacity="0.55" fontSize="11">
-            {referenceEnabled ? formatMonth(windowEnd, locale) : shortDate(visibleMeasurements.at(-1)?.event.started_at || "", locale)}
+            {referenceEnabled ? formatMonth(windowEnd, locale) : shortDate(visibleMeasurements[visibleMeasurements.length - 1]?.event.started_at || "", locale)}
           </text>
         </svg>
 

@@ -1,0 +1,11 @@
+services:
+  babycare:
+    image: ghcr.io/maelremrem/babycare:latest
+    container_name: babycare
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      TZ: Europe/Paris
