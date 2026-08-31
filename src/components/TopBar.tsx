@@ -5,6 +5,7 @@ import { BabyCareIcon } from "@/components/BabyCareIcon"
 import { UpdateProgressDialog } from "@/components/UpdateProgressDialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -24,6 +25,10 @@ interface TopBarProps {
   onLanguageChange: (language: LanguagePreference) => Promise<void>
   onProfileChange: (babyName: string, birthDate: string, babySex: BabySex, feedingType: FeedingType, accentColor: AccentColor) => Promise<void>
   onReset: () => Promise<void>
+  preventSleepDuringTimer?: boolean
+  wakeLockVideoFallback?: boolean
+  onPreventSleepDuringTimerChange?: (enabled: boolean) => void
+  onWakeLockVideoFallbackChange?: (enabled: boolean) => void
   hasRunningTimer?: boolean
 }
 
@@ -95,7 +100,7 @@ function monthDays(month: Date) {
   })
 }
 
-export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLanguageChange, onProfileChange, onReset, hasRunningTimer = false }: TopBarProps) {
+export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLanguageChange, onProfileChange, onReset, preventSleepDuringTimer = true, wakeLockVideoFallback = false, onPreventSleepDuringTimerChange, onWakeLockVideoFallbackChange, hasRunningTimer = false }: TopBarProps) {
   const { locale, t } = useI18n()
   const localeTag = getLocaleTag(locale)
   const now = useClock()
@@ -449,6 +454,40 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                     </SelectContent>
                   </Select>
                 </div>
+
+                <Separator className="my-5" />
+
+                <section aria-labelledby="screen-settings-title">
+                  <p id="screen-settings-title" className="font-semibold">{t.settings.screenAwakeTitle}</p>
+                  <p className="mb-3 text-xs text-muted-foreground">{t.settings.screenAwakeDescription}</p>
+                  <label htmlFor="prevent-sleep-during-timer" className="flex cursor-pointer items-start gap-3 rounded-xl border p-3">
+                    <Checkbox
+                      id="prevent-sleep-during-timer"
+                      className="mt-0.5"
+                      checked={preventSleepDuringTimer}
+                      onCheckedChange={(checked) => onPreventSleepDuringTimerChange?.(checked === true)}
+                    />
+                    <span>
+                      <span className="block text-sm font-medium">{t.settings.screenAwakeLabel}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">{t.settings.screenAwakeHelp}</span>
+                    </span>
+                  </label>
+                  <div className={`ml-7 mt-2 ${preventSleepDuringTimer ? "" : "opacity-55"}`}>
+                    <label htmlFor="wake-lock-video-fallback" className={`flex items-start gap-3 rounded-xl border p-3 ${preventSleepDuringTimer ? "cursor-pointer" : "cursor-not-allowed"}`}>
+                      <Checkbox
+                        id="wake-lock-video-fallback"
+                        className="mt-0.5"
+                        checked={wakeLockVideoFallback}
+                        disabled={!preventSleepDuringTimer}
+                        onCheckedChange={(checked) => onWakeLockVideoFallbackChange?.(checked === true)}
+                      />
+                      <span>
+                        <span className="block text-sm font-medium">{t.settings.screenAwakeFallbackLabel}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">{t.settings.screenAwakeFallbackHelp}</span>
+                      </span>
+                    </label>
+                  </div>
+                </section>
 
                 <Separator className="my-5" />
 

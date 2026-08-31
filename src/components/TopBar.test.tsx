@@ -4,6 +4,38 @@ import { describe, expect, test, vi } from "vitest"
 import { TopBar } from "@/components/TopBar"
 
 describe("TopBar", () => {
+  test("propose l’empêchement de veille avec le fallback vidéo en sous-option", async () => {
+    const user = userEvent.setup()
+    const onPreventSleepDuringTimerChange = vi.fn()
+    const onWakeLockVideoFallbackChange = vi.fn()
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline") }))
+
+    render(
+      <TopBar
+        settings={{ active_baby_id: 1, babies: [{ id: 1, name: "Lou", birth_date: "", baby_sex: "", accent_color: "orange" }], accent_color: "orange", baby_name: "Lou", birth_date: "", baby_sex: "", language_preference: "system" }}
+        onBabySelect={vi.fn(async () => undefined)}
+        onBabyAdd={vi.fn(async () => undefined)}
+        onBabyDelete={vi.fn(async () => undefined)}
+        onLanguageChange={vi.fn(async () => undefined)}
+        onProfileChange={vi.fn(async () => undefined)}
+        onReset={vi.fn(async () => undefined)}
+        onPreventSleepDuringTimerChange={onPreventSleepDuringTimerChange}
+        onWakeLockVideoFallbackChange={onWakeLockVideoFallbackChange}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Ouvrir les paramètres" }))
+    const preventSleep = screen.getByRole("checkbox", { name: /Empêcher la mise en veille pendant un chrono/ })
+    const fallback = screen.getByRole("checkbox", { name: /Utiliser le fallback vidéo/ })
+    expect(preventSleep).toBeChecked()
+    expect(fallback).not.toBeChecked()
+    await user.click(fallback)
+    expect(onWakeLockVideoFallbackChange).toHaveBeenCalledWith(true)
+    await user.click(preventSleep)
+    expect(onPreventSleepDuringTimerChange).toHaveBeenCalledWith(false)
+    vi.unstubAllGlobals()
+  })
+
   test("affiche la mise à jour et la bloque pendant un chrono actif", async () => {
     const user = userEvent.setup()
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {

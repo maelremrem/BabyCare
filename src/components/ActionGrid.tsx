@@ -19,12 +19,14 @@ interface ActionGridProps {
   bottleDefaultQuantity?: number
   onChanged: () => Promise<void>
   onOpenCare: () => void
+  onTimerStartAttempt?: () => void
+  onTimerStartFailed?: () => void
 }
 
 const actionClass = "h-24 flex-col gap-2 rounded-2xl border-border bg-card text-sm font-semibold tracking-wide shadow-none active:scale-[.97] sm:h-28"
 const activeBreastClass = "border-primary/50 text-primary"
 
-export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 150, onChanged, onOpenCare }: ActionGridProps) {
+export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 150, onChanged, onOpenCare, onTimerStartAttempt, onTimerStartFailed }: ActionGridProps) {
   const { t } = useI18n()
   const [temperatureOpen, setTemperatureOpen] = useState(false)
   const [irritationOpen, setIrritationOpen] = useState(false)
@@ -46,12 +48,14 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
   }
 
   const start = async (type: EventType, label: string) => {
+    onTimerStartAttempt?.()
     try {
       await api.startEvent(type)
       toast.success(interpolate(t.actions.started, { label }))
       await onChanged()
       scrollToActiveTimer()
     } catch (error) {
+      onTimerStartFailed?.()
       toast.error(localizedErrorMessage(error, t, t.common.actionImpossible))
     }
   }

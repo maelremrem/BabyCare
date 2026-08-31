@@ -9,6 +9,7 @@ import { TopBar } from "@/components/TopBar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Toaster } from "@/components/ui/sonner"
 import { useEvents } from "@/hooks/useEvents"
+import { useScreenWakeLock } from "@/hooks/useScreenWakeLock"
 import { api, isDemoMode, subscribeToServerChanges } from "@/lib/api"
 import { I18nProvider, localizedErrorMessage, messages, resolveLocale, type LanguagePreference } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AppSettings, type BabyEvent, type DailyCare, type StoolAlert } from "@/lib/types"
@@ -28,12 +29,45 @@ const DEFAULT_SETTINGS: AppSettings = {
   language_preference: "system"
 }
 
+const SCREEN_AWAKE_PREFERENCES_STORAGE_KEY = "babycare-screen-awake-preferences"
+
+interface ScreenAwakePreferences {
+  enabled: boolean
+  videoFallback: boolean
+}
+
+function readScreenAwakePreferences(): ScreenAwakePreferences {
+  try {
+    const stored = window.localStorage.getItem(SCREEN_AWAKE_PREFERENCES_STORAGE_KEY)
+    if (!stored) return { enabled: true, videoFallback: false }
+    const parsed = JSON.parse(stored) as Partial<ScreenAwakePreferences>
+    return {
+      enabled: parsed.enabled !== false,
+      videoFallback: parsed.videoFallback === true
+    }
+  } catch {
+    return { enabled: true, videoFallback: false }
+  }
+}
+
+function saveScreenAwakePreferences(preferences: ScreenAwakePreferences) {
+  try {
+    window.localStorage.setItem(SCREEN_AWAKE_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences))
+  } catch {
+    // The preference remains active for this session if storage is unavailable.
+  }
+}
+
 function activeAccentColor(settings: AppSettings) {
   return settings.babies.find((baby) => baby.id === settings.active_baby_id)?.accent_color || settings.accent_color
 }
 
 export default function App() {
   const { events, running, loading, refresh } = useEvents()
+  const [screenAwakePreferences, setScreenAwakePreferences] = useState(readScreenAwakePreferences)
+  const preventSleep = screenAwakePreferences.enabled && running.length > 0
+  const useVideoFallback = screenAwakePreferences.enabled && screenAwakePreferences.videoFallback
+  const { activateVideoFallback, deactivateVideoFallback } = useScreenWakeLock(preventSleep, useVideoFallback)
   const [care, setCare] = useState<DailyCare[]>([])
   const [editing, setEditing] = useState<BabyEvent | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -113,6 +147,20 @@ export default function App() {
             await api.resetDatabase()
             window.location.reload()
           }}
+          preventSleepDuringTimer={screenAwakePreferences.enabled}
+          wakeLockVideoFallback={screenAwakePreferences.videoFallback}
+          onPreventSleepDuringTimerChange={(enabled) => {
+            if (!enabled) deactivateVideoFallback()
+            const next = { ...screenAwakePreferences, enabled }
+            setScreenAwakePreferences(next)
+            saveScreenAwakePreferences(next)
+          }}
+          onWakeLockVideoFallbackChange={(enabled) => {
+            if (enabled && preventSleep) activateVideoFallback(true)
+            const next = { ...screenAwakePreferences, videoFallback: enabled }
+            setScreenAwakePreferences(next)
+            saveScreenAwakePreferences(next)
+          }}
           hasRunningTimer={running.length > 0}
         />
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-14 sm:px-6">
@@ -134,6 +182,8 @@ export default function App() {
               onChanged={refreshAll}
               onEdit={setEditing}
               onOpenCare={() => setActiveTab("care")}
+              onTimerStartAttempt={activateVideoFallback}
+              onTimerStartFailed={deactivateVideoFallback}
             />
           </TabsContent>
           <TabsContent value="care" className="mt-5">

@@ -1,7 +1,7 @@
 {
   "name": "babycare",
   "private": true,
-  "version": "0.1.12",
+  "version": "0.1.14",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -37,6 +37,7 @@
     "express": "latest",
     "lucide-react": "latest",
     "next-themes": "latest",
+    "nosleep.js": "^0.12.0",
     "radix-ui": "latest",
     "react": "latest",
     "react-dom": "latest",

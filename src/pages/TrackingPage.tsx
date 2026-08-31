@@ -20,9 +20,11 @@ interface TrackingPageProps {
   onChanged: () => Promise<void>
   onEdit: (event: BabyEvent) => void
   onOpenCare: () => void
+  onTimerStartAttempt?: () => void
+  onTimerStartFailed?: () => void
 }
 
-export function TrackingPage({ events, running, loading, stoolAlert, feedingType = "breast", onChanged, onEdit, onOpenCare }: TrackingPageProps) {
+export function TrackingPage({ events, running, loading, stoolAlert, feedingType = "breast", onChanged, onEdit, onOpenCare, onTimerStartAttempt, onTimerStartFailed }: TrackingPageProps) {
   const { locale, t } = useI18n()
   const now = useClock()
   const lastFeeding = events.find((event) => feedingType === "bottle"
@@ -105,7 +107,7 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
 
       <section>
         <SectionTitle>{t.tracking.quickActions}</SectionTitle>
-        <ActionGrid nextBreast={nextBreast} feedingType={feedingType} bottleDefaultQuantity={lastBottleQuantity} onChanged={onChanged} onOpenCare={onOpenCare} />
+        <ActionGrid nextBreast={nextBreast} feedingType={feedingType} bottleDefaultQuantity={lastBottleQuantity} onChanged={onChanged} onOpenCare={onOpenCare} onTimerStartAttempt={onTimerStartAttempt} onTimerStartFailed={onTimerStartFailed} />
       </section>
 
       {running.length > 0 && (
