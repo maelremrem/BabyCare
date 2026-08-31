@@ -28,7 +28,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Align package version with tag
-        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
       - name: Install and verify
         run: npm ci && npm run check
       - name: Build distribution variants
