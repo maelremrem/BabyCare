@@ -129,7 +129,7 @@ const EXPORT_MESSAGES = {
     diaperTypes: {
       urine: "Urine",
       stool: "Selles",
-      mixed: "Mixte"
+      mixed: "Urine + Selles"
     },
     irritationLocations: {
       face: "Visage",
@@ -185,7 +185,7 @@ const EXPORT_MESSAGES = {
     diaperTypes: {
       urine: "Urine",
       stool: "Stool",
-      mixed: "Mixed"
+      mixed: "Urine + Stool"
     },
     irritationLocations: {
       face: "Face",
