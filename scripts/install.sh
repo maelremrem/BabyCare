@@ -176,6 +176,12 @@ if [[ ! -e "${DATA_DIR}/babycare.db" && -e "${APP_DIR}/data/babycare.db" ]]; the
   chown -R "${APP_USER}:${APP_USER}" "${DATA_DIR}"
 fi
 
+echo "Reconstruction des dépendances natives pour ce LXC"
+(
+  cd "${release_staging}"
+  npm_config_update_notifier=false npm rebuild better-sqlite3 --build-from-source --omit=dev --cache "${UPDATE_DIR}/npm-cache"
+)
+
 echo "[4/6] Préparation de la release locale et des services systemd"
 chown -R "${APP_USER}:${APP_USER}" "${release_staging}"
 if [[ -e "${release_dir}" ]]; then

@@ -26,10 +26,26 @@ function writeStatus(state, progress, command, extra = {}) {
   fs.chmodSync(statusPath, 0o644)
 }
 
-function run(command, args) {
-  const result = spawnSync(command, args, { encoding: "utf8" })
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, { encoding: "utf8", ...options })
   if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} : ${(result.stderr || result.stdout).trim()}`)
   return result.stdout
+}
+
+function rebuildNativeDependencies(releaseDirectory, version) {
+  const npmCacheDirectory = path.join(updateDirectory, "npm-cache")
+  fs.mkdirSync(npmCacheDirectory, { recursive: true, mode: 0o770 })
+  writeStatus("installing", 68, "Reconstruction des dépendances natives", { targetVersion: version })
+  run("npm", ["rebuild", "better-sqlite3", "--build-from-source", "--omit=dev"], {
+    cwd: releaseDirectory,
+    env: {
+      ...process.env,
+      npm_config_audit: "false",
+      npm_config_cache: npmCacheDirectory,
+      npm_config_fund: "false",
+      npm_config_update_notifier: "false"
+    }
+  })
 }
 
 function validateVersion(value) {
@@ -124,6 +140,7 @@ async function installUpdate(request) {
     for (const requiredPath of ["server/app.js", "dist-modern/index.html", "dist-ios15/index.html", "node_modules"]) {
       if (!fs.existsSync(path.join(stagingDirectory, requiredPath))) throw new Error(`Release incomplète : ${requiredPath} absent`)
     }
+    rebuildNativeDependencies(stagingDirectory, version)
 
     writeStatus("installing", 70, `Activation atomique de BabyCare v${version}`, { targetVersion: version })
     if (fs.existsSync(releaseDirectory)) fs.renameSync(releaseDirectory, `${releaseDirectory}.replaced-${Date.now()}`)
