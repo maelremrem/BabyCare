@@ -936,7 +936,7 @@ export function createApp({ db = createDatabase(), updateService = createUpdateS
   return app
 }
 
-const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+const isMainModule = process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url))
 if (isMainModule) {
   const db = createDatabase()
   cleanupTemporaryData(db)

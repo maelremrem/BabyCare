@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
+import { spawn } from "node:child_process"
 import ExcelJS from "exceljs"
 import fs from "node:fs"
+import net from "node:net"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
@@ -32,6 +34,58 @@ function updateServiceStub() {
     requestRollback: () => ({ error: "rollback_unavailable" })
   }
 }
+
+async function getAvailablePort() {
+  const server = net.createServer()
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
+  const { port } = server.address()
+  await new Promise((resolve) => server.close(resolve))
+  return port
+}
+
+test("démarre aussi quand app.js est lancé via un lien symbolique", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "babycare-symlink-start-"))
+  const linkedServer = path.join(directory, "app-link.js")
+  const port = await getAvailablePort()
+  fs.symlinkSync(path.resolve("server/app.js"), linkedServer)
+
+  const child = spawn(process.execPath, [linkedServer], {
+    env: {
+      ...process.env,
+      BABYCARE_UPDATE_ENABLED: "false",
+      DATABASE_PATH: path.join(directory, "test.db"),
+      PORT: String(port)
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  })
+  let output = ""
+  let closed = false
+  child.stdout.on("data", (chunk) => { output += chunk.toString() })
+  child.stderr.on("data", (chunk) => { output += chunk.toString() })
+  child.once("close", () => { closed = true })
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error(output || "Le serveur n’a pas démarré")), 5_000)
+      child.stdout.on("data", () => {
+        if (output.includes(`http://localhost:${port}`)) {
+          clearTimeout(timeout)
+          resolve()
+        }
+      })
+      child.once("exit", (code, signal) => {
+        clearTimeout(timeout)
+        reject(new Error(`Processus terminé trop tôt (${code ?? signal}) : ${output}`))
+      })
+    })
+  } finally {
+    if (!closed) {
+      child.kill()
+      await new Promise((resolve) => child.once("close", resolve))
+    }
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+})
 
 test("expose la version et bloque une mise à jour tant qu’un chrono existe", () => withServer(async (baseUrl) => {
   const version = await fetch(`${baseUrl}/api/version`).then((response) => response.json())
