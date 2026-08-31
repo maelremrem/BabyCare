@@ -6,7 +6,7 @@ import net from "node:net"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
-import { createApp } from "./app.js"
+import { createApp, shouldUseIos15Build } from "./app.js"
 import { createDatabase } from "./database.js"
 
 async function withServer(run, appOptions = {}) {
@@ -34,6 +34,16 @@ function updateServiceStub() {
     requestRollback: () => ({ error: "rollback_unavailable" })
   }
 }
+
+test("sélectionne le build compatible pour Safari et iPadOS 15", () => {
+  const ipadMobile = "Mozilla/5.0 (iPad; CPU OS 15_7_9 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1"
+  const ipadDesktop = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1"
+  const recentIphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1"
+
+  assert.equal(shouldUseIos15Build(ipadMobile), true)
+  assert.equal(shouldUseIos15Build(ipadDesktop), true)
+  assert.equal(shouldUseIos15Build(recentIphone), false)
+})
 
 async function getAvailablePort() {
   const server = net.createServer()

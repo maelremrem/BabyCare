@@ -224,12 +224,17 @@ function resolveExportLocale(value) {
   return EXPORT_LOCALES.has(value) ? value : "fr"
 }
 
-function shouldUseIos15Build(userAgent = "") {
+export function shouldUseIos15Build(userAgent = "") {
   const ios = userAgent.match(/(?:iPhone|iPad|iPod).*OS (\d+)[._]/i)
   if (ios) return Number(ios[1]) <= 15
 
   const android = userAgent.match(/Android[ /-](\d+)(?:\.(\d+))?/i)
   if (android) return Number(android[1]) < 12
+
+  const safari = userAgent.match(/Version\/(\d+)(?:\.\d+)?[^\n]*Safari\//i)
+  if (safari && !/(Chrome|Chromium|CriOS|Edg|OPR)\//i.test(userAgent)) {
+    return Number(safari[1]) <= 15
+  }
 
   return false
 }

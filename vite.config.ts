@@ -30,7 +30,8 @@ export default defineConfig(({ mode }) => {
           display: "standalone",
           start_url: base,
           icons: [
-            { src: `${base}babycare-icon.svg`, sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
+            { src: `${base}babycare-icon-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+            { src: `${base}babycare-icon-512.png`, sizes: "512x512", type: "image/png", purpose: "any" }
           ]
         }
       })
