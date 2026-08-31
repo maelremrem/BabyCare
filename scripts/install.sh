@@ -4,8 +4,7 @@ set -Eeuo pipefail
 
 readonly APP_DIR="/opt/babycare"
 readonly APP_USER="babycare"
-readonly REPOSITORY_URL="https://github.com/maelremrem/BabyCare.git"
-readonly REPOSITORY_BRANCH="main"
+readonly RELEASE_API_URL="https://api.github.com/repos/maelremrem/BabyCare/releases/latest"
 readonly SERVICE_NAME="babycare.service"
 readonly SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}"
 readonly UPDATE_SERVICE_NAME="babycare-update.service"
@@ -74,7 +73,7 @@ fi
 
 echo "[1/6] Installation des dépendances système"
 apt-get update
-apt-get install -y ca-certificates curl gnupg git build-essential python3 iproute2
+apt-get install -y ca-certificates curl gnupg jq build-essential python3 iproute2
 
 node_major=0
 if command -v node >/dev/null 2>&1; then
@@ -92,19 +91,56 @@ else
   echo "[2/6] Node.js ${node_major} est déjà disponible"
 fi
 
-echo "[3/6] Récupération de BabyCare"
-if [[ -d "${APP_DIR}/.git" ]]; then
-  update_existing_checkout
-elif [[ -e "${APP_DIR}" ]]; then
-  if [[ -n "$(find "${APP_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
-    echo "Installation interrompue : ${APP_DIR} existe mais n’est pas un clone Git BabyCare." >&2
-    echo "Déplacez son contenu puis relancez la commande d’installation." >&2
-    exit 1
-  fi
-  git clone --branch "${REPOSITORY_BRANCH}" --single-branch "${REPOSITORY_URL}" "${APP_DIR}"
-else
-  git clone --branch "${REPOSITORY_BRANCH}" --single-branch "${REPOSITORY_URL}" "${APP_DIR}"
+echo "[3/6] Récupération de la dernière release BabyCare"
+case "$(uname -m)" in
+  x86_64) release_arch="amd64" ;;
+  aarch64|arm64) release_arch="arm64" ;;
+  *) echo "Architecture non supportée : $(uname -m)" >&2; exit 1 ;;
+esac
+
+release_json="$(mktemp)"
+release_archive="$(mktemp --suffix=.tar.gz)"
+release_checksum="$(mktemp)"
+release_staging=""
+cleanup_release_files() {
+  rm -f "${release_json}" "${release_archive}" "${release_checksum}"
+  if [[ -n "${release_staging}" && -d "${release_staging}" ]]; then rm -rf "${release_staging}"; fi
+}
+trap cleanup_release_files EXIT
+
+curl -fsSL --retry 3 -H "Accept: application/vnd.github+json" -H "User-Agent: BabyCare-installer" "${RELEASE_API_URL}" -o "${release_json}"
+release_tag="$(jq -r '.tag_name // empty' "${release_json}")"
+release_version="${release_tag#v}"
+if [[ ! "${release_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Release GitHub invalide : ${release_tag}" >&2
+  exit 1
 fi
+archive_name="babycare-${release_tag}-linux-${release_arch}.tar.gz"
+archive_url="$(jq -r --arg name "${archive_name}" '.assets[] | select(.name == $name) | .browser_download_url' "${release_json}")"
+checksum_url="$(jq -r --arg name "${archive_name}.sha256" '.assets[] | select(.name == $name) | .browser_download_url' "${release_json}")"
+if [[ -z "${archive_url}" || -z "${checksum_url}" ]]; then
+  echo "La release ${release_tag} ne contient pas l’archive ${release_arch} attendue." >&2
+  exit 1
+fi
+curl -fsSL --retry 3 "${archive_url}" -o "${release_archive}"
+curl -fsSL --retry 3 "${checksum_url}" -o "${release_checksum}"
+if [[ "$(awk '{print $1}' "${release_checksum}")" != "$(sha256sum "${release_archive}" | awk '{print $1}')" ]]; then
+  echo "Checksum SHA-256 invalide pour ${archive_name}." >&2
+  exit 1
+fi
+
+install -d -m 0755 "${APP_DIR}" "${RELEASES_DIR}"
+release_staging="${RELEASES_DIR}/.${release_version}-install-$$"
+release_dir="${RELEASES_DIR}/${release_version}"
+install -d -m 0755 "${release_staging}"
+tar -xzf "${release_archive}" -C "${release_staging}"
+if [[ ! -f "${release_staging}/package.json" || "$(jq -r '.name' "${release_staging}/package.json")" != "babycare" || "$(jq -r '.version' "${release_staging}/package.json")" != "${release_version}" ]]; then
+  echo "L’archive téléchargée ne correspond pas à BabyCare ${release_version}." >&2
+  exit 1
+fi
+for required_path in server/app.js dist-modern/index.html dist-ios15/index.html node_modules scripts; do
+  [[ -e "${release_staging}/${required_path}" ]] || { echo "Release incomplète : ${required_path} absent." >&2; exit 1; }
+done
 
 if ! id "${APP_USER}" >/dev/null 2>&1; then
   useradd --system --home-dir "${APP_DIR}" --shell /usr/sbin/nologin "${APP_USER}"
@@ -117,18 +153,7 @@ if [[ ! -e "${DATA_DIR}/babycare.db" && -e "${APP_DIR}/data/babycare.db" ]]; the
   chown -R "${APP_USER}:${APP_USER}" "${DATA_DIR}"
 fi
 
-echo "[4/6] Installation des dépendances et compilation"
-cd "${APP_DIR}"
-npm ci
-npm run build:distribution
-npm prune --omit=dev --no-save
-
-echo "[5/6] Préparation de la release locale et des services systemd"
-release_version="$(node -p "require('./package.json').version")"
-release_dir="${RELEASES_DIR}/${release_version}"
-release_staging="${RELEASES_DIR}/.${release_version}-install-$$"
-install -d -m 0755 "${RELEASES_DIR}" "${release_staging}"
-cp -a package.json node_modules server dist-modern dist-ios15 scripts "${release_staging}/"
+echo "[4/6] Préparation de la release locale et des services systemd"
 chown -R "${APP_USER}:${APP_USER}" "${release_staging}"
 if [[ -e "${release_dir}" ]]; then
   mv "${release_dir}" "${release_dir}.replaced-$(date +%Y%m%d-%H%M%S)"
@@ -137,15 +162,16 @@ mv "${release_staging}" "${release_dir}"
 ln -s "${release_dir}" "${CURRENT_LINK}.new"
 mv -Tf "${CURRENT_LINK}.new" "${CURRENT_LINK}"
 
-install -m 0644 "${APP_DIR}/scripts/babycare.service" "${SERVICE_PATH}"
-install -m 0644 "${APP_DIR}/scripts/${UPDATE_SERVICE_NAME}" "/etc/systemd/system/${UPDATE_SERVICE_NAME}"
-install -m 0644 "${APP_DIR}/scripts/${UPDATE_PATH_NAME}" "/etc/systemd/system/${UPDATE_PATH_NAME}"
+echo "[5/6] Installation des services systemd"
+install -m 0644 "${release_dir}/scripts/babycare.service" "${SERVICE_PATH}"
+install -m 0644 "${release_dir}/scripts/${UPDATE_SERVICE_NAME}" "/etc/systemd/system/${UPDATE_SERVICE_NAME}"
+install -m 0644 "${release_dir}/scripts/${UPDATE_PATH_NAME}" "/etc/systemd/system/${UPDATE_PATH_NAME}"
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}"
 systemctl enable --now "${UPDATE_PATH_NAME}"
 systemctl restart "${SERVICE_NAME}"
 
-echo "[6/6] Vérification du service"
+echo "[6/6] Vérification du service BabyCare v${release_version}"
 systemctl --no-pager --full status "${SERVICE_NAME}"
 
 echo

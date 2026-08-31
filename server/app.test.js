@@ -224,7 +224,7 @@ test("génère un export Excel filtrable", () => withServer(async (baseUrl) => {
   assert.ok(sheet)
   assert.deepEqual(sheet.getRow(1).values.slice(1, 9), ["Date", "Start time", "End time", "Duration", "Type", "Value", "Detail", "Observation"])
   assert.equal(sheet.getRow(2).getCell(5).value, "Diaper")
-  assert.equal(sheet.getRow(2).getCell(7).value, "Mixed")
+  assert.equal(sheet.getRow(2).getCell(7).value, "Urine + Stool")
 }))
 
 test("gère le soin combiné, les irritations multiples et les observations", () => withServer(async (baseUrl) => {

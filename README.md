@@ -256,7 +256,7 @@ sudo systemctl status babycare
 sudo journalctl -u babycare -f
 ```
 
-To update, run the same install command again. The script uses `git pull --ff-only`, rebuilds the app and restarts the service while preserving local data.
+To update or repair an installation, run the same install command again. The script downloads the latest published release for the LXC architecture, verifies its SHA-256 checksum, activates it atomically and restarts the service while preserving local data. It therefore installs exactly the same version exposed by the in-app updater.
 
 ## Docker
 
@@ -582,7 +582,7 @@ sudo systemctl status babycare
 sudo journalctl -u babycare -f
 ```
 
-Pour mettre à jour, relancez la même commande d’installation. Le script utilise `git pull --ff-only`, reconstruit l’application et redémarre le service en conservant les données locales.
+Pour mettre à jour ou réparer une installation, relancez la même commande d’installation. Le script télécharge la dernière release publiée pour l’architecture du LXC, vérifie son checksum SHA-256, l’active atomiquement et redémarre le service en conservant les données locales. Il installe ainsi exactement la même version que celle proposée dans l’application.
 
 ## Docker
 
