@@ -151,11 +151,21 @@ export function relativeTime(value: string, locale: SupportedLocale = "fr") {
   const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(value)) / 1000))
   if (seconds < 60) return t.now
   const minutes = Math.floor(seconds / 60)
-  const formatter = new Intl.RelativeTimeFormat(localeTag(locale), { numeric: "auto", style: "short" })
-  if (minutes < 60) return formatter.format(-minutes, "minute")
+  const relativeTimeFormatter = typeof Intl !== "undefined" && "RelativeTimeFormat" in Intl
+    ? new Intl.RelativeTimeFormat(localeTag(locale), { numeric: "auto", style: "short" })
+    : null
+  if (minutes < 60) {
+    if (relativeTimeFormatter) return relativeTimeFormatter.format(-minutes, "minute")
+    return locale === "fr" ? `il y a ${minutes} min` : `${minutes} min ago`
+  }
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return formatter.format(-hours, "hour")
-  return formatter.format(-Math.floor(hours / 24), "day")
+  if (hours < 24) {
+    if (relativeTimeFormatter) return relativeTimeFormatter.format(-hours, "hour")
+    return locale === "fr" ? `il y a ${hours} h` : `${hours} h ago`
+  }
+  const days = Math.floor(hours / 24)
+  if (relativeTimeFormatter) return relativeTimeFormatter.format(-days, "day")
+  return locale === "fr" ? `il y a ${days} j` : `${days} d ago`
 }
 
 export function groupEventsByDay<T extends { started_at: string }>(events: T[]) {

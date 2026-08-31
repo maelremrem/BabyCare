@@ -217,6 +217,16 @@ function resolveExportLocale(value) {
   return EXPORT_LOCALES.has(value) ? value : "fr"
 }
 
+function shouldUseIos15Build(userAgent = "") {
+  const ios = userAgent.match(/(?:iPhone|iPad|iPod).*OS (\d+)[._]/i)
+  if (ios) return Number(ios[1]) <= 15
+
+  const android = userAgent.match(/Android[ /-](\d+)(?:\.(\d+))?/i)
+  if (android) return Number(android[1]) < 12
+
+  return false
+}
+
 function isValidDateOnly(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (!match) return false
@@ -837,11 +847,31 @@ export function createApp({ db = createDatabase() } = {}) {
   })
 
   const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
-  const distPath = path.join(projectRoot, "dist")
-  app.use(express.static(distPath))
+  const modernDistPath = path.join(projectRoot, "dist-modern")
+  const ios15DistPath = path.join(projectRoot, "dist-ios15")
+  const fallbackDistPath = path.join(projectRoot, "dist")
   app.use((request, response, next) => {
-    if (request.method === "GET" && !request.path.startsWith("/api/") && fs.existsSync(path.join(distPath, "index.html"))) {
-      return response.sendFile(path.join(distPath, "index.html"))
+    if (request.path.startsWith("/api/")) return next()
+
+    const useIos15 = shouldUseIos15Build(request.get("user-agent"))
+    const selectedPath = useIos15 && fs.existsSync(ios15DistPath)
+      ? ios15DistPath
+      : fs.existsSync(modernDistPath)
+        ? modernDistPath
+        : fallbackDistPath
+
+    response.setHeader("Vary", "User-Agent")
+    return express.static(selectedPath)(request, response, next)
+  })
+  app.use((request, response, next) => {
+    if (request.method === "GET" && !request.path.startsWith("/api/")) {
+      const selectedPath = shouldUseIos15Build(request.get("user-agent")) && fs.existsSync(ios15DistPath)
+        ? ios15DistPath
+        : fs.existsSync(modernDistPath)
+          ? modernDistPath
+          : fallbackDistPath
+      const indexPath = path.join(selectedPath, "index.html")
+      if (fs.existsSync(indexPath)) return response.sendFile(indexPath)
     }
     next()
   })

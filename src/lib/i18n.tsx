@@ -686,7 +686,7 @@ export function getLocaleTag(locale: SupportedLocale) {
 
 export function interpolate(template: string, values: Record<string, string | number>) {
   return Object.entries(values).reduce(
-    (message, [key, value]) => message.replaceAll(`{${key}}`, String(value)),
+    (message, [key, value]) => message.split(`{${key}}`).join(String(value)),
     template
   )
 }

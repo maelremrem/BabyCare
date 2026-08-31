@@ -148,7 +148,7 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
     const header = ["started_at", "type", "value_real", "value_text", "notes"]
     const rows = result.events.map((event) => header.map((key) => {
       const value = String(event[key as keyof BabyEvent] ?? "")
-      return `"${value.replaceAll("\"", "\"\"")}"`
+      return `"${value.split("\"").join("\"\"")}"`
     }).join(","))
     const blob = new Blob([[header.join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" })
     const link = document.createElement("a")

@@ -61,7 +61,7 @@ BabyCare is designed for parents and caregivers sharing baby care inside the sam
 | PWA | `vite-plugin-pwa` |
 | Quality | TypeScript strict mode, ESLint, Vitest, Testing Library and Node.js integration tests |
 
-During development, Vite serves the UI on `5173` and proxies `/api` requests to Express on `3000`. In production, Express serves both `dist/` and the API from one port.
+During development, Vite serves the UI on `5173` and proxies `/api` requests to Express on `3000`. In production, Express selects `dist-modern/` or `dist-ios15/` from the browser User-Agent and serves it with the API from one port.
 
 ## Development
 
@@ -97,6 +97,16 @@ ipconfig getifaddr en0
 
 Then open an address such as `http://192.168.1.20:5173` on the tablet.
 
+Vite's regular development server requires a recent browser. For Safari/iOS 15, start the compatible development preview instead:
+
+```bash
+npm run dev:ios15
+```
+
+Open the network URL on port `3000`, for example `http://192.168.1.20:3000`. Express selects the iOS 15 build for the tablet and the modern build for recent browsers. The regular `npm run dev` command remains available for fast HMR on current browsers.
+
+To run both development interfaces at the same time, use `npm run dev:all`: current browsers get fast HMR on port `5173`, while Safari/iOS 15 gets the compatible build on port `4173` through the distribution server.
+
 The development database is created automatically at `data/babycare.db`. This file is ignored by Git.
 
 ### Useful Commands
@@ -104,6 +114,12 @@ The development database is created automatically at `data/babycare.db`. This fi
 ```bash
 # UI and API together
 npm run dev
+
+# Modern HMR and Safari/iOS 15 together
+npm run dev:all
+
+# Safari/iOS 15 compatible UI and API
+npm run dev:ios15
 
 # UI only
 npm run dev:client
@@ -120,8 +136,8 @@ npm run lint
 # Server and UI tests
 npm test
 
-# Production build
-npm run build
+# Modern and Safari/iOS 15 distribution builds
+npm run build:distribution
 
 # Full pre-commit check
 npm run check
@@ -202,7 +218,7 @@ npm start
 
 ## Recommended Debian LXC Hosting
 
-The simplest production setup is to build the UI, then let Express serve both `dist/` and the API. Only one Node.js service is required.
+The simplest production setup is to run `npm run build:distribution`, then let Express select `dist-modern/` or `dist-ios15/`. Only one Node.js service is required.
 
 Recommended minimum container: Debian 13, 1 vCPU, 512 MB RAM and 4 GB disk.
 
@@ -220,6 +236,20 @@ sudo journalctl -u babycare -f
 ```
 
 To update, run the same install command again. The script uses `git pull --ff-only`, rebuilds the app and restarts the service while preserving local data.
+
+## Docker
+
+The official image runs both browser builds (modern and iOS 15 compatible) behind Express, with SQLite persisted in `./data`:
+
+```bash
+mkdir babycare && cd babycare
+curl -O https://raw.githubusercontent.com/maelremrem/BabyCare/main/compose.yaml
+docker compose up -d
+```
+
+Open `http://SERVER_IP:3000`. To update while preserving data, run `docker compose pull && docker compose up -d`.
+
+The image can also be built locally with `docker build -t babycare:local .`.
 
 ## PWA and HTTPS
 
@@ -340,7 +370,7 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 | PWA | `vite-plugin-pwa` |
 | Qualité | TypeScript strict, ESLint, Vitest, Testing Library et tests d’intégration Node.js |
 
-En développement, Vite sert l’interface sur le port `5173` et redirige les appels `/api` vers Express sur le port `3000`. En production, Express sert à la fois le dossier `dist/` et l’API sur un seul port.
+En développement, Vite sert l’interface sur le port `5173` et redirige les appels `/api` vers Express sur le port `3000`. En production, Express sélectionne automatiquement `dist-modern/` ou `dist-ios15/` selon le User-Agent, avec l’API sur un seul port.
 
 ## Développement
 
@@ -376,6 +406,16 @@ ipconfig getifaddr en0
 
 Puis ouvrez une adresse comme `http://192.168.1.20:5173` sur la tablette.
 
+Le serveur de développement Vite standard nécessite un navigateur récent. Pour Safari/iOS 15, lancez plutôt l’aperçu de développement compatible :
+
+```bash
+npm run dev:ios15
+```
+
+Ouvrez l’adresse réseau sur le port `3000`, par exemple `http://192.168.1.20:3000`. Express sélectionne le build iOS 15 pour la tablette et le build moderne pour les navigateurs récents. La commande `npm run dev` reste disponible pour conserver le HMR rapide sur les navigateurs récents.
+
+Pour lancer simultanément les deux interfaces de développement, utilisez `npm run dev:all` : les navigateurs récents bénéficient du HMR rapide sur le port `5173`, tandis que Safari/iOS 15 utilise le build compatible sur le port `4173` via le serveur de distribution.
+
 La base de développement est créée automatiquement dans `data/babycare.db`. Ce fichier est ignoré par Git.
 
 ### Commandes Utiles
@@ -383,6 +423,12 @@ La base de développement est créée automatiquement dans `data/babycare.db`. C
 ```bash
 # Interface et API ensemble
 npm run dev
+
+# HMR moderne et Safari/iOS 15 simultanément
+npm run dev:all
+
+# Interface et API compatibles Safari/iOS 15
+npm run dev:ios15
 
 # Interface uniquement
 npm run dev:client
@@ -399,8 +445,8 @@ npm run lint
 # Tous les tests serveur et interface
 npm test
 
-# Build de production
-npm run build
+# Builds modernes et Safari/iOS 15 pour la distribution
+npm run build:distribution
 
 # Contrôle complet avant un commit
 npm run check
@@ -481,7 +527,7 @@ npm start
 
 ## Hébergement Recommandé Dans Un LXC Debian
 
-Le mode de production le plus simple consiste à compiler l’interface puis à laisser Express servir le dossier `dist/` et l’API. Un seul service Node.js est alors nécessaire.
+Le mode de production le plus simple consiste à lancer `npm run build:distribution`, puis à laisser Express sélectionner `dist-modern/` ou `dist-ios15/`. Un seul service Node.js est alors nécessaire.
 
 Configuration minimale recommandée : Debian 13, 1 vCPU, 512 Mo de RAM et 4 Go de disque.
 

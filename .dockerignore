@@ -2,7 +2,8 @@ node_modules
 dist
 dist-modern
 dist-ios15
-data/*.db
-data/*.db-*
-.DS_Store
+data
+.git
+.github
 *.log
+.DS_Store

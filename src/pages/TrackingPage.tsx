@@ -196,7 +196,7 @@ function CompactInfoCard({ label, icon: Icon, primary, secondary }: {
 function TemperatureInfoCard({ events }: { events: BabyEvent[] }) {
   const { locale, t } = useI18n()
   const values = events.map((event) => event.value_real as number)
-  const latest = events.at(-1)
+  const latest = events[events.length - 1]
 
   return (
     <Card data-testid="temperature-info-card" className="bg-card/80 lg:col-span-2">

@@ -1,18 +1,22 @@
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
+import legacy from "@vitejs/plugin-legacy"
 import tailwindcss from "@tailwindcss/vite"
 import { VitePWA } from "vite-plugin-pwa"
 
 const apiPort = Number(process.env.API_PORT || process.env.PORT) || 3000
 
 export default defineConfig(({ mode }) => {
+  const isIos15Mode = mode === "ios15"
   const base = process.env.VITE_BASE_PATH || (mode === "demo" ? "/BabyCare/" : "/")
+  const outDir = process.env.VITE_OUT_DIR || (isIos15Mode ? "dist-ios15" : mode === "modern" ? "dist-modern" : "dist")
 
   return {
     base,
     plugins: [
       react(),
       tailwindcss(),
+      ...(isIos15Mode ? [legacy({ targets: ["iOS >= 15", "Safari >= 15", "Android >= 10"] })] : []),
       VitePWA({
         registerType: "autoUpdate",
         manifest: {
@@ -30,10 +34,12 @@ export default defineConfig(({ mode }) => {
       })
     ],
     resolve: { alias: { "@": new URL("./src", import.meta.url).pathname } },
+    build: { outDir, cssTarget: isIos15Mode ? "safari15" : "safari17" },
     server: {
       host: true,
       strictPort: true,
       proxy: { "/api": `http://localhost:${apiPort}` }
-    }
+    },
+    preview: { host: true, port: 4173, strictPort: true, proxy: { "/api": `http://localhost:${apiPort}` } }
   }
 })
