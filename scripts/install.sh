@@ -73,7 +73,7 @@ fi
 
 echo "[1/6] Installation des dépendances système"
 apt-get update
-apt-get install -y ca-certificates curl gnupg jq build-essential python3 iproute2
+apt-get install -y ca-certificates curl gnupg jq git build-essential python3 iproute2
 
 node_major=0
 if command -v node >/dev/null 2>&1; then
@@ -102,38 +102,61 @@ release_json="$(mktemp)"
 release_archive="$(mktemp --suffix=.tar.gz)"
 release_checksum="$(mktemp)"
 release_staging=""
+source_staging=""
 cleanup_release_files() {
   rm -f "${release_json}" "${release_archive}" "${release_checksum}"
   if [[ -n "${release_staging}" && -d "${release_staging}" ]]; then rm -rf "${release_staging}"; fi
+  if [[ -n "${source_staging}" && -d "${source_staging}" ]]; then rm -rf "${source_staging}"; fi
 }
 trap cleanup_release_files EXIT
 
-curl -fsSL --retry 3 -H "Accept: application/vnd.github+json" -H "User-Agent: BabyCare-installer" "${RELEASE_API_URL}" -o "${release_json}"
-release_tag="$(jq -r '.tag_name // empty' "${release_json}")"
+release_http_status="$(curl -sS --retry 3 -w '%{http_code}' -H "Accept: application/vnd.github+json" -H "User-Agent: BabyCare-installer" "${RELEASE_API_URL}" -o "${release_json}")"
+if [[ "${release_http_status}" == "200" ]]; then
+  release_tag="$(jq -r '.tag_name // empty' "${release_json}")"
+else
+  echo "Aucune GitHub Release publiée n’est disponible (${release_http_status}). Recherche du dernier tag pour réparation locale."
+  release_tag="$(git ls-remote --tags --sort='-v:refname' https://github.com/maelremrem/BabyCare.git 'v*.*.*' | awk -F/ 'NR == 1 {print $3}')"
+  if [[ -z "${release_tag}" ]]; then
+    echo "Impossible de trouver un tag BabyCare publié. Vérifiez le workflow GitHub release.yml." >&2
+    exit 1
+  fi
+fi
 release_version="${release_tag#v}"
 if [[ ! "${release_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Release GitHub invalide : ${release_tag}" >&2
   exit 1
 fi
 archive_name="babycare-${release_tag}-linux-${release_arch}.tar.gz"
-archive_url="$(jq -r --arg name "${archive_name}" '.assets[] | select(.name == $name) | .browser_download_url' "${release_json}")"
-checksum_url="$(jq -r --arg name "${archive_name}.sha256" '.assets[] | select(.name == $name) | .browser_download_url' "${release_json}")"
-if [[ -z "${archive_url}" || -z "${checksum_url}" ]]; then
-  echo "La release ${release_tag} ne contient pas l’archive ${release_arch} attendue." >&2
-  exit 1
-fi
-curl -fsSL --retry 3 "${archive_url}" -o "${release_archive}"
-curl -fsSL --retry 3 "${checksum_url}" -o "${release_checksum}"
-if [[ "$(awk '{print $1}' "${release_checksum}")" != "$(sha256sum "${release_archive}" | awk '{print $1}')" ]]; then
-  echo "Checksum SHA-256 invalide pour ${archive_name}." >&2
-  exit 1
+if [[ "${release_http_status}" == "200" ]]; then
+  archive_url="$(jq -r --arg name "${archive_name}" '.assets[] | select(.name == $name) | .browser_download_url' "${release_json}")"
+  checksum_url="$(jq -r --arg name "${archive_name}.sha256" '.assets[] | select(.name == $name) | .browser_download_url' "${release_json}")"
+  if [[ -z "${archive_url}" || -z "${checksum_url}" ]]; then
+    echo "La release ${release_tag} ne contient pas l’archive ${release_arch} attendue." >&2
+    exit 1
+  fi
+  curl -fsSL --retry 3 "${archive_url}" -o "${release_archive}"
+  curl -fsSL --retry 3 "${checksum_url}" -o "${release_checksum}"
+  if [[ "$(awk '{print $1}' "${release_checksum}")" != "$(sha256sum "${release_archive}" | awk '{print $1}')" ]]; then
+    echo "Checksum SHA-256 invalide pour ${archive_name}." >&2
+    exit 1
+  fi
 fi
 
 install -d -m 0755 "${APP_DIR}" "${RELEASES_DIR}"
 release_staging="${RELEASES_DIR}/.${release_version}-install-$$"
 release_dir="${RELEASES_DIR}/${release_version}"
 install -d -m 0755 "${release_staging}"
-tar -xzf "${release_archive}" -C "${release_staging}"
+if [[ "${release_http_status}" == "200" ]]; then
+  tar -xzf "${release_archive}" -C "${release_staging}"
+else
+  source_staging="$(mktemp -d)"
+  git clone --quiet --depth 1 --branch "${release_tag}" https://github.com/maelremrem/BabyCare.git "${source_staging}/source"
+  cd "${source_staging}/source"
+  npm ci
+  npm run build:distribution
+  npm prune --omit=dev --no-save
+  cp -a package.json node_modules server dist-modern dist-ios15 scripts "${release_staging}/"
+fi
 if [[ ! -f "${release_staging}/package.json" || "$(jq -r '.name' "${release_staging}/package.json")" != "babycare" || "$(jq -r '.version' "${release_staging}/package.json")" != "${release_version}" ]]; then
   echo "L’archive téléchargée ne correspond pas à BabyCare ${release_version}." >&2
   exit 1
