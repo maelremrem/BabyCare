@@ -8,7 +8,7 @@ RUN apk add --no-cache python3 make g++
 
 COPY package.json package-lock.json ./
 COPY . .
-RUN if [ -n "${APP_VERSION}" ]; then npm version --no-git-tag-version "${APP_VERSION}"; fi \
+RUN if [ -n "${APP_VERSION}" ]; then npm version --no-git-tag-version --allow-same-version "${APP_VERSION}"; fi \
     && npm ci
 
 RUN npm run build:distribution \
