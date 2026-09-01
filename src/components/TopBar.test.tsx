@@ -73,9 +73,9 @@ describe("TopBar", () => {
     vi.unstubAllGlobals()
   })
 
-  test("affiche l’absence de mise à jour sous la langue", async () => {
+  test("affiche l’absence de mise à jour et conserve la vérification manuelle", async () => {
     const user = userEvent.setup()
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
       currentVersion: "0.1.0",
       enabled: true,
       runtime: "docker",
@@ -84,7 +84,8 @@ describe("TopBar", () => {
       releaseUrl: null,
       supported: true,
       status: { state: "idle", progress: 0, command: "", message: "", targetVersion: null, updatedAt: null, canRollback: false, rollbackVersion: null, active: false }
-    }), { status: 200, headers: { "content-type": "application/json" } })))
+    }), { status: 200, headers: { "content-type": "application/json" } }))
+    vi.stubGlobal("fetch", fetchMock)
 
     render(
       <TopBar
@@ -99,8 +100,11 @@ describe("TopBar", () => {
     )
 
     await user.click(screen.getByRole("button", { name: "Ouvrir les paramètres" }))
-    const noUpdate = await screen.findByRole("button", { name: "Aucune nouvelle mise à jour" })
-    expect(noUpdate).toBeDisabled()
+    expect(await screen.findByText("Aucune nouvelle mise à jour")).toBeInTheDocument()
+    const checkButton = screen.getByRole("button", { name: "Vérifier les mises à jour" })
+    expect(checkButton).toBeEnabled()
+    await user.click(checkButton)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/version?refresh=true", expect.any(Object)))
     const languageTitle = screen.getByText("Langue")
     const updateTitle = screen.getByText("Mise à jour")
     expect(languageTitle.compareDocumentPosition(updateTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

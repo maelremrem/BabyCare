@@ -237,6 +237,7 @@ const fr = {
   },
   actions: {
     faceCord: "Visage / Cordon",
+    careBath: "Soin Visage/Cordon - Bain",
     addObservation: "Ajouter une observation",
     leftBreast: "Sein Gauche",
     rightBreast: "Sein Droit",
@@ -283,15 +284,18 @@ const fr = {
   },
   care: {
     title: "Soins quotidiens",
-    description: "Préparation et gestes recommandés. Cochez chaque soin une fois terminé.",
+    description: "Préparation et gestes recommandés pour les soins du jour.",
     completed: "effectué",
     todo: "à faire",
     progress: "Progression",
     validate: "Valider les soins du jour",
+    doneButton: "Soins effectués",
     validated: "Soins du jour ajoutés à l’historique",
     validationImpossible: "Validation impossible",
     bathTitle: "Bain",
-    bathDescription: "Préparation, lavage, rinçage et séchage en toute sécurité."
+    bathDescription: "Préparation, lavage, rinçage et séchage en toute sécurité.",
+    bathDoneButton: "Bain effectué",
+    bathRecorded: "Bain ajouté à l’historique"
   },
   history: {
     title: "Historique",
@@ -646,6 +650,7 @@ const en: Messages = {
   },
   actions: {
     faceCord: "Face / Cord",
+    careBath: "Face/Cord care - Bath",
     addObservation: "Add an observation",
     leftBreast: "Left Breast",
     rightBreast: "Right Breast",
@@ -692,15 +697,18 @@ const en: Messages = {
   },
   care: {
     title: "Daily care",
-    description: "Recommended preparation and care steps. Check off each care task when finished.",
+    description: "Recommended preparation and care steps for today.",
     completed: "done",
     todo: "to do",
     progress: "Progress",
     validate: "Validate today’s care",
+    doneButton: "Care completed",
     validated: "Today’s care added to history",
     validationImpossible: "Validation unavailable",
     bathTitle: "Bath",
-    bathDescription: "Preparation, washing, rinsing, and safe drying."
+    bathDescription: "Preparation, washing, rinsing, and safe drying.",
+    bathDoneButton: "Bath completed",
+    bathRecorded: "Bath added to history"
   },
   history: {
     title: "History",

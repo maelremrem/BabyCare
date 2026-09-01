@@ -98,6 +98,26 @@ describe("TrackingPage", () => {
     expect(screen.getByRole("button", { name: "Sein Droit" })).toHaveClass("text-primary")
   })
 
+  test("ouvre l’onglet soins depuis le bouton visage cordon bain", async () => {
+    const user = userEvent.setup()
+    const onOpenCare = vi.fn()
+    render(
+      <TrackingPage
+        events={[temperatureEvent]}
+        running={[]}
+        loading={false}
+        stoolAlert={{ ...overdueAlert, overdue: false }}
+        onChanged={vi.fn(async () => undefined)}
+        onEdit={vi.fn()}
+        onOpenCare={onOpenCare}
+      />
+    )
+
+    expect(screen.queryByRole("button", { name: "Visage / Cordon" })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Soin Visage/Cordon - Bain" }))
+    expect(onOpenCare).toHaveBeenCalledOnce()
+  })
+
   test("affiche le temps écoulé depuis la dernière tétée ou le dernier biberon", () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2026-08-29T20:30:00.000Z"))

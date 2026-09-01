@@ -502,15 +502,17 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                   {appUpdate.versionInfo ? (
                     <p className="mt-3 text-xs text-muted-foreground">{interpolate(t.update.current, { version: appUpdate.versionInfo.currentVersion })}</p>
                   ) : null}
+                  {appUpdate.versionInfo && !appUpdate.versionInfo.updateAvailable && !appUpdate.versionInfo.checkError ? (
+                    <p className="mt-2 text-xs text-muted-foreground">{t.update.noneAvailable}</p>
+                  ) : null}
                   <Button
                     type="button"
                     className="mt-3 min-h-11 w-full whitespace-normal"
                     variant={appUpdate.versionInfo?.updateAvailable ? "default" : "outline"}
                     disabled={appUpdate.checking
-                      || Boolean(hasRunningTimer && appUpdate.versionInfo?.updateAvailable)
-                      || Boolean(appUpdate.versionInfo && !appUpdate.versionInfo.updateAvailable && !appUpdate.versionInfo.checkError)}
+                      || Boolean(hasRunningTimer && appUpdate.versionInfo?.updateAvailable)}
                     onClick={() => {
-                      if (!appUpdate.versionInfo || appUpdate.versionInfo.checkError) {
+                      if (!appUpdate.versionInfo || appUpdate.versionInfo.checkError || !appUpdate.versionInfo.updateAvailable) {
                         appUpdate.refresh(true).catch((error) => toast.error(localizedErrorMessage(error, t, t.update.checkError)))
                         return
                       }
@@ -530,9 +532,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                       ? t.update.timerWaiting
                       : appUpdate.versionInfo?.updateAvailable
                         ? t.update.availableAction
-                        : appUpdate.versionInfo && !appUpdate.versionInfo.checkError
-                          ? t.update.noneAvailable
-                          : t.update.check}
+                        : t.update.check}
                   </Button>
                   {appUpdate.status?.canRollback ? (
                     <Button

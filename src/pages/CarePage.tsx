@@ -8,18 +8,16 @@ import {
   ClipboardCheck,
   Droplets,
   Eye,
+  FaceSlightlySmiling,
   Hand,
   type LucideIcon,
   Shirt,
   ShowerHead,
-  Smile,
   Wind
 } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Progress } from "@/components/ui/progress"
 import { api } from "@/lib/api"
 import { careGuides, type CareGuideSection } from "@/lib/careGuides"
 import { localizedErrorMessage, useI18n } from "@/lib/i18n"
@@ -33,7 +31,7 @@ interface CarePageProps {
 
 const dailyCareIcons: Record<DailyCare["care_type"], LucideIcon> = {
   eyes: Eye,
-  face: Smile,
+  face: FaceSlightlySmiling,
   nose: Wind,
   cord: Bandage
 }
@@ -53,31 +51,19 @@ function guideNumber(title: string) {
   return title.split(".")[0]
 }
 
-function GuideSection({ section, checked, onCheckedChange, icon: Icon }: {
+function GuideSection({ section, icon: Icon }: {
   section: CareGuideSection
-  checked?: boolean
-  onCheckedChange?: (checked: boolean) => Promise<void>
   icon?: LucideIcon
 }) {
   return (
     <details className="group rounded-xl border border-border bg-muted/20 open:bg-muted/30">
       <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-        {onCheckedChange ? (
-          <Checkbox
-            checked={checked}
-            aria-label={section.title}
-            onClick={(event) => event.stopPropagation()}
-            onCheckedChange={(value) => void onCheckedChange(Boolean(value))}
-            className="size-6 shrink-0"
-          />
-        ) : null}
         {Icon ? (
           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
             <Icon className="size-5" />
           </span>
         ) : null}
         <span className="flex-1 text-base font-semibold">{section.title}</span>
-        {checked ? <Check className="size-5 shrink-0 text-primary" /> : null}
         <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
       </summary>
       <div className="space-y-4 border-t border-border px-4 py-4 text-sm leading-6">
@@ -104,20 +90,17 @@ function GuideSection({ section, checked, onCheckedChange, icon: Icon }: {
 export function CarePage({ care, onChanged, onValidated }: CarePageProps) {
   const { locale, t } = useI18n()
   const guide = careGuides[locale]
-  const completed = care.filter((item) => item.completed).length
-  const allCompleted = care.length > 0 && completed === care.length
   const [validating, setValidating] = useState(false)
-  const careLabel = (careType: DailyCare["care_type"]) => ({
-    eyes: t.eventLabels.eye_care,
-    nose: t.eventLabels.nose_care,
-    cord: t.eventLabels.cord_care,
-    face: t.eventLabels.face_care
-  })[careType]
+  const [recordingBath, setRecordingBath] = useState(false)
   const careByType = new Map(care.map((item) => [item.care_type, item]))
+  const dailyCareTypes = guide.daily.sections
+    .map((section) => section.careType)
+    .filter((careType): careType is DailyCare["care_type"] => Boolean(careType))
 
   const validate = async () => {
     setValidating(true)
     try {
+      await Promise.all(dailyCareTypes.map((careType) => api.updateDailyCare(careType, true)))
       await api.validateDailyCare()
       toast.success(t.care.validated)
       await onChanged()
@@ -129,10 +112,25 @@ export function CarePage({ care, onChanged, onValidated }: CarePageProps) {
     }
   }
 
+  const recordBath = async () => {
+    setRecordingBath(true)
+    try {
+      await api.createEvent({ type: "bath" })
+      toast.success(t.care.bathRecorded)
+      await onChanged()
+      onValidated?.()
+    } catch (error) {
+      toast.error(localizedErrorMessage(error, t, t.common.actionImpossible))
+    } finally {
+      setRecordingBath(false)
+    }
+  }
+
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <Card>
         <CardHeader>
+          <div className="mb-3 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary"><FaceSlightlySmiling /></div>
           <CardTitle>{t.care.title}</CardTitle>
           <CardDescription>{t.care.description}</CardDescription>
         </CardHeader>
@@ -145,13 +143,7 @@ export function CarePage({ care, onChanged, onValidated }: CarePageProps) {
               <GuideSection
                 key={item.care_type}
                 section={section}
-                checked={Boolean(item.completed)}
                 icon={dailyCareIcons[item.care_type]}
-                onCheckedChange={async (checked) => {
-                  await api.updateDailyCare(item.care_type, checked)
-                  toast.success(`${careLabel(item.care_type)} ${checked ? t.care.completed : t.care.todo}`)
-                  await onChanged()
-                }}
               />
             )
           })}
@@ -159,15 +151,9 @@ export function CarePage({ care, onChanged, onValidated }: CarePageProps) {
             <p className="font-semibold">{guide.daily.orderLabel}</p>
             <p className="mt-1 text-muted-foreground">{guide.daily.order}</p>
           </div>
-          <div className="pt-3">
-            <div className="mb-2 flex justify-between text-sm"><span className="text-muted-foreground">{t.care.progress}</span><strong>{completed} / {care.length}</strong></div>
-            <Progress value={care.length ? completed / care.length * 100 : 0} />
-          </div>
-          {allCompleted ? (
-            <Button className="h-12 w-full" disabled={validating} onClick={validate}>
-              <ClipboardCheck /> {t.care.validate}
-            </Button>
-          ) : null}
+          <Button className="h-12 w-full" disabled={validating} onClick={validate}>
+            <Check /> {t.care.doneButton}
+          </Button>
         </CardContent>
       </Card>
 
@@ -183,6 +169,9 @@ export function CarePage({ care, onChanged, onValidated }: CarePageProps) {
             <p className="font-semibold">{guide.bath.orderLabel}</p>
             <p className="mt-1 text-muted-foreground">{guide.bath.order}</p>
           </div>
+          <Button className="h-12 w-full" disabled={recordingBath} onClick={recordBath}>
+            <Check /> {t.care.bathDoneButton}
+          </Button>
         </CardContent>
       </Card>
     </div>

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import {
-  Bath, CircleDot, HeartPulse, MessageSquarePlus, Milk, Moon, Pill, Shirt, Smile, Thermometer, WalletCards
+  Bath, CircleDot, HeartPulse, MessageSquarePlus, Milk, Moon, Pill, Shirt, Thermometer, WalletCards
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -33,7 +33,6 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
   const [vitaminOpen, setVitaminOpen] = useState(false)
   const [observationOpen, setObservationOpen] = useState(false)
   const [diaperOpen, setDiaperOpen] = useState(false)
-  const [careOpen, setCareOpen] = useState(false)
   const [bottleOpen, setBottleOpen] = useState(false)
   const [bottleQuantity, setBottleQuantity] = useState(bottleDefaultQuantity)
   const [temperature, setTemperature] = useState(37)
@@ -97,7 +96,7 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
         </Popover>
 
         <Button variant="outline" className={actionClass} onClick={onOpenCare}>
-          <Bath className="size-6" /> {t.eventLabels.bath}
+          <Bath className="size-6" /> {t.actions.careBath}
         </Button>
         {feedingType === "breast" ? (
           <>
@@ -119,17 +118,6 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
         <Button variant="outline" className={actionClass} onClick={() => start("nap", t.eventLabels.nap)}>
           <Moon className="size-6" /> {t.eventLabels.nap}
         </Button>
-
-        <Popover open={careOpen} onOpenChange={setCareOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className={actionClass}><Smile className="size-6" /> {t.actions.faceCord}</Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-2">
-            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await create("face_care", { type: "face_care" }, t.actions.faceCare); setCareOpen(false) }}>{t.eventLabels.face_care}</Button>
-            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await create("cord_care", { type: "cord_care" }, t.actions.cordCare); setCareOpen(false) }}>{t.eventLabels.cord_care}</Button>
-            <Button variant="ghost" className="h-12 w-full justify-start" onClick={async () => { await create("face_cord_care", { type: "face_cord_care" }, t.actions.faceCordCare); setCareOpen(false) }}>{t.actions.both}</Button>
-          </PopoverContent>
-        </Popover>
 
         <Button variant="outline" className={actionClass} onClick={() => create("clothes_change", { type: "clothes_change" }, t.actions.clothesChanged)}>
           <Shirt className="size-6" /> {t.eventLabels.clothes_change}
