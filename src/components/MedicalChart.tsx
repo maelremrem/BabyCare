@@ -1,5 +1,7 @@
 import { memo, useMemo } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { interpolate, useI18n } from "@/lib/i18n"
 import type { AppSettings, BabyEvent } from "@/lib/types"
 import { getAgeInMonths, getWhoGrowthReferenceAtAge } from "@/lib/whoGrowth"
@@ -13,6 +15,9 @@ interface MedicalChartProps {
   settings: AppSettings
   windowStart: number
   windowEnd: number
+  addLabel?: string
+  addAriaLabel?: string
+  onAdd?: () => void
 }
 
 const WIDTH = 600
@@ -31,7 +36,7 @@ function formatMonth(value: number, locale: "fr" | "en") {
   return `${measurement} ${unit}`
 }
 
-export const MedicalChart = memo(function MedicalChart({ title, indicator, events, unit, decimals, settings, windowStart, windowEnd }: MedicalChartProps) {
+export const MedicalChart = memo(function MedicalChart({ title, indicator, events, unit, decimals, settings, windowStart, windowEnd, addLabel, addAriaLabel, onAdd }: MedicalChartProps) {
   const { locale, t } = useI18n()
   const referenceEnabled = Boolean(settings.birth_date && settings.baby_sex)
   const viewMonths = Math.max(0.25, windowEnd - windowStart)
@@ -56,13 +61,30 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
       }).filter((reference) => reference != null)
     : []
   const latest = allMeasurements[allMeasurements.length - 1]
+  const addAction = onAdd && addLabel ? (
+    <CardAction>
+      <Button
+        type="button"
+        size="sm"
+        className="rounded-full px-3 text-xs font-semibold sm:px-4"
+        aria-label={addAriaLabel ?? addLabel}
+        onClick={onAdd}
+      >
+        <Plus className="size-4" aria-hidden="true" />
+        {addLabel}
+      </Button>
+    </CardAction>
+  ) : null
 
   if (visibleMeasurements.length === 0 && references.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{t.chart.emptyDescription}</CardDescription>
+          <div>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{t.chart.emptyDescription}</CardDescription>
+          </div>
+          {addAction}
         </CardHeader>
         <CardContent className="grid h-52 place-items-center text-sm text-muted-foreground">
           {t.chart.emptyBody}
@@ -113,7 +135,7 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
 
   return (
     <Card>
-      <CardHeader className="flex-row items-start justify-between gap-4">
+      <CardHeader>
         <div>
           <CardTitle>{title}</CardTitle>
           <CardDescription>
@@ -122,9 +144,11 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
               : interpolate(t.chart.measurementsDisplayed, { count: visibleMeasurements.length, plural: measurementPlural })}
           </CardDescription>
         </div>
-        <p className="font-mono text-xl font-semibold tabular-nums text-primary">
-          {latest?.value_real?.toFixed(decimals) ?? "—"} <span className="text-sm">{unit}</span>
-        </p>
+        {addAction ?? (
+          <CardAction className="font-mono text-xl font-semibold tabular-nums text-primary">
+            {latest?.value_real?.toFixed(decimals) ?? "—"} <span className="text-sm">{unit}</span>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={interpolate(t.chart.evolution, { title: title.toLowerCase() })} className="h-52 w-full overflow-visible">

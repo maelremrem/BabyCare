@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { dayHeading, groupEventsByDay } from "@/lib/dates"
 import { getLocaleTag, interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
-import type { AppSettings, BabyEvent } from "@/lib/types"
+import type { AppSettings, BabyEvent, EventType } from "@/lib/types"
 import { getAgeInMonths } from "@/lib/whoGrowth"
 
 type MeasurementType = "weight" | "height"
@@ -68,7 +68,7 @@ const MEASUREMENT_CONFIG = {
   }
 } as const
 
-function medicalParams(type: MeasurementType) {
+function medicalParams(type: Extract<EventType, MeasurementType | "vitamin">) {
   const params = new URLSearchParams({ type, limit: "250" })
   return params
 }
@@ -87,6 +87,7 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
   const { locale, t } = useI18n()
   const [weights, setWeights] = useState<BabyEvent[]>([])
   const [heights, setHeights] = useState<BabyEvent[]>([])
+  const [vitamins, setVitamins] = useState<BabyEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [measurementType, setMeasurementType] = useState<MeasurementType | null>(null)
   const [measurementValue, setMeasurementValue] = useState(0)
@@ -98,12 +99,14 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
   const loadMeasurements = useCallback(async () => {
     setLoading(true)
     try {
-      const [weightResult, heightResult] = await Promise.all([
+      const [weightResult, heightResult, vitaminResult] = await Promise.all([
         api.events(medicalParams("weight")),
-        api.events(medicalParams("height"))
+        api.events(medicalParams("height")),
+        api.events(medicalParams("vitamin"))
       ])
       setWeights(weightResult.events)
       setHeights(heightResult.events)
+      setVitamins(vitaminResult.events)
     } catch (error) {
       toast.error(localizedErrorMessage(error, t, t.medical.unavailable))
     } finally {
@@ -120,8 +123,8 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
   }, [settings.birth_date, settings.baby_sex])
 
   const history = useMemo(
-    () => [...weights, ...heights].sort((left, right) => Date.parse(right.started_at) - Date.parse(left.started_at)),
-    [weights, heights]
+    () => [...weights, ...heights, ...vitamins].sort((left, right) => Date.parse(right.started_at) - Date.parse(left.started_at)),
+    [weights, heights, vitamins]
   )
   const groups = groupEventsByDay(history)
   const config = measurementType ? MEASUREMENT_CONFIG[measurementType] : null
@@ -168,8 +171,32 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <MedicalChart title={t.medical.weightChart} indicator="weight" events={weights} unit="kg" decimals={3} settings={settings} windowStart={growthWindowStart} windowEnd={growthWindowEnd} />
-        <MedicalChart title={t.medical.heightChart} indicator="height" events={heights} unit="cm" decimals={1} settings={settings} windowStart={growthWindowStart} windowEnd={growthWindowEnd} />
+        <MedicalChart
+          title={t.medical.weightChart}
+          indicator="weight"
+          events={weights}
+          unit="kg"
+          decimals={3}
+          settings={settings}
+          windowStart={growthWindowStart}
+          windowEnd={growthWindowEnd}
+          addLabel={t.medical.add}
+          addAriaLabel={`${t.medical.addMeasurement} ${t.eventLabels.weight}`}
+          onAdd={() => openMeasurement("weight")}
+        />
+        <MedicalChart
+          title={t.medical.heightChart}
+          indicator="height"
+          events={heights}
+          unit="cm"
+          decimals={1}
+          settings={settings}
+          windowStart={growthWindowStart}
+          windowEnd={growthWindowEnd}
+          addLabel={t.medical.add}
+          addAriaLabel={`${t.medical.addMeasurement} ${t.eventLabels.height}`}
+          onAdd={() => openMeasurement("height")}
+        />
       </div>
 
       {!settings.birth_date || !settings.baby_sex ? (
@@ -226,18 +253,6 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
       )}
 
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-[.18em] text-muted-foreground">{t.medical.addMeasurement}</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <Button variant="outline" className="h-24 flex-col gap-2 rounded-2xl bg-card text-sm font-semibold sm:h-28" onClick={() => openMeasurement("weight")}>
-            <Scale className="size-6 text-primary" /> {t.eventLabels.weight}
-          </Button>
-          <Button variant="outline" className="h-24 flex-col gap-2 rounded-2xl bg-card text-sm font-semibold sm:h-28" onClick={() => openMeasurement("height")}>
-            <Ruler className="size-6 text-primary" /> {t.eventLabels.height}
-          </Button>
-        </div>
-      </section>
-
-      <section>
         <div className="mb-3">
           <h3 className="text-xs font-semibold uppercase tracking-[.18em] text-muted-foreground">{t.medical.measurementsHistory}</h3>
           <p className="mt-1 text-xs text-muted-foreground">{t.medical.editHint}</p>
@@ -252,7 +267,7 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
               <div key={key}>
                 {groupIndex > 0 ? <Separator className="my-4" /> : null}
                 <h4 className="px-2 py-2 text-xs font-semibold tracking-[.14em] text-muted-foreground">{dayHeading(key, locale)}</h4>
-                {events?.map((event) => <EventRow key={event.id} event={event} onClick={() => onEdit(event)} />)}
+                {events?.map((event) => <EventRow key={event.id} event={event} showIcon onClick={() => onEdit(event)} />)}
               </div>
             ))}
           </CardContent>

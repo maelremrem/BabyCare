@@ -165,7 +165,7 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
               <div key={key}>
                 {groupIndex > 0 && <Separator className="my-4" />}
                 <h3 className="px-2 py-2 text-xs font-semibold tracking-[.14em] text-muted-foreground">{dayHeading(key, locale)}</h3>
-                {dayEvents?.map((event) => <EventRow key={event.id} event={event} onClick={() => onEdit(event)} />)}
+                {dayEvents?.map((event) => <EventRow key={event.id} event={event} showIcon onClick={() => onEdit(event)} />)}
               </div>
             ))}
           </CardContent>

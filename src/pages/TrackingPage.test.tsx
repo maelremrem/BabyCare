@@ -208,6 +208,15 @@ describe("TrackingPage", () => {
     expect(within(screen.getByTestId("feeding-info-card")).queryByText("il y a 2 h")).not.toBeInTheDocument()
   })
 
+  test("affiche les icônes associées dans l'activité récente", () => {
+    renderTracking({ ...overdueAlert, overdue: false, hours_since: 2 })
+
+    const recentActivity = screen.getByRole("heading", { name: "Activité récente" }).closest("section")
+    expect(recentActivity).not.toBeNull()
+    expect(recentActivity?.querySelector(".lucide-thermometer")).toBeInTheDocument()
+    expect(recentActivity?.querySelector(".lucide-bath")).toBeInTheDocument()
+  })
+
   test("remplace les seins par une saisie de biberon en mode biberon", async () => {
     const user = userEvent.setup()
     const bottle = { ...temperatureEvent, id: 3, type: "bottle" as const, value_real: 120 }
