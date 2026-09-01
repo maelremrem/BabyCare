@@ -1,6 +1,6 @@
 import { useState } from "react"
 import {
-  Bath, CircleDot, HeartPulse, MessageSquarePlus, Milk, Moon, Shirt, Smile, Thermometer, WalletCards
+  Bath, CircleDot, HeartPulse, MessageSquarePlus, Milk, Moon, Pill, Shirt, Smile, Thermometer, WalletCards
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { TemperaturePicker } from "@/components/TemperaturePicker"
 import { api } from "@/lib/api"
 import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
-import { IRRITATION_LOCATIONS, type EventType, type FeedingType } from "@/lib/types"
+import { BABY_VITAMINS, IRRITATION_LOCATIONS, type EventType, type FeedingType } from "@/lib/types"
 
 interface ActionGridProps {
   nextBreast: "breast_left" | "breast_right"
@@ -30,6 +30,7 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
   const { t } = useI18n()
   const [temperatureOpen, setTemperatureOpen] = useState(false)
   const [irritationOpen, setIrritationOpen] = useState(false)
+  const [vitaminOpen, setVitaminOpen] = useState(false)
   const [observationOpen, setObservationOpen] = useState(false)
   const [diaperOpen, setDiaperOpen] = useState(false)
   const [careOpen, setCareOpen] = useState(false)
@@ -38,8 +39,10 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
   const [temperature, setTemperature] = useState(37)
   const [temperatureNotes, setTemperatureNotes] = useState("")
   const [irritationNotes, setIrritationNotes] = useState("")
+  const [vitaminNotes, setVitaminNotes] = useState("")
   const [observationNotes, setObservationNotes] = useState("")
   const [locations, setLocations] = useState<string[]>([])
+  const [vitamins, setVitamins] = useState<string[]>([])
 
   const scrollToActiveTimer = () => {
     window.setTimeout(() => {
@@ -134,6 +137,9 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
         <Button variant="outline" className={actionClass} onClick={() => setIrritationOpen(true)}>
           <HeartPulse className="size-6" /> {t.eventLabels.irritation}
         </Button>
+        <Button variant="outline" className={actionClass} onClick={() => setVitaminOpen(true)}>
+          <Pill className="size-6" /> {t.eventLabels.vitamin}
+        </Button>
         <Button variant="outline" className={actionClass} onClick={() => setObservationOpen(true)}>
           <MessageSquarePlus className="size-6" /> {t.actions.addObservation}
         </Button>
@@ -218,6 +224,46 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
                 notes: irritationNotes
               }, `${t.eventLabels.irritation} · ${locations.map((location) => t.irritationLocations[location as keyof typeof t.irritationLocations]).join(", ")}`)
               setIrritationOpen(false)
+            }}>{t.common.save}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={vitaminOpen} onOpenChange={(open) => {
+        setVitaminOpen(open)
+        if (!open) {
+          setVitamins([])
+          setVitaminNotes("")
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.eventLabels.vitamin}</DialogTitle>
+            <DialogDescription>{t.actions.vitaminDescription}</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            {BABY_VITAMINS.map((item) => (
+              <Button
+                key={item}
+                type="button"
+                aria-pressed={vitamins.includes(item)}
+                variant={vitamins.includes(item) ? "default" : "outline"}
+                className="h-11"
+                onClick={() => setVitamins((current) => current.includes(item) ? current.filter((vitamin) => vitamin !== item) : [...current, item])}
+              >
+                <CircleDot /> {t.vitamins[item]}
+              </Button>
+            ))}
+          </div>
+          <Textarea value={vitaminNotes} onChange={(event) => setVitaminNotes(event.target.value)} placeholder={t.common.observation} />
+          <DialogFooter>
+            <Button className="h-12" disabled={vitamins.length === 0} onClick={async () => {
+              await create("vitamin", {
+                type: "vitamin",
+                metadata: { vitamins },
+                notes: vitaminNotes
+              }, `${t.eventLabels.vitamin} · ${vitamins.map((vitamin) => t.vitamins[vitamin as keyof typeof t.vitamins]).join(", ")}`)
+              setVitaminOpen(false)
             }}>{t.common.save}</Button>
           </DialogFooter>
         </DialogContent>

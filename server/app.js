@@ -21,6 +21,7 @@ const EVENT_TYPES = new Set([
   "face_cord_care",
   "clothes_change",
   "irritation",
+  "vitamin",
   "observation",
   "daily_care",
   "eye_care",
@@ -121,6 +122,7 @@ const EXPORT_MESSAGES = {
       face_cord_care: "Visage et cordon",
       clothes_change: "Vêtements",
       irritation: "Irritation",
+      vitamin: "Vitamine",
       observation: "Observation",
       daily_care: "Soins quotidiens",
       eye_care: "Yeux",
@@ -148,6 +150,22 @@ const EXPORT_MESSAGES = {
       jambes: "Jambes",
       fesses: "Fesses",
       autre: "Autre"
+    },
+    vitamins: {
+      vitamin_d: "Vitamine D",
+      vitamin_k: "Vitamine K",
+      vitamin_a: "Vitamine A",
+      vitamin_b1: "Vitamine B1",
+      vitamin_b2: "Vitamine B2",
+      vitamin_b3: "Vitamine B3",
+      vitamin_b5: "Vitamine B5",
+      vitamin_b6: "Vitamine B6",
+      vitamin_b7: "Vitamine B7/B8",
+      vitamin_b9: "Vitamine B9",
+      vitamin_b12: "Vitamine B12",
+      vitamin_c: "Vitamine C",
+      vitamin_e: "Vitamine E",
+      multivitamins: "Multivitamines"
     }
   },
   en: {
@@ -177,6 +195,7 @@ const EXPORT_MESSAGES = {
       face_cord_care: "Face and cord",
       clothes_change: "Clothes",
       irritation: "Irritation",
+      vitamin: "Vitamin",
       observation: "Observation",
       daily_care: "Daily care",
       eye_care: "Eyes",
@@ -204,6 +223,22 @@ const EXPORT_MESSAGES = {
       jambes: "Legs",
       fesses: "Bottom",
       autre: "Other"
+    },
+    vitamins: {
+      vitamin_d: "Vitamin D",
+      vitamin_k: "Vitamin K",
+      vitamin_a: "Vitamin A",
+      vitamin_b1: "Vitamin B1",
+      vitamin_b2: "Vitamin B2",
+      vitamin_b3: "Vitamin B3",
+      vitamin_b5: "Vitamin B5",
+      vitamin_b6: "Vitamin B6",
+      vitamin_b7: "Vitamin B7/B8",
+      vitamin_b9: "Vitamin B9",
+      vitamin_b12: "Vitamin B12",
+      vitamin_c: "Vitamin C",
+      vitamin_e: "Vitamin E",
+      multivitamins: "Multivitamins"
     }
   }
 }
@@ -334,6 +369,10 @@ function displayDetail(metadata, locale) {
     return metadata.locations.map((location) => EXPORT_MESSAGES[locale].irritationLocations[location] || location).join(", ")
   }
   if (metadata?.location) return EXPORT_MESSAGES[locale].irritationLocations[metadata.location] || metadata.location
+  if (Array.isArray(metadata?.vitamins)) {
+    return metadata.vitamins.map((vitamin) => EXPORT_MESSAGES[locale].vitamins[vitamin] || vitamin).join(", ")
+  }
+  if (metadata?.vitamin) return EXPORT_MESSAGES[locale].vitamins[metadata.vitamin] || metadata.vitamin
   return ""
 }
 

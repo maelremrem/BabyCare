@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { localizedErrorMessage, useI18n } from "@/lib/i18n"
-import { IRRITATION_LOCATIONS, normalizeIrritationLocation, type BabyEvent } from "@/lib/types"
+import { BABY_VITAMINS, IRRITATION_LOCATIONS, normalizeIrritationLocation, type BabyEvent } from "@/lib/types"
 
 interface EventEditorProps {
   event: BabyEvent | null
@@ -32,6 +32,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
   const [durationMinutes, setDurationMinutes] = useState("0")
   const [durationSeconds, setDurationSeconds] = useState("0")
   const [irritationLocations, setIrritationLocations] = useState<string[]>([])
+  const [vitamins, setVitamins] = useState<string[]>([])
 
   useEffect(() => {
     if (!event) return
@@ -58,6 +59,15 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
           ? [normalizeIrritationLocation(legacyLocation)]
           : []
     )
+    const storedVitamins = event.metadata?.vitamins
+    const legacyVitamin = event.metadata?.vitamin
+    setVitamins(
+      Array.isArray(storedVitamins)
+        ? storedVitamins
+        : typeof legacyVitamin === "string"
+          ? [legacyVitamin]
+          : []
+    )
   }, [event])
 
   if (!event) return null
@@ -70,6 +80,8 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
       ? { ...event.metadata, diaper_type: detail }
       : event.type === "irritation"
         ? { locations: irritationLocations }
+        : event.type === "vitamin"
+          ? { vitamins }
         : event.metadata
     await api.updateEvent(event.id, {
       notes,
@@ -168,6 +180,29 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
                         : [...current, location])}
                     >
                       {t.irritationLocations[location]}
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          {event.type === "vitamin" && (
+            <div className="grid gap-2 text-sm font-medium">
+              {t.eventEditor.vitamins}
+              <div className="grid grid-cols-2 gap-2">
+                {BABY_VITAMINS.map((vitamin) => {
+                  const selected = vitamins.includes(vitamin)
+                  return (
+                    <Button
+                      key={vitamin}
+                      type="button"
+                      aria-pressed={selected}
+                      variant={selected ? "default" : "outline"}
+                      onClick={() => setVitamins((current) => current.includes(vitamin)
+                        ? current.filter((item) => item !== vitamin)
+                        : [...current, vitamin])}
+                    >
+                      {t.vitamins[vitamin]}
                     </Button>
                   )
                 })}

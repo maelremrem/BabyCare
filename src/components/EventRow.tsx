@@ -1,7 +1,7 @@
 import { ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useI18n } from "@/lib/i18n"
-import { normalizeIrritationLocation, type BabyEvent } from "@/lib/types"
+import { type BabyEvent, type BabyVitamin, normalizeIrritationLocation } from "@/lib/types"
 import { formatDuration, formatTime } from "@/lib/dates"
 
 interface EventRowProps {
@@ -17,6 +17,11 @@ export function EventRow({ event, onClick }: EventRowProps) {
     : typeof event.metadata?.location === "string"
       ? [normalizeIrritationLocation(event.metadata.location)]
       : []
+  const vitamins = Array.isArray(event.metadata?.vitamins)
+    ? event.metadata.vitamins
+    : typeof event.metadata?.vitamin === "string"
+      ? [event.metadata.vitamin]
+      : []
   const isTimer = event.type === "breast_left" || event.type === "breast_right" || event.type === "nap"
   const detail = event.type === "temperature" && event.value_real != null
     ? `${event.value_real.toFixed(1)} °C`
@@ -30,6 +35,8 @@ export function EventRow({ event, onClick }: EventRowProps) {
       ? t.diaperTypes[diaperType as keyof typeof t.diaperTypes]
       : irritationLocations.length > 0
         ? irritationLocations.map((location) => t.irritationLocations[location as keyof typeof t.irritationLocations] || location.charAt(0).toUpperCase() + location.slice(1)).join(", ")
+      : vitamins.length > 0
+        ? vitamins.map((vitamin) => t.vitamins[vitamin as BabyVitamin] || vitamin).join(", ")
         : isTimer
           ? formatDuration(event.duration_seconds, locale)
           : ""
