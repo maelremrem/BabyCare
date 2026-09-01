@@ -32,19 +32,11 @@ function run(command, args, options = {}) {
   return result.stdout
 }
 
-function rebuildNativeDependencies(releaseDirectory, version) {
-  const npmCacheDirectory = path.join(updateDirectory, "npm-cache")
-  fs.mkdirSync(npmCacheDirectory, { recursive: true, mode: 0o770 })
-  writeStatus("installing", 68, "Reconstruction des dépendances natives", { targetVersion: version })
-  run("npm", ["rebuild", "better-sqlite3", "--build-from-source", "--omit=dev"], {
+function validateNativeDependencies(releaseDirectory, version) {
+  writeStatus("installing", 68, "Validation des dépendances natives distribuées", { targetVersion: version })
+  run(process.execPath, [path.join(releaseDirectory, "scripts", "verify-native-runtime.js")], {
     cwd: releaseDirectory,
-    env: {
-      ...process.env,
-      npm_config_audit: "false",
-      npm_config_cache: npmCacheDirectory,
-      npm_config_fund: "false",
-      npm_config_update_notifier: "false"
-    }
+    env: { ...process.env, NODE_ENV: "production" }
   })
 }
 
@@ -137,10 +129,10 @@ async function installUpdate(request) {
     const manifestPath = path.join(stagingDirectory, "package.json")
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
     if (manifest.name !== "babycare" || manifest.version !== version) throw new Error("La release ne correspond pas à la version demandée")
-    for (const requiredPath of ["server/app.js", "dist-modern/index.html", "dist-ios15/index.html", "node_modules"]) {
+    for (const requiredPath of ["server/app.js", "dist-modern/index.html", "dist-ios15/index.html", "node_modules", "scripts/verify-native-runtime.js", ".npmrc"]) {
       if (!fs.existsSync(path.join(stagingDirectory, requiredPath))) throw new Error(`Release incomplète : ${requiredPath} absent`)
     }
-    rebuildNativeDependencies(stagingDirectory, version)
+    validateNativeDependencies(stagingDirectory, version)
 
     writeStatus("installing", 70, `Activation atomique de BabyCare v${version}`, { targetVersion: version })
     if (fs.existsSync(releaseDirectory)) fs.renameSync(releaseDirectory, `${releaseDirectory}.replaced-${Date.now()}`)

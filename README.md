@@ -227,7 +227,7 @@ The Debian installer enables a least-privilege update path:
 
 1. the unprivileged web server checks the latest GitHub Release and writes an update request;
 2. `babycare-update.path` starts the root-owned one-shot updater;
-3. the updater downloads the archive for the server architecture, validates its SHA-256 checksum and extracts it into `/opt/babycare/releases`;
+3. the updater downloads the archive for the server architecture, validates its SHA-256 checksum, extracts it into `/opt/babycare/releases`, and smoke-tests the bundled `better-sqlite3` binary without compiling on the server;
 4. `/opt/babycare/current` is switched atomically, the service restarts, and a health check validates the new release;
 5. a failed health check automatically restores the previous symlink and restarts BabyCare.
 
@@ -557,7 +557,7 @@ npm start
 
 ## Mises À Jour Et Releases
 
-Les installations Debian/LXC téléchargent les archives GitHub Releases correspondant à leur architecture, vérifient leur checksum SHA-256, basculent atomiquement `/opt/babycare/current`, puis effectuent un contrôle de santé avec rollback automatique en cas d’échec.
+Les installations Debian/LXC téléchargent les archives GitHub Releases correspondant à leur architecture, vérifient leur checksum SHA-256 et le module `better-sqlite3` déjà inclus, sans recompilation sur le serveur. Elles basculent ensuite atomiquement `/opt/babycare/current`, puis effectuent un contrôle de santé avec rollback automatique en cas d’échec.
 
 Les installations Docker utilisent un sidecar séparé. Il télécharge l’image versionnée depuis GHCR, recrée uniquement le service web et conserve l’image précédente pour le rollback. Le conteneur web n’accède jamais au socket Docker. Dans les deux modes, une mise à jour est refusée tant qu’un chrono est actif et tous les clients se rafraîchissent lorsque la version serveur change.
 

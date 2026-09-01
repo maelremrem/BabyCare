@@ -1,7 +1,7 @@
 {
   "name": "babycare",
   "private": true,
-  "version": "0.1.14",
+  "version": "0.1.18",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -22,7 +22,8 @@
     "test": "npm run test:server && npm run test:ui",
     "test:server": "node --test server/**/*.test.js",
     "test:ui": "vitest run",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "verify:native-runtime": "node scripts/verify-native-runtime.js"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "latest",

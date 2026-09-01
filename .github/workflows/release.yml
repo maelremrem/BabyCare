@@ -35,13 +35,16 @@ jobs:
       - name: Build distribution variants
         run: npm run build:distribution
       - name: Keep production dependencies
-        run: npm prune --omit=dev
+        run: |
+          npm prune --omit=dev
+          npm run verify:native-runtime
+          cp scripts/release.npmrc .npmrc
       - name: Create runtime archive
         env:
           RELEASE_ARCH: ${{ matrix.architecture }}
         run: |
           archive="babycare-${GITHUB_REF_NAME}-linux-${RELEASE_ARCH}.tar.gz"
-          tar -czf "${archive}" package.json node_modules server dist-modern dist-ios15 scripts
+          tar -czf "${archive}" package.json node_modules server dist-modern dist-ios15 scripts .npmrc
           sha256sum "${archive}" > "${archive}.sha256"
       - name: Upload runtime archive
         uses: actions/upload-artifact@v4

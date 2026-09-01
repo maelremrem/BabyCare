@@ -12,7 +12,8 @@ RUN if [ -n "${APP_VERSION}" ]; then npm version --no-git-tag-version --allow-sa
     && npm ci
 
 RUN npm run build:distribution \
-    && npm prune --omit=dev
+    && npm prune --omit=dev \
+    && npm run verify:native-runtime
 
 FROM docker:cli AS updater
 
