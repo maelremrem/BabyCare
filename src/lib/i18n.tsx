@@ -212,7 +212,13 @@ const fr = {
     noStoolSince: "Aucune selle depuis {hours} h",
     lastStool: "Dernière selle enregistrée {relative}.",
     noStoolRecorded: "Aucune selle n’a encore été enregistrée.",
-    stoolThreshold: "Le seuil de surveillance est fixé à {hours} heures."
+    stoolThreshold: "Le seuil de surveillance est fixé à {hours} heures.",
+    dailyCareAlertLabel: "Alerte soins",
+    dailyCareOverdueTitle: "Soins visage et cordon à effectuer",
+    lastDailyCare: "Derniers soins enregistrés {relative}.",
+    noDailyCareRecorded: "Aucun soin visage et cordon n’a encore été enregistré.",
+    dailyCareThreshold: "Le seuil de surveillance est fixé à 24 heures.",
+    dailyCareDoneButton: "Soin Visage/Cordon effectué"
   },
   widget: {
     title: "Widget",
@@ -625,7 +631,13 @@ const en: Messages = {
     noStoolSince: "No stool for {hours} h",
     lastStool: "Last stool recorded {relative}.",
     noStoolRecorded: "No stool has been recorded yet.",
-    stoolThreshold: "The monitoring threshold is set to {hours} hours."
+    stoolThreshold: "The monitoring threshold is set to {hours} hours.",
+    dailyCareAlertLabel: "Care alert",
+    dailyCareOverdueTitle: "Face and cord care due",
+    lastDailyCare: "Last care recorded {relative}.",
+    noDailyCareRecorded: "No face and cord care has been recorded yet.",
+    dailyCareThreshold: "The monitoring threshold is set to 24 hours.",
+    dailyCareDoneButton: "Face/Cord care completed"
   },
   widget: {
     title: "Widget",

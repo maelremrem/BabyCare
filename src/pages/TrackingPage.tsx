@@ -1,15 +1,22 @@
-import { AlertTriangle, Bath, Milk, Thermometer, WalletCards } from "lucide-react"
+import { useState } from "react"
+import { AlertTriangle, Bath, Check, Milk, Thermometer, WalletCards } from "lucide-react"
+import { toast } from "sonner"
 import { ActionGrid } from "@/components/ActionGrid"
 import { ActiveTimer } from "@/components/ActiveTimer"
 import { ContentLoading } from "@/components/ContentLoading"
 import { EventRow } from "@/components/EventRow"
 import { TemperatureSparkline } from "@/components/TemperatureSparkline"
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useClock } from "@/hooks/useClock"
-import { interpolate, useI18n } from "@/lib/i18n"
-import type { BabyEvent, FeedingType, StoolAlert } from "@/lib/types"
+import { api } from "@/lib/api"
+import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
+import type { BabyEvent, DailyCare, FeedingType, StoolAlert } from "@/lib/types"
 import { dateKey, dayHeading, formatDuration, formatTime, groupEventsByDay, relativeTime } from "@/lib/dates"
+
+const CARE_ALERT_THRESHOLD_MS = 24 * 60 * 60 * 1000
+const DAILY_CARE_TYPES: DailyCare["care_type"][] = ["eyes", "face", "nose", "cord"]
 
 interface TrackingPageProps {
   events: BabyEvent[]
@@ -27,6 +34,7 @@ interface TrackingPageProps {
 export function TrackingPage({ events, running, loading, stoolAlert, feedingType = "breast", onChanged, onEdit, onOpenCare, onTimerStartAttempt, onTimerStartFailed }: TrackingPageProps) {
   const { locale, t } = useI18n()
   const now = useClock()
+  const [validatingCare, setValidatingCare] = useState(false)
   const lastFeeding = events.find((event) => feedingType === "bottle"
     ? event.type === "bottle"
     : event.type === "breast_left" || event.type === "breast_right")
@@ -34,9 +42,12 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
   const nextBreast = lastFeeding?.type === "breast_left" ? "breast_right" : "breast_left"
   const lastDiaper = events.find((event) => event.type === "diaper")
   const lastBath = events.find((event) => event.type === "bath")
+  const lastDailyCare = events.find((event) => event.type === "daily_care")
   const recent = events.slice(0, 8)
   const groups = groupEventsByDay(recent)
   const lastDiaperType = typeof lastDiaper?.metadata?.diaper_type === "string" ? lastDiaper.metadata.diaper_type : null
+  const careElapsedMs = lastDailyCare ? now.getTime() - Date.parse(lastDailyCare.started_at) : null
+  const isDailyCareOverdue = careElapsedMs == null || careElapsedMs > CARE_ALERT_THRESHOLD_MS
   const today = dateKey(now.toISOString())
   const feedingsToday = events.reduce((count, event) => {
     const isFeeding = feedingType === "bottle" ? event.type === "bottle" : event.type === "breast_left" || event.type === "breast_right"
@@ -49,6 +60,20 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
     .filter((event) => event.type === "temperature" && event.value_real != null)
     .slice(0, 10)
     .reverse()
+
+  const validateDailyCare = async () => {
+    setValidatingCare(true)
+    try {
+      await Promise.all(DAILY_CARE_TYPES.map((careType) => api.updateDailyCare(careType, true)))
+      await api.validateDailyCare()
+      toast.success(t.care.validated)
+      await onChanged()
+    } catch (error) {
+      toast.error(localizedErrorMessage(error, t, t.care.validationImpossible))
+    } finally {
+      setValidatingCare(false)
+    }
+  }
 
   const info = [
     {
@@ -92,7 +117,18 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
 
   return (
     <div className="space-y-8">
-      {stoolAlert?.overdue ? <StoolAlertCard alert={stoolAlert} /> : null}
+      {stoolAlert?.overdue || isDailyCareOverdue ? (
+        <div className="space-y-3">
+          {stoolAlert?.overdue ? <StoolAlertCard alert={stoolAlert} /> : null}
+          {isDailyCareOverdue ? (
+            <DailyCareAlertCard
+              lastDailyCare={lastDailyCare}
+              validating={validatingCare}
+              onValidate={validateDailyCare}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <section>
         <SectionTitle>{t.tracking.latestInfo}</SectionTitle>
@@ -136,6 +172,40 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
         </Card>
       </section>
     </div>
+  )
+}
+
+function DailyCareAlertCard({ lastDailyCare, validating, onValidate }: {
+  lastDailyCare?: BabyEvent
+  validating: boolean
+  onValidate: () => Promise<void>
+}) {
+  const { locale, t } = useI18n()
+  const detail = lastDailyCare
+    ? interpolate(t.tracking.lastDailyCare, { relative: relativeTime(lastDailyCare.started_at, locale) })
+    : t.tracking.noDailyCareRecorded
+
+  return (
+    <section aria-label={t.tracking.dailyCareAlertLabel}>
+      <Card role="alert" className="border-amber-500/45 bg-amber-500/10 shadow-sm">
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="rounded-full bg-amber-500/15 p-2 text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="size-5" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="font-semibold text-amber-950 dark:text-amber-100">{t.tracking.dailyCareOverdueTitle}</p>
+              <p className="mt-1 text-sm text-amber-900/75 dark:text-amber-100/75">
+                {detail} {t.tracking.dailyCareThreshold}
+              </p>
+            </div>
+          </div>
+          <Button className="min-h-11 w-full shrink-0 sm:ml-auto sm:w-auto" disabled={validating} onClick={() => void onValidate()}>
+            <Check /> {t.tracking.dailyCareDoneButton}
+          </Button>
+        </CardContent>
+      </Card>
+    </section>
   )
 }
 

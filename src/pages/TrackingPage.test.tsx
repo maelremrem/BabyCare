@@ -1,8 +1,22 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, test, vi } from "vitest"
-import type { BabyEvent, StoolAlert } from "@/lib/types"
+import type { BabyEvent, DailyCare, StoolAlert } from "@/lib/types"
 import { TrackingPage } from "@/pages/TrackingPage"
+
+const apiMock = vi.hoisted(() => ({
+  updateDailyCare: vi.fn<(_careType: DailyCare["care_type"], _completed: boolean) => Promise<void>>(async () => undefined),
+  validateDailyCare: vi.fn(async () => undefined)
+}))
+
+vi.mock("@/lib/api", () => ({
+  api: {
+    updateDailyCare: apiMock.updateDailyCare,
+    validateDailyCare: apiMock.validateDailyCare,
+    createEvent: vi.fn(async () => undefined),
+    startEvent: vi.fn(async () => undefined)
+  }
+}))
 
 const temperatureEvent: BabyEvent = {
   id: 1,
@@ -26,6 +40,20 @@ const leftBreastEvent: BabyEvent = {
   duration_seconds: 420
 }
 
+const recentDailyCareEvent: BabyEvent = {
+  ...temperatureEvent,
+  id: 3,
+  type: "daily_care",
+  started_at: new Date().toISOString()
+}
+
+const overdueDailyCareEvent: BabyEvent = {
+  ...temperatureEvent,
+  id: 4,
+  type: "daily_care",
+  started_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+}
+
 const overdueAlert: StoolAlert = {
   overdue: true,
   last_stool_at: "2026-08-27T17:00:00.000Z",
@@ -36,7 +64,7 @@ const overdueAlert: StoolAlert = {
 function renderTracking(stoolAlert: StoolAlert) {
   return render(
     <TrackingPage
-      events={[temperatureEvent]}
+      events={[recentDailyCareEvent, temperatureEvent]}
       running={[]}
       loading={false}
       stoolAlert={stoolAlert}
@@ -49,6 +77,7 @@ function renderTracking(stoolAlert: StoolAlert) {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.clearAllMocks()
 })
 
 describe("TrackingPage", () => {
@@ -78,6 +107,31 @@ describe("TrackingPage", () => {
   test("masque l’alerte lorsque le transit est à jour", () => {
     renderTracking({ ...overdueAlert, overdue: false, hours_since: 2 })
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  test("alerte quand les soins visage cordon datent de plus de 24 h et permet de les valider", async () => {
+    const user = userEvent.setup()
+    const onChanged = vi.fn(async () => undefined)
+    render(
+      <TrackingPage
+        events={[overdueDailyCareEvent, temperatureEvent]}
+        running={[]}
+        loading={false}
+        stoolAlert={{ ...overdueAlert, overdue: false }}
+        onChanged={onChanged}
+        onEdit={vi.fn()}
+        onOpenCare={vi.fn()}
+      />
+    )
+
+    const alert = screen.getByRole("alert")
+    expect(alert).toHaveTextContent("Soins visage et cordon à effectuer")
+    await user.click(screen.getByRole("button", { name: "Soin Visage/Cordon effectué" }))
+
+    expect(apiMock.updateDailyCare).toHaveBeenCalledTimes(4)
+    expect(apiMock.updateDailyCare.mock.calls.map(([careType]) => careType)).toEqual(["eyes", "face", "nose", "cord"])
+    expect(apiMock.validateDailyCare).toHaveBeenCalledOnce()
+    expect(onChanged).toHaveBeenCalledOnce()
   })
 
   test("accentue le sein à utiliser après la dernière tétée", () => {
