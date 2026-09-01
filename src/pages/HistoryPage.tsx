@@ -130,6 +130,9 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
   const feedingAverage = statistics.feeding.averageDurationSeconds == null
     ? "—"
     : formatDuration(Math.round(statistics.feeding.averageDurationSeconds), locale)
+  const feedingIntervalAverage = statistics.feeding.averageIntervalSeconds == null
+    ? "—"
+    : formatDuration(Math.round(statistics.feeding.averageIntervalSeconds), locale)
   const bottleIntervalAverage = statistics.bottle.averageIntervalSeconds == null
     ? "—"
     : formatDuration(Math.round(statistics.bottle.averageIntervalSeconds), locale)
@@ -208,7 +211,7 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{feedingType === "bottle" ? t.history.bottleStatistics : t.history.feedingAverage}</p>
                   <p className="mt-1 text-2xl font-semibold">{statisticsLoading ? "—" : feedingType === "bottle" ? bottleIntervalAverage : feedingAverage}</p>
-                  <p className="text-xs text-muted-foreground">{feedingType === "bottle" ? t.history.bottleIntervalAverage : t.history.average}</p>
+                  <p className="text-xs text-muted-foreground">{feedingType === "bottle" ? t.history.bottleIntervalAverage : t.history.feedingDurationAverage}</p>
                 </div>
               </div>
               {statisticsLoading ? (
@@ -219,7 +222,8 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
                   <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.bottleCount}</span><strong className="mt-1 block">{statistics.bottle.total}</strong></div>
                 </div>
               ) : feedingType === "breast" && statistics.feeding.total ? (
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid gap-2 text-sm sm:grid-cols-3">
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.feedingIntervalAverage}</span><strong className="mt-1 block">{feedingIntervalAverage}</strong></div>
                   <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.leftBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.leftCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.leftCount})</span></strong></div>
                   <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.rightBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.rightCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.rightCount})</span></strong></div>
                 </div>

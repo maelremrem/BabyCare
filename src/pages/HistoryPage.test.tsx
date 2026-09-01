@@ -29,8 +29,8 @@ describe("HistoryPage", () => {
     const monthlyEvents = [
       event({ id: 1, type: "temperature", value_real: 36.8 }),
       event({ id: 2, type: "temperature", value_real: 37.4 }),
-      event({ id: 3, type: "breast_left", duration_seconds: 600 }),
-      event({ id: 4, type: "breast_right", duration_seconds: 1200 }),
+      event({ id: 3, type: "breast_left", started_at: "2026-08-01T08:00:00.000Z", duration_seconds: 600 }),
+      event({ id: 4, type: "breast_right", started_at: "2026-08-01T10:00:00.000Z", duration_seconds: 1200 }),
       event({ id: 5, type: "diaper", started_at: "2026-08-01T08:00:00.000Z", metadata: { diaper_type: "stool" } }),
       event({ id: 6, type: "diaper", started_at: "2026-08-02T08:00:00.000Z", metadata: { diaper_type: "mixed" } })
     ]
@@ -47,6 +47,8 @@ describe("HistoryPage", () => {
 
     const feeding = screen.getByTestId("feeding-statistics")
     expect(within(feeding).getByText("15 min 00 s")).toBeInTheDocument()
+    expect(within(feeding).getByText("2 h 00 min")).toBeInTheDocument()
+    expect(within(feeding).getByText("Temps moyen entre deux tétées")).toBeInTheDocument()
     expect(within(feeding).getAllByText("50 %", { exact: false })).toHaveLength(2)
 
     const stool = screen.getByTestId("stool-statistics")

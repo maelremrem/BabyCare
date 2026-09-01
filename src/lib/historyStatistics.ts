@@ -9,6 +9,8 @@ export interface HistoryStatistics {
   }
   feeding: {
     averageDurationSeconds: number | null
+    averageIntervalSeconds: number | null
+    intervalCount: number
     leftCount: number
     rightCount: number
     total: number
@@ -32,10 +34,15 @@ export function calculateHistoryStatistics(events: BabyEvent[]): HistoryStatisti
   const temperatures = completed
     .filter((event) => event.type === "temperature" && Number.isFinite(event.value_real))
     .map((event) => event.value_real as number)
-  const feedings = completed.filter((event) => event.type === "breast_left" || event.type === "breast_right")
+  const feedings = completed
+    .filter((event) => event.type === "breast_left" || event.type === "breast_right")
+    .sort((left, right) => Date.parse(left.started_at) - Date.parse(right.started_at))
   const feedingDurations = feedings
     .map((event) => event.duration_seconds)
     .filter((duration): duration is number => duration != null && Number.isFinite(duration) && duration >= 0)
+  const feedingIntervals = feedings.slice(1)
+    .map((event, index) => (Date.parse(event.started_at) - Date.parse(feedings[index].started_at)) / 1000)
+    .filter((interval) => Number.isFinite(interval) && interval >= 0)
   const bottles = completed
     .filter((event) => event.type === "bottle" && Number.isFinite(event.value_real))
     .sort((left, right) => Date.parse(left.started_at) - Date.parse(right.started_at))
@@ -58,6 +65,8 @@ export function calculateHistoryStatistics(events: BabyEvent[]): HistoryStatisti
     },
     feeding: {
       averageDurationSeconds: average(feedingDurations),
+      averageIntervalSeconds: average(feedingIntervals),
+      intervalCount: feedingIntervals.length,
       leftCount: feedings.filter((event) => event.type === "breast_left").length,
       rightCount: feedings.filter((event) => event.type === "breast_right").length,
       total: feedings.length
