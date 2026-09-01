@@ -90,12 +90,26 @@ install_update() {
   previous_image="$(docker inspect --format '{{.Image}}' "${container}")"
   previous_version="$(current_version)"
 
-  write_status "downloading" 10 "docker pull ${APP_IMAGE}:${version}" "" "${version}"
-  if ! docker pull "${APP_IMAGE}:${version}"; then
+  pull_log="${UPDATE_DIR}/docker-pull.$$.log"
+  write_status "downloading" 0 "Téléchargement de l’image ${APP_IMAGE}:${version}" "" "${version}"
+  docker pull "${APP_IMAGE}:${version}" > "${pull_log}" 2>&1 &
+  pull_pid="$!"
+  download_progress=0
+  while kill -0 "${pull_pid}" 2>/dev/null; do
+    write_status "downloading" "${download_progress}" "Téléchargement de l’image ${APP_IMAGE}:${version}" "" "${version}"
+    if [ "${download_progress}" -lt 49 ]; then
+      download_progress=$((download_progress + 1))
+    fi
+    sleep 1
+  done
+  if ! wait "${pull_pid}"; then
+    rm -f "${pull_log}"
     write_status "error" 100 "docker pull ${APP_IMAGE}:${version}" "L’image distribuée n’est pas encore disponible." "${version}"
     return 1
   fi
-  write_status "verifying" 45 "Vérification de l’image OCI ${APP_IMAGE}:${version}" "" "${version}"
+  rm -f "${pull_log}"
+  write_status "downloading" 50 "Image ${APP_IMAGE}:${version} téléchargée" "" "${version}"
+  write_status "verifying" 58 "Vérification de l’image OCI ${APP_IMAGE}:${version}" "" "${version}"
   candidate_image="$(docker image inspect --format '{{.Id}}' "${APP_IMAGE}:${version}")"
   if [ -z "${candidate_image}" ]; then
     write_status "error" 100 "Vérification de l’image OCI" "Image Docker invalide" "${version}"
@@ -103,13 +117,24 @@ install_update() {
   fi
 
   rollback_reference="${APP_IMAGE}:babycare-rollback"
+  write_status "installing" 70 "Préparation du rollback Docker" "" "${version}"
   docker image tag "${previous_image}" "${rollback_reference}"
   save_rollback "${rollback_reference}" "${previous_version}"
+  write_status "installing" 85 "Activation de l’image BabyCare v${version}" "" "${version}"
   docker image tag "${candidate_image}" "${APP_IMAGE}:latest"
 
-  write_status "restarting" 80 "docker compose up -d --force-recreate ${APP_SERVICE}" "" "${version}"
-  if ! restart_app || ! wait_for_version "${version}"; then
-    write_status "restarting" 90 "Contrôle de santé en échec, rollback Docker automatique" "" "${version}"
+  write_status "restarting" 95 "Redémarrage du conteneur BabyCare" "" "${version}"
+  if ! restart_app; then
+    write_status "restarting" 99 "Redémarrage en échec, rollback Docker automatique" "" "${version}"
+    docker image tag "${rollback_reference}" "${APP_IMAGE}:latest"
+    restart_app || true
+    wait_for_version "${previous_version}" || true
+    write_status "error" 100 "Rollback Docker automatique terminé" "BabyCare v${version} n’a pas pu redémarrer." "${version}"
+    return 1
+  fi
+  write_status "checking" 98 "Contrôle de santé de BabyCare v${version}" "" "${version}"
+  if ! wait_for_version "${version}"; then
+    write_status "restarting" 99 "Contrôle de santé en échec, rollback Docker automatique" "" "${version}"
     docker image tag "${rollback_reference}" "${APP_IMAGE}:latest"
     restart_app || true
     wait_for_version "${previous_version}" || true
@@ -139,7 +164,7 @@ rollback_update() {
   docker image tag "${target}" "${APP_IMAGE}:latest"
   save_rollback "${APP_IMAGE}:babycare-redo" "${current_app_version}"
 
-  write_status "restarting" 80 "Rollback Docker vers BabyCare v${target_version}" "" "${target_version}"
+  write_status "restarting" 95 "Rollback Docker vers BabyCare v${target_version}" "" "${target_version}"
   if ! restart_app || ! wait_for_version "${target_version}"; then
     docker image tag "${APP_IMAGE}:babycare-redo" "${APP_IMAGE}:latest"
     restart_app || true

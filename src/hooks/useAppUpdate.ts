@@ -18,6 +18,7 @@ export function useAppUpdate() {
   const [progressOpen, setProgressOpen] = useState(false)
   const [checking, setChecking] = useState(false)
   const refreshing = useRef(false)
+  const completionRefreshTimer = useRef<number | null>(null)
 
   const loadVersion = useCallback(async (force = false) => {
     setChecking(true)
@@ -37,7 +38,12 @@ export function useAppUpdate() {
   const loadStatus = useCallback(async () => {
     const nextStatus = await api.updateStatus()
     setStatus(nextStatus)
-    if (nextStatus.state === "complete") await loadVersion(true)
+    if (nextStatus.state === "complete" && completionRefreshTimer.current === null) {
+      completionRefreshTimer.current = window.setTimeout(() => {
+        completionRefreshTimer.current = null
+        loadVersion(true).catch(() => undefined)
+      }, 1_200)
+    }
   }, [loadVersion])
 
   useEffect(() => {
@@ -50,6 +56,7 @@ export function useAppUpdate() {
     return () => {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisibility)
+      if (completionRefreshTimer.current !== null) window.clearTimeout(completionRefreshTimer.current)
     }
   }, [loadVersion])
 

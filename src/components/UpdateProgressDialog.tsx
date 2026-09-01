@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleAlert, LoaderCircle } from "lucide-react"
+import { Check, CheckCircle2, Circle, CircleAlert, LoaderCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { UpdateStatus } from "@/lib/types"
@@ -17,6 +17,16 @@ export function UpdateProgressDialog({ open, status, onOpenChange }: UpdateProgr
   const failed = status?.state === "error"
   const radius = 54
   const circumference = 2 * Math.PI * radius
+  const phases = [
+    { state: "downloading", label: t.update.downloadPhase },
+    { state: "verifying", label: t.update.verifyPhase },
+    { state: "extracting", label: t.update.extractPhase },
+    { state: "installing", label: t.update.installPhase },
+    { state: "restarting", label: t.update.restartPhase }
+  ] as const
+  const phaseIndex = finished
+    ? phases.length
+    : Math.max(0, phases.findIndex((phase) => phase.state === (status?.state === "checking" ? "restarting" : status?.state)))
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => {
@@ -51,6 +61,38 @@ export function UpdateProgressDialog({ open, status, onOpenChange }: UpdateProgr
               )}
             </div>
           </div>
+
+          {!failed ? (
+            <div className="mt-5 w-full">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className={`rounded-md border px-3 py-2 ${progress <= 50 && !finished ? "border-primary bg-primary/5" : "text-muted-foreground"}`}>
+                  <span className="block font-medium text-foreground">{t.update.downloadRange}</span>
+                  <span>0–50 %</span>
+                </div>
+                <div className={`rounded-md border px-3 py-2 ${progress > 50 && !finished ? "border-primary bg-primary/5" : "text-muted-foreground"}`}>
+                  <span className="block font-medium text-foreground">{t.update.installRange}</span>
+                  <span>50–100 %</span>
+                </div>
+              </div>
+
+              <ol className="mt-4 space-y-2" aria-label={t.update.stepsLabel}>
+                {phases.map((phase, index) => {
+                  const complete = index < phaseIndex
+                  const active = index === phaseIndex && !finished
+                  return (
+                    <li key={phase.state} className={`flex items-center gap-2 text-sm ${active ? "font-medium text-foreground" : "text-muted-foreground"}`} aria-current={active ? "step" : undefined}>
+                      {complete || finished
+                        ? <Check className="size-4 text-primary" aria-hidden="true" />
+                        : active
+                          ? <LoaderCircle className="size-4 animate-spin text-primary" aria-hidden="true" />
+                          : <Circle className="size-4" aria-hidden="true" />}
+                      <span>{phase.label}</span>
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
+          ) : null}
 
           <p className="mt-5 min-h-5 text-center font-mono text-xs text-muted-foreground">{status?.command || t.update.preparing}</p>
           {status?.message ? <p className="mt-3 text-center text-sm text-destructive">{status.message}</p> : null}

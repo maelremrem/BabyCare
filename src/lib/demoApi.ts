@@ -27,11 +27,13 @@ interface DemoUpdateState {
 
 const DEMO_UPDATE_STEPS = [
   { after: 0, state: "queued" as const, progress: 0, command: "Préparation de BabyCare v0.2.0" },
-  { after: 1000, state: "downloading" as const, progress: 20, command: "Téléchargement de la version v0.2.0" },
-  { after: 2500, state: "verifying" as const, progress: 42, command: "Vérification de l’intégrité du paquet" },
-  { after: 3500, state: "extracting" as const, progress: 60, command: "Extraction des fichiers" },
-  { after: 5000, state: "installing" as const, progress: 78, command: "Installation de BabyCare v0.2.0" },
-  { after: 7000, state: "restarting" as const, progress: 94, command: "Redémarrage du service BabyCare" }
+  { after: 1000, state: "downloading" as const, progress: 25, command: "Téléchargement de la version v0.2.0" },
+  { after: 2500, state: "downloading" as const, progress: 50, command: "Version v0.2.0 téléchargée" },
+  { after: 3500, state: "verifying" as const, progress: 58, command: "Vérification de l’intégrité du paquet" },
+  { after: 4500, state: "extracting" as const, progress: 65, command: "Extraction des fichiers" },
+  { after: 5500, state: "installing" as const, progress: 82, command: "Activation de BabyCare v0.2.0" },
+  { after: 7000, state: "restarting" as const, progress: 95, command: "Redémarrage du service BabyCare" },
+  { after: 7800, state: "checking" as const, progress: 98, command: "Contrôle de santé de BabyCare v0.2.0" }
 ] as const
 
 function readDemoUpdate(): DemoUpdateState {
@@ -48,6 +50,7 @@ function writeDemoUpdate(update: DemoUpdateState) {
 
 function demoUpdateStatus(): UpdateStatus {
   const update = readDemoUpdate()
+  let currentStep: (typeof DEMO_UPDATE_STEPS)[number] | undefined
   if (update.startedAt && update.state !== "complete" && update.state !== "error") {
     const elapsed = Date.now() - update.startedAt
     if (elapsed >= 8500) {
@@ -57,12 +60,12 @@ function demoUpdateStatus(): UpdateStatus {
       update.rollbackVersion = __APP_VERSION__
       writeDemoUpdate(update)
     } else {
-      const step = [...DEMO_UPDATE_STEPS].reverse().find((candidate) => elapsed >= candidate.after) || DEMO_UPDATE_STEPS[0]
-      update.state = step.state
+      currentStep = [...DEMO_UPDATE_STEPS].reverse().find((candidate) => elapsed >= candidate.after) || DEMO_UPDATE_STEPS[0]
+      update.state = currentStep.state
       writeDemoUpdate(update)
     }
   }
-  const step = DEMO_UPDATE_STEPS.find((candidate) => candidate.state === update.state)
+  const step = currentStep || DEMO_UPDATE_STEPS.find((candidate) => candidate.state === update.state)
   const active = update.state !== "idle" && update.state !== "complete" && update.state !== "error"
   return {
     state: update.state,

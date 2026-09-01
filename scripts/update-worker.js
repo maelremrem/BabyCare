@@ -33,7 +33,7 @@ function run(command, args, options = {}) {
 }
 
 function validateNativeDependencies(releaseDirectory, version) {
-  writeStatus("installing", 68, "Validation des dépendances natives distribuées", { targetVersion: version })
+  writeStatus("installing", 76, "Validation des dépendances natives distribuées", { targetVersion: version })
   run(process.execPath, [path.join(releaseDirectory, "scripts", "verify-native-runtime.js")], {
     cwd: releaseDirectory,
     env: { ...process.env, NODE_ENV: "production" }
@@ -51,18 +51,26 @@ function validateDownloadUrl(value) {
   return url
 }
 
-async function download(url, destination, progressStart, progressEnd, command) {
+async function download(url, destination, progressStart, progressEnd, command, extra = {}) {
   const response = await fetch(validateDownloadUrl(url), { redirect: "follow", signal: AbortSignal.timeout(10 * 60 * 1000) })
   if (!response.ok || !response.body) throw new Error(`Téléchargement impossible (${response.status})`)
   const total = Number(response.headers.get("content-length")) || 0
   let received = 0
+  let lastProgress = progressStart - 1
   const stream = Readable.fromWeb(response.body)
   stream.on("data", (chunk) => {
     received += chunk.length
-    if (total) writeStatus("downloading", Math.min(progressEnd, Math.round(progressStart + (received / total) * (progressEnd - progressStart))), command)
+    const measuredProgress = total
+      ? Math.round(progressStart + (received / total) * (progressEnd - progressStart))
+      : progressStart + Math.floor(received / (2 * 1024 * 1024))
+    const progress = Math.min(progressEnd - 1, measuredProgress)
+    if (progress > lastProgress) {
+      lastProgress = progress
+      writeStatus("downloading", progress, command, extra)
+    }
   })
   await pipeline(stream, fs.createWriteStream(destination, { mode: 0o600 }))
-  writeStatus("downloading", progressEnd, command)
+  writeStatus("downloading", progressEnd, command, extra)
 }
 
 function sha256(filePath) {
@@ -90,8 +98,9 @@ async function waitForHealth() {
   return false
 }
 
-async function restartAndCheck() {
+async function restartAndCheck(version) {
   run("systemctl", ["restart", serviceName])
+  writeStatus("checking", 98, `Contrôle de santé de BabyCare v${version}`, { targetVersion: version })
   return waitForHealth()
 }
 
@@ -109,23 +118,25 @@ async function installUpdate(request) {
   const previousTarget = fs.realpathSync(currentLink)
 
   try {
-    writeStatus("downloading", 5, `Téléchargement de babycare-v${version}` , { targetVersion: version })
-    await download(request.archiveUrl, archivePath, 5, 30, `Téléchargement de babycare-v${version}`)
-    await download(request.checksumUrl, checksumPath, 30, 35, "Téléchargement du checksum SHA-256")
+    writeStatus("downloading", 0, `Téléchargement de babycare-v${version}`, { targetVersion: version })
+    await download(request.archiveUrl, archivePath, 0, 49, `Téléchargement de babycare-v${version}`, { targetVersion: version })
+    await download(request.checksumUrl, checksumPath, 49, 50, "Téléchargement du checksum SHA-256", { targetVersion: version })
 
-    writeStatus("verifying", 40, "Vérification SHA-256 de la release", { targetVersion: version })
+    writeStatus("verifying", 54, "Vérification SHA-256 de la release", { targetVersion: version })
     const expectedChecksum = fs.readFileSync(checksumPath, "utf8").trim().split(/\s+/)[0]
     if (!/^[a-f0-9]{64}$/i.test(expectedChecksum) || sha256(archivePath) !== expectedChecksum.toLowerCase()) {
       throw new Error("Le checksum SHA-256 de la release ne correspond pas")
     }
+    writeStatus("verifying", 59, "Contrôle du contenu de l’archive", { targetVersion: version })
     const entries = run("tar", ["-tzf", archivePath]).split("\n").filter(Boolean)
     if (!entries.length || entries.some((entry) => path.isAbsolute(entry) || entry.split("/").includes(".."))) {
       throw new Error("Contenu d’archive non autorisé")
     }
 
-    writeStatus("extracting", 55, `Extraction dans releases/${version}`, { targetVersion: version })
+    writeStatus("extracting", 64, `Extraction de BabyCare v${version}`, { targetVersion: version })
     fs.mkdirSync(stagingDirectory, { recursive: true, mode: 0o755 })
     run("tar", ["-xzf", archivePath, "-C", stagingDirectory])
+    writeStatus("installing", 70, "Validation des fichiers de la release", { targetVersion: version })
     const manifestPath = path.join(stagingDirectory, "package.json")
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
     if (manifest.name !== "babycare" || manifest.version !== version) throw new Error("La release ne correspond pas à la version demandée")
@@ -134,20 +145,22 @@ async function installUpdate(request) {
     }
     validateNativeDependencies(stagingDirectory, version)
 
-    writeStatus("installing", 70, `Activation atomique de BabyCare v${version}`, { targetVersion: version })
+    writeStatus("installing", 82, `Préparation de BabyCare v${version}`, { targetVersion: version })
     if (fs.existsSync(releaseDirectory)) fs.renameSync(releaseDirectory, `${releaseDirectory}.replaced-${Date.now()}`)
     fs.renameSync(stagingDirectory, releaseDirectory)
+    writeStatus("installing", 87, "Application des permissions de la release", { targetVersion: version })
     run("chown", ["-R", "babycare:babycare", releaseDirectory])
+    writeStatus("installing", 92, `Activation atomique de BabyCare v${version}`, { targetVersion: version })
     atomicSymlink(releaseDirectory)
     fs.writeFileSync(rollbackPath, `${JSON.stringify({ target: previousTarget, version: path.basename(previousTarget), createdAt: new Date().toISOString() }, null, 2)}\n`, { mode: 0o644 })
     fs.chmodSync(rollbackPath, 0o644)
 
-    writeStatus("restarting", 85, `systemctl restart ${serviceName}`, { targetVersion: version })
-    const healthy = await restartAndCheck()
+    writeStatus("restarting", 95, `Redémarrage de BabyCare v${version}`, { targetVersion: version })
+    const healthy = await restartAndCheck(version)
     if (!healthy) {
-      writeStatus("restarting", 90, "Échec du contrôle de santé, rollback automatique", { targetVersion: version })
+      writeStatus("restarting", 99, "Échec du contrôle de santé, rollback automatique", { targetVersion: version })
       atomicSymlink(previousTarget)
-      await restartAndCheck()
+      await restartAndCheck(path.basename(previousTarget))
       throw new Error(`BabyCare v${version} n’a pas répondu au contrôle de santé ; rollback automatique effectué`)
     }
     writeStatus("complete", 100, `BabyCare v${version} est actif`, { targetVersion: version })
@@ -162,14 +175,14 @@ async function rollback() {
   const target = fs.realpathSync(rollbackState.target)
   if (!target.startsWith(`${fs.realpathSync(releasesDirectory)}${path.sep}`)) throw new Error("Cible de rollback non autorisée")
   const currentTarget = fs.realpathSync(currentLink)
-  writeStatus("installing", 65, `Retour vers BabyCare v${rollbackState.version}`, { targetVersion: rollbackState.version })
+  writeStatus("installing", 82, `Retour vers BabyCare v${rollbackState.version}`, { targetVersion: rollbackState.version })
   atomicSymlink(target)
   fs.writeFileSync(rollbackPath, `${JSON.stringify({ target: currentTarget, version: path.basename(currentTarget), createdAt: new Date().toISOString() }, null, 2)}\n`, { mode: 0o644 })
   fs.chmodSync(rollbackPath, 0o644)
-  writeStatus("restarting", 85, `systemctl restart ${serviceName}`, { targetVersion: rollbackState.version })
-  if (!await restartAndCheck()) {
+  writeStatus("restarting", 95, `Redémarrage de BabyCare v${rollbackState.version}`, { targetVersion: rollbackState.version })
+  if (!await restartAndCheck(rollbackState.version)) {
     atomicSymlink(currentTarget)
-    await restartAndCheck()
+    await restartAndCheck(path.basename(currentTarget))
     throw new Error("Le rollback n’a pas passé le contrôle de santé ; la version initiale a été restaurée")
   }
   writeStatus("complete", 100, `Rollback vers BabyCare v${rollbackState.version} terminé`, { targetVersion: rollbackState.version })

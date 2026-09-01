@@ -11,10 +11,28 @@ const installerSource = fs.readFileSync(new URL("../scripts/install.sh", import.
 const updateService = fs.readFileSync(new URL("../scripts/babycare-update.service", import.meta.url), "utf8")
 const releaseWorkflow = fs.readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8")
 const releaseNpmrc = fs.readFileSync(new URL("../scripts/release.npmrc", import.meta.url), "utf8")
+const dockerWorkerSource = fs.readFileSync(new URL("../scripts/docker-update-worker.sh", import.meta.url), "utf8")
 
 test("the updater validates the packaged native runtime without rebuilding it", () => {
   assert.match(workerSource, /verify-native-runtime\.js/)
   assert.doesNotMatch(workerSource, /npm["'], \["rebuild"/)
+})
+
+test("the update progress dedicates 0-50 percent to downloading and details installation", () => {
+  assert.match(workerSource, /archivePath, 0, 49/)
+  assert.match(workerSource, /checksumPath, 49, 50/)
+  assert.match(workerSource, /writeStatus\("verifying", 54/)
+  assert.match(workerSource, /writeStatus\("extracting", 64/)
+  assert.match(workerSource, /writeStatus\("installing", 70/)
+  assert.match(workerSource, /writeStatus\("restarting", 95/)
+  assert.match(workerSource, /writeStatus\("checking", 98/)
+
+  assert.match(dockerWorkerSource, /write_status "downloading" 0/)
+  assert.match(dockerWorkerSource, /write_status "downloading" 50/)
+  assert.match(dockerWorkerSource, /write_status "verifying" 58/)
+  assert.match(dockerWorkerSource, /write_status "installing" 70/)
+  assert.match(dockerWorkerSource, /write_status "restarting" 95/)
+  assert.match(dockerWorkerSource, /write_status "checking" 98/)
 })
 
 test("the updater remains isolated from home directories", () => {
