@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { describe, expect, test, vi } from "vitest"
 import { UpdateProgressDialog } from "@/components/UpdateProgressDialog"
 import type { UpdateStatus } from "@/lib/types"
@@ -43,5 +43,23 @@ describe("UpdateProgressDialog", () => {
 
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "82")
     expect(screen.getByText("Activer la nouvelle version").closest("li")).toHaveAttribute("aria-current", "step")
+  })
+
+  test("valide visuellement le téléchargement au passage à l’installation", () => {
+    render(
+      <UpdateProgressDialog
+        open
+        status={updateStatus({ progress: 50, command: "Image téléchargée" })}
+        onOpenChange={vi.fn()}
+      />
+    )
+
+    const downloadCard = screen.getByText("Téléchargement").closest("div")
+    const installCard = screen.getByText("Installation").closest("div")
+
+    expect(downloadCard).toHaveClass("bg-primary/10")
+    expect(within(downloadCard as HTMLElement).getByText("0–50 %")).toBeInTheDocument()
+    expect(downloadCard?.querySelector("svg")).toBeInTheDocument()
+    expect(installCard).toHaveClass("bg-primary/5")
   })
 })

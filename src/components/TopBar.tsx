@@ -119,8 +119,13 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
   const [resetting, setResetting] = useState(false)
   const [deleteBabyOpen, setDeleteBabyOpen] = useState(false)
   const [deletingBaby, setDeletingBaby] = useState(false)
+  const [checkedWithoutUpdate, setCheckedWithoutUpdate] = useState(false)
   const age = getAgeParts(settings.birth_date, now)
   const appUpdate = useAppUpdate()
+  const noUpdateAvailable = Boolean(checkedWithoutUpdate
+    && appUpdate.versionInfo
+    && !appUpdate.versionInfo.updateAvailable
+    && !appUpdate.versionInfo.checkError)
 
   useEffect(() => setBabyName(settings.baby_name), [settings.baby_name])
   useEffect(() => {
@@ -250,7 +255,10 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
         <p className="ml-auto hidden whitespace-nowrap text-sm text-muted-foreground md:block">{formatLongDate(now, locale)}</p>
         <time className="whitespace-nowrap font-mono text-xs font-medium tabular-nums sm:text-lg">{formatClock(now, locale)}</time>
 
-        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <Dialog open={settingsOpen} onOpenChange={(open) => {
+          setSettingsOpen(open)
+          if (!open) setCheckedWithoutUpdate(false)
+        }}>
           <DialogTrigger asChild>
             <Button
               variant="ghost"
@@ -502,18 +510,20 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                   {appUpdate.versionInfo ? (
                     <p className="mt-3 text-xs text-muted-foreground">{interpolate(t.update.current, { version: appUpdate.versionInfo.currentVersion })}</p>
                   ) : null}
-                  {appUpdate.versionInfo && !appUpdate.versionInfo.updateAvailable && !appUpdate.versionInfo.checkError ? (
-                    <p className="mt-2 text-xs text-muted-foreground">{t.update.noneAvailable}</p>
-                  ) : null}
                   <Button
                     type="button"
                     className="mt-3 min-h-11 w-full whitespace-normal"
                     variant={appUpdate.versionInfo?.updateAvailable ? "default" : "outline"}
                     disabled={appUpdate.checking
+                      || noUpdateAvailable
                       || Boolean(hasRunningTimer && appUpdate.versionInfo?.updateAvailable)}
                     onClick={() => {
                       if (!appUpdate.versionInfo || appUpdate.versionInfo.checkError || !appUpdate.versionInfo.updateAvailable) {
-                        appUpdate.refresh(true).catch((error) => toast.error(localizedErrorMessage(error, t, t.update.checkError)))
+                        setCheckedWithoutUpdate(true)
+                        appUpdate.refresh(true).catch((error) => {
+                          setCheckedWithoutUpdate(false)
+                          toast.error(localizedErrorMessage(error, t, t.update.checkError))
+                        })
                         return
                       }
                       setSettingsOpen(false)
@@ -527,12 +537,20 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                       })
                     }}
                   >
-                    {appUpdate.checking || appUpdate.status?.active ? <LoaderCircle className="animate-spin" /> : appUpdate.versionInfo?.updateAvailable ? <Download /> : null}
+                    {appUpdate.checking || appUpdate.status?.active
+                      ? <LoaderCircle className="animate-spin" />
+                      : appUpdate.versionInfo?.updateAvailable
+                        ? <Download />
+                        : noUpdateAvailable
+                          ? <Check />
+                          : null}
                     {hasRunningTimer && appUpdate.versionInfo?.updateAvailable
                       ? t.update.timerWaiting
                       : appUpdate.versionInfo?.updateAvailable
                         ? t.update.availableAction
-                        : t.update.check}
+                        : noUpdateAvailable
+                          ? t.update.noneAvailable
+                          : t.update.check}
                   </Button>
                   {appUpdate.status?.canRollback ? (
                     <Button

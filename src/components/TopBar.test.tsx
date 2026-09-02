@@ -73,14 +73,15 @@ describe("TopBar", () => {
     vi.unstubAllGlobals()
   })
 
-  test("affiche l’absence de mise à jour et conserve la vérification manuelle", async () => {
+  test("désactive le résultat sans mise à jour jusqu’à la réouverture des paramètres", async () => {
     const user = userEvent.setup()
+    vi.stubGlobal("__APP_VERSION__", "0.1.24")
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-      currentVersion: "0.1.0",
+      currentVersion: "0.1.24",
       enabled: true,
       runtime: "docker",
       updateAvailable: false,
-      availableVersion: "0.1.0",
+      availableVersion: "0.1.24",
       releaseUrl: null,
       supported: true,
       status: { state: "idle", progress: 0, command: "", message: "", targetVersion: null, updatedAt: null, canRollback: false, rollbackVersion: null, active: false }
@@ -100,11 +101,16 @@ describe("TopBar", () => {
     )
 
     await user.click(screen.getByRole("button", { name: "Ouvrir les paramètres" }))
-    expect(await screen.findByText("Aucune nouvelle mise à jour")).toBeInTheDocument()
-    const checkButton = screen.getByRole("button", { name: "Vérifier les mises à jour" })
+    const checkButton = await screen.findByRole("button", { name: "Vérifier les mises à jour" })
     expect(checkButton).toBeEnabled()
     await user.click(checkButton)
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/version?refresh=true", expect.any(Object)))
+    await waitFor(() => expect(checkButton).toHaveTextContent("Aucune mise à jour disponible"))
+    expect(checkButton).toBeDisabled()
+
+    await user.keyboard("{Escape}")
+    await user.click(screen.getByRole("button", { name: "Ouvrir les paramètres" }))
+    expect(await screen.findByRole("button", { name: "Vérifier les mises à jour" })).toBeEnabled()
     const languageTitle = screen.getByText("Langue")
     const updateTitle = screen.getByText("Mise à jour")
     expect(languageTitle.compareDocumentPosition(updateTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

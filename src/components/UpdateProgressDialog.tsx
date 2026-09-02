@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { UpdateStatus } from "@/lib/types"
 import { useI18n } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 
 interface UpdateProgressDialogProps {
   open: boolean
@@ -27,6 +28,25 @@ export function UpdateProgressDialog({ open, status, onOpenChange }: UpdateProgr
   const phaseIndex = finished
     ? phases.length
     : Math.max(0, phases.findIndex((phase) => phase.state === (status?.state === "checking" ? "restarting" : status?.state)))
+  const downloadComplete = finished || progress >= 50 || phaseIndex > 0
+  const downloadActive = !downloadComplete && !failed
+  const installActive = !finished && !failed && (progress >= 50 || phaseIndex > 0)
+  const progressRanges = [
+    {
+      key: "download",
+      label: t.update.downloadRange,
+      range: "0–50 %",
+      complete: downloadComplete,
+      active: downloadActive
+    },
+    {
+      key: "install",
+      label: t.update.installRange,
+      range: "50–100 %",
+      complete: finished,
+      active: installActive
+    }
+  ]
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => {
@@ -65,14 +85,23 @@ export function UpdateProgressDialog({ open, status, onOpenChange }: UpdateProgr
           {!failed ? (
             <div className="mt-5 w-full">
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className={`rounded-md border px-3 py-2 ${progress <= 50 && !finished ? "border-primary bg-primary/5" : "text-muted-foreground"}`}>
-                  <span className="block font-medium text-foreground">{t.update.downloadRange}</span>
-                  <span>0–50 %</span>
-                </div>
-                <div className={`rounded-md border px-3 py-2 ${progress > 50 && !finished ? "border-primary bg-primary/5" : "text-muted-foreground"}`}>
-                  <span className="block font-medium text-foreground">{t.update.installRange}</span>
-                  <span>50–100 %</span>
-                </div>
+                {progressRanges.map((range) => (
+                  <div
+                    key={range.key}
+                    className={cn(
+                      "rounded-md border px-3 py-2",
+                      range.active && "border-primary bg-primary/5",
+                      range.complete && "border-primary/60 bg-primary/10",
+                      !range.active && !range.complete && "text-muted-foreground"
+                    )}
+                  >
+                    <span className="flex items-center justify-between gap-2 font-medium text-foreground">
+                      <span>{range.label}</span>
+                      {range.complete ? <Check className="size-4 shrink-0 text-primary" aria-hidden="true" /> : null}
+                    </span>
+                    <span>{range.range}</span>
+                  </div>
+                ))}
               </div>
 
               <ol className="mt-4 space-y-2" aria-label={t.update.stepsLabel}>
