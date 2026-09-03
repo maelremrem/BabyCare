@@ -130,6 +130,12 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
   const feedingAverage = statistics.feeding.averageDurationSeconds == null
     ? "—"
     : formatDuration(Math.round(statistics.feeding.averageDurationSeconds), locale)
+  const leftBreastDurationAverage = statistics.feeding.averageLeftDurationSeconds == null
+    ? "—"
+    : formatDuration(Math.round(statistics.feeding.averageLeftDurationSeconds), locale)
+  const rightBreastDurationAverage = statistics.feeding.averageRightDurationSeconds == null
+    ? "—"
+    : formatDuration(Math.round(statistics.feeding.averageRightDurationSeconds), locale)
   const feedingIntervalAverage = statistics.feeding.averageIntervalSeconds == null
     ? "—"
     : formatDuration(Math.round(statistics.feeding.averageIntervalSeconds), locale)
@@ -224,8 +230,8 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
               ) : feedingType === "breast" && statistics.feeding.total ? (
                 <div className="grid gap-2 text-sm sm:grid-cols-3">
                   <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.feedingIntervalAverage}</span><strong className="mt-1 block">{feedingIntervalAverage}</strong></div>
-                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.leftBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.leftCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.leftCount})</span></strong></div>
-                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.rightBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.rightCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.rightCount})</span></strong></div>
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.leftBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.leftCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.leftCount})</span></strong><span className="mt-2 block text-xs text-muted-foreground">{t.history.leftBreastDurationAverage}: {leftBreastDurationAverage}</span></div>
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.rightBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.rightCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.rightCount})</span></strong><span className="mt-2 block text-xs text-muted-foreground">{t.history.rightBreastDurationAverage}: {rightBreastDurationAverage}</span></div>
                 </div>
               ) : <p className="text-sm text-muted-foreground">{t.history.noMonthlyData}</p>}
             </CardContent>

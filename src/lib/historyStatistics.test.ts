@@ -35,7 +35,7 @@ describe("calculateHistoryStatistics", () => {
 
     expect(result.temperature.average).toBeCloseTo(37.1)
     expect(result.temperature).toMatchObject({ minimum: 36.8, maximum: 37.4, count: 2 })
-    expect(result.feeding).toEqual({ averageDurationSeconds: 900, averageIntervalSeconds: 3.5 * 60 * 60, intervalCount: 2, leftCount: 1, rightCount: 2, total: 3 })
+    expect(result.feeding).toEqual({ averageDurationSeconds: 900, averageLeftDurationSeconds: 600, averageRightDurationSeconds: 1050, averageIntervalSeconds: 3.5 * 60 * 60, intervalCount: 2, leftCount: 1, rightCount: 2, total: 3 })
     expect(result.bottle).toEqual({ averageIntervalSeconds: null, averageQuantityMl: null, intervalCount: 0, total: 0 })
     expect(result.averageStoolIntervalSeconds).toBe(24 * 60 * 60)
     expect(result.stoolIntervalCount).toBe(1)

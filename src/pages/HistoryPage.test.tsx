@@ -49,6 +49,8 @@ describe("HistoryPage", () => {
     expect(within(feeding).getByText("15 min 00 s")).toBeInTheDocument()
     expect(within(feeding).getByText("2 h 00 min")).toBeInTheDocument()
     expect(within(feeding).getByText("Temps moyen entre deux tétées")).toBeInTheDocument()
+    expect(within(feeding).getByText("Temps moyen: 10 min 00 s")).toBeInTheDocument()
+    expect(within(feeding).getByText("Temps moyen: 20 min 00 s")).toBeInTheDocument()
     expect(within(feeding).getAllByText("50 %", { exact: false })).toHaveLength(2)
 
     const stool = screen.getByTestId("stool-statistics")

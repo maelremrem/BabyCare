@@ -98,7 +98,10 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
 
   return (
     <Sheet open={Boolean(event)} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col sm:max-w-lg">
+      <SheetContent
+        className="flex w-full flex-col sm:max-w-lg"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         <SheetHeader className="px-6 pt-6">
           <SheetTitle>{t.eventLabels[event.type]}</SheetTitle>
           <SheetDescription>{t.eventEditor.description}</SheetDescription>

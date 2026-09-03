@@ -15,6 +15,31 @@ vi.mock("@/lib/api", () => ({
 }))
 
 describe("EventEditor", () => {
+  test("n’attribue pas automatiquement le focus au champ date", () => {
+    const event: BabyEvent = {
+      id: 11,
+      type: "temperature",
+      status: "completed",
+      started_at: "2026-08-30T10:00:00.000Z",
+      ended_at: "2026-08-30T10:00:00.000Z",
+      duration_seconds: null,
+      value_real: 37,
+      value_text: null,
+      notes: null,
+      metadata: null,
+      created_at: "2026-08-30T10:00:00.000Z",
+      updated_at: "2026-08-30T10:00:00.000Z"
+    }
+
+    render(
+      <I18nProvider preference="fr">
+        <EventEditor event={event} onOpenChange={vi.fn()} onChanged={vi.fn(async () => undefined)} />
+      </I18nProvider>
+    )
+
+    expect(document.activeElement).not.toBe(screen.getByLabelText("Date et heure"))
+  })
+
   test("permet de corriger la durée d’un événement chronométré", async () => {
     const user = userEvent.setup()
     const event: BabyEvent = {
