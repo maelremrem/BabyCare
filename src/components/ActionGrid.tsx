@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { TemperaturePicker } from "@/components/TemperaturePicker"
 import { api } from "@/lib/api"
 import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
-import { BABY_VITAMINS, IRRITATION_LOCATIONS, type EventType, type FeedingType } from "@/lib/types"
+import { BABY_VITAMINS, hasBottleFeeding, hasBreastFeeding, IRRITATION_LOCATIONS, type EventType, type FeedingType } from "@/lib/types"
 
 interface ActionGridProps {
   nextBreast: "breast_left" | "breast_right"
@@ -98,7 +98,7 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
         <Button variant="outline" className={actionClass} onClick={onOpenCare}>
           <Bath className="size-6" /> {t.actions.careBath}
         </Button>
-        {feedingType === "breast" ? (
+        {hasBreastFeeding(feedingType) ? (
           <>
             <Button variant="outline" className={`${actionClass} ${nextBreast === "breast_left" ? activeBreastClass : ""}`} onClick={() => start("breast_left", t.eventLabels.breast_left)}>
               <Milk className="size-6" /> {t.actions.leftBreast}
@@ -107,14 +107,15 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
               <Milk className="size-6" /> {t.actions.rightBreast}
             </Button>
           </>
-        ) : (
+        ) : null}
+        {hasBottleFeeding(feedingType) ? (
           <Button variant="outline" className={actionClass} onClick={() => {
             setBottleQuantity(bottleDefaultQuantity)
             setBottleOpen(true)
           }}>
             <Milk className="size-6" /> {t.eventLabels.bottle}
           </Button>
-        )}
+        ) : null}
         <Button variant="outline" className={actionClass} onClick={() => start("nap", t.eventLabels.nap)}>
           <Moon className="size-6" /> {t.eventLabels.nap}
         </Button>

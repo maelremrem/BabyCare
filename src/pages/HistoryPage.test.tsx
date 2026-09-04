@@ -74,4 +74,19 @@ describe("HistoryPage", () => {
     expect(within(feeding).getByText("120 ml")).toBeInTheDocument()
     expect(within(feeding).getByText("Temps moyen entre deux biberons")).toBeInTheDocument()
   })
+
+  test("affiche les cartes sein et biberon en mode mixte", async () => {
+    const monthlyEvents = [
+      event({ id: 1, type: "breast_left", started_at: "2026-08-01T08:00:00.000Z", duration_seconds: 600 }),
+      event({ id: 2, type: "bottle", started_at: "2026-08-01T09:00:00.000Z", value_real: 120 })
+    ]
+    vi.spyOn(api, "events").mockImplementation(async (params = new URLSearchParams()) => params.get("limit") === "250"
+      ? { events: monthlyEvents, total: monthlyEvents.length, limit: 250, offset: 0 }
+      : { events: [], total: 0, limit: 100, offset: 0 })
+
+    render(<HistoryPage refreshKey={0} feedingType="mixed" onEdit={vi.fn()} />)
+
+    expect(await screen.findByTestId("feeding-statistics")).toBeInTheDocument()
+    expect(screen.getByTestId("bottle-statistics")).toBeInTheDocument()
+  })
 })

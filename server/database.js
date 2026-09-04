@@ -17,6 +17,7 @@ function migrateToBabies(db) {
       birth_date TEXT NOT NULL DEFAULT '',
       sex TEXT NOT NULL DEFAULT '' CHECK(sex IN ('', 'girl', 'boy')),
       feeding_type TEXT NOT NULL DEFAULT 'breast' CHECK(feeding_type IN ('breast', 'bottle')),
+      bottle_enabled INTEGER NOT NULL DEFAULT 0 CHECK(bottle_enabled IN (0, 1)),
       accent_color TEXT NOT NULL DEFAULT 'orange',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -25,6 +26,11 @@ function migrateToBabies(db) {
 
   if (!hasColumn(db, "babies", "feeding_type")) {
     db.exec("ALTER TABLE babies ADD COLUMN feeding_type TEXT NOT NULL DEFAULT 'breast' CHECK(feeding_type IN ('breast', 'bottle'))")
+  }
+
+  if (!hasColumn(db, "babies", "bottle_enabled")) {
+    db.exec("ALTER TABLE babies ADD COLUMN bottle_enabled INTEGER NOT NULL DEFAULT 0 CHECK(bottle_enabled IN (0, 1))")
+    db.exec("UPDATE babies SET bottle_enabled = 1 WHERE feeding_type = 'bottle'")
   }
 
   if (!db.prepare("SELECT 1 FROM babies LIMIT 1").get()) {

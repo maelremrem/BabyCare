@@ -81,7 +81,7 @@ afterEach(() => {
 })
 
 describe("TrackingPage", () => {
-  test("place l’alerte avant les informations et la température en deuxième", () => {
+  test("place les repas avant la pile couche/bain et la température", () => {
     renderTracking(overdueAlert)
 
     const alert = screen.getByRole("alert")
@@ -89,16 +89,16 @@ describe("TrackingPage", () => {
 
     const informationSection = screen.getByRole("heading", { name: "Dernières informations" }).closest("section")
     expect(informationSection).not.toBeNull()
-    const labels = ["Tétée", "Température", "Couche", "Bain"].map((label) => (
+    const labels = ["Tétée", "Couche", "Bain", "Température"].map((label) => (
       within(informationSection!).getByText(label, { exact: true })
     ))
-    expect(labels.map((element) => element.textContent)).toEqual(["Tétée", "Température", "Couche", "Bain"])
-    expect(labels[2].closest('[data-slot="card"]')?.querySelector(".lucide-wallet-cards")).toBeInTheDocument()
+    expect(labels.map((element) => element.textContent)).toEqual(["Tétée", "Couche", "Bain", "Température"])
+    expect(labels[1].closest('[data-slot="card"]')?.querySelector(".lucide-wallet-cards")).toBeInTheDocument()
     labels.slice(1).forEach((element, index) => {
       expect(labels[index].compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
     expect(informationSection).toHaveTextContent("Zone idéale 36,5–37,5 °C")
-    expect(screen.getByTestId("temperature-info-card")).toHaveClass("lg:col-span-2")
+    expect(screen.getByTestId("temperature-info-card")).toHaveClass("h-full")
     const compactStack = screen.getByTestId("bath-diaper-stack")
     expect(within(compactStack).getByText("Couche", { exact: true })).toBeInTheDocument()
     expect(within(compactStack).getByText("Bain", { exact: true })).toBeInTheDocument()
@@ -261,5 +261,31 @@ describe("TrackingPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Biberon" }))
     expect(screen.getByRole("spinbutton", { name: "Sélecteur de biberon" })).toHaveAttribute("aria-valuenow", "150")
+  })
+
+  test("affiche les deux seins et le biberon en mode mixte sans casser l’alternance", () => {
+    const leftBreast = { ...temperatureEvent, id: 3, type: "breast_left" as const, started_at: "2026-08-01T11:00:00.000Z", duration_seconds: 600 }
+    const bottle = { ...temperatureEvent, id: 4, type: "bottle" as const, started_at: "2026-08-01T12:00:00.000Z", value_real: 120 }
+    render(
+      <TrackingPage
+        events={[bottle, leftBreast, temperatureEvent]}
+        running={[]}
+        loading={false}
+        stoolAlert={{ ...overdueAlert, overdue: false }}
+        feedingType="mixed"
+        onChanged={vi.fn(async () => undefined)}
+        onEdit={vi.fn()}
+        onOpenCare={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole("button", { name: "Sein Gauche" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Sein Droit" })).toHaveClass("text-primary")
+    expect(screen.getByRole("button", { name: "Biberon" })).toBeInTheDocument()
+    expect(screen.getByTestId("feeding-info-card")).toBeInTheDocument()
+    expect(screen.getByTestId("bottle-info-card")).toBeInTheDocument()
+    expect(screen.getByTestId("feeding-info-grid")).toHaveClass("sm:grid-cols-2")
+    expect(screen.getByTestId("care-temperature-grid")).toHaveClass("lg:grid-cols-3")
+    expect(screen.getByTestId("bath-diaper-stack").nextElementSibling).toHaveClass("lg:col-span-2")
   })
 })

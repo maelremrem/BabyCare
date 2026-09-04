@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { useClock } from "@/hooks/useClock"
 import { api } from "@/lib/api"
 import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
-import type { BabyEvent, DailyCare, FeedingType, StoolAlert } from "@/lib/types"
+import { hasBottleFeeding, hasBreastFeeding, type BabyEvent, type DailyCare, type FeedingType, type StoolAlert } from "@/lib/types"
 import { dateKey, dayHeading, formatDuration, formatTime, groupEventsByDay, relativeTime } from "@/lib/dates"
 
 const CARE_ALERT_THRESHOLD_MS = 24 * 60 * 60 * 1000
@@ -35,11 +35,12 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
   const { locale, t } = useI18n()
   const now = useClock()
   const [validatingCare, setValidatingCare] = useState(false)
-  const lastFeeding = events.find((event) => feedingType === "bottle"
-    ? event.type === "bottle"
-    : event.type === "breast_left" || event.type === "breast_right")
+  const breastEnabled = hasBreastFeeding(feedingType)
+  const bottleEnabled = hasBottleFeeding(feedingType)
+  const lastBreastFeeding = events.find((event) => event.type === "breast_left" || event.type === "breast_right")
+  const lastBottle = events.find((event) => event.type === "bottle")
   const lastBottleQuantity = events.find((event) => event.type === "bottle" && Number.isFinite(event.value_real))?.value_real ?? 150
-  const nextBreast = lastFeeding?.type === "breast_left" ? "breast_right" : "breast_left"
+  const nextBreast = lastBreastFeeding?.type === "breast_left" ? "breast_right" : "breast_left"
   const lastDiaper = events.find((event) => event.type === "diaper")
   const lastBath = events.find((event) => event.type === "bath")
   const lastDailyCare = events.find((event) => event.type === "daily_care")
@@ -49,12 +50,14 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
   const careElapsedMs = lastDailyCare ? now.getTime() - Date.parse(lastDailyCare.started_at) : null
   const isDailyCareOverdue = careElapsedMs == null || careElapsedMs > CARE_ALERT_THRESHOLD_MS
   const today = dateKey(now.toISOString())
-  const feedingsToday = events.reduce((count, event) => {
-    const isFeeding = feedingType === "bottle" ? event.type === "bottle" : event.type === "breast_left" || event.type === "breast_right"
-    return count + (isFeeding && dateKey(event.started_at) === today ? 1 : 0)
-  }, 0)
-  const lastFeedingElapsed = lastFeeding
-    ? formatDuration(Math.max(0, Math.floor((now.getTime() - Date.parse(lastFeeding.started_at)) / 1000)), locale)
+  const breastFeedingsToday = events.reduce((count, event) => count + (
+    (event.type === "breast_left" || event.type === "breast_right") && dateKey(event.started_at) === today ? 1 : 0
+  ), 0)
+  const bottlesToday = events.reduce((count, event) => count + (
+    event.type === "bottle" && dateKey(event.started_at) === today ? 1 : 0
+  ), 0)
+  const elapsedSince = (event: BabyEvent | undefined) => event
+    ? formatDuration(Math.max(0, Math.floor((now.getTime() - Date.parse(event.started_at)) / 1000)), locale)
     : ""
   const temperatures = events
     .filter((event) => event.type === "temperature" && event.value_real != null)
@@ -75,30 +78,36 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
     }
   }
 
-  const info = [
-    {
-      label: feedingType === "bottle" ? t.tracking.bottle : t.tracking.feeding,
+  const feedingInfo = [
+    breastEnabled ? {
+      testId: "feeding-info-card",
+      label: t.tracking.feeding,
       icon: Milk,
-      primary: lastFeeding
-        ? lastFeeding.type === "bottle" && lastFeeding.value_real != null
-          ? `${lastFeeding.value_real.toFixed(0)} ml`
-          : t.eventLabels[lastFeeding.type]
+      primary: lastBreastFeeding
+        ? t.eventLabels[lastBreastFeeding.type]
         : t.common.none,
-      // A bottle is an instantaneous event, so its relative time is already
-      // represented by `elapsed` below. Showing it here would duplicate the
-      // same information in the latest-feeding card.
-      secondary: lastFeeding
-        ? feedingType === "bottle"
-          ? formatDuration(lastFeeding.duration_seconds, locale)
-          : formatDuration(lastFeeding.duration_seconds, locale) || relativeTime(lastFeeding.started_at, locale)
+      secondary: lastBreastFeeding
+        ? formatDuration(lastBreastFeeding.duration_seconds, locale) || relativeTime(lastBreastFeeding.started_at, locale)
         : "",
-      elapsed: lastFeedingElapsed
-        ? interpolate(feedingType === "bottle" ? t.tracking.sinceLastBottle : t.tracking.sinceLastFeeding, { duration: `\n${lastFeedingElapsed}` })
+      elapsed: lastBreastFeeding
+        ? interpolate(t.tracking.sinceLastFeeding, { duration: `\n${elapsedSince(lastBreastFeeding)}` })
         : undefined,
-      caption: `${feedingsToday} ${feedingType === "bottle"
-        ? feedingsToday === 1 ? t.tracking.bottlesTodaySingular : t.tracking.bottlesTodayPlural
-        : feedingsToday === 1 ? t.tracking.feedingsTodaySingular : t.tracking.feedingsTodayPlural}`
-    },
+      caption: `${breastFeedingsToday} ${breastFeedingsToday === 1 ? t.tracking.feedingsTodaySingular : t.tracking.feedingsTodayPlural}`
+    } : null,
+    bottleEnabled ? {
+      testId: breastEnabled ? "bottle-info-card" : "feeding-info-card",
+      label: t.tracking.bottle,
+      icon: Milk,
+      primary: lastBottle?.value_real != null ? `${lastBottle.value_real.toFixed(0)} ml` : t.common.none,
+      secondary: "",
+      elapsed: lastBottle
+        ? interpolate(t.tracking.sinceLastBottle, { duration: `\n${elapsedSince(lastBottle)}` })
+        : undefined,
+      caption: `${bottlesToday} ${bottlesToday === 1 ? t.tracking.bottlesTodaySingular : t.tracking.bottlesTodayPlural}`
+    } : null
+  ].filter((item): item is NonNullable<typeof item> => item !== null)
+
+  const otherInfo = [
     {
       label: t.tracking.diaper,
       icon: WalletCards,
@@ -132,11 +141,15 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
 
       <section>
         <SectionTitle>{t.tracking.latestInfo}</SectionTitle>
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-          <InfoCard {...info[0]} />
-          <TemperatureInfoCard events={temperatures} />
+        <div data-testid="feeding-info-grid" className={`grid grid-cols-1 gap-3 ${feedingInfo.length === 2 ? "sm:grid-cols-2" : ""}`}>
+          {feedingInfo.map((item) => <InfoCard key={item.testId} {...item} />)}
+        </div>
+        <div data-testid="care-temperature-grid" className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
           <div data-testid="bath-diaper-stack" className="grid gap-3">
-            {info.slice(1).map((item) => <CompactInfoCard key={item.label} {...item} />)}
+            {otherInfo.map((item) => <CompactInfoCard key={item.label} {...item} />)}
+          </div>
+          <div className="lg:col-span-2">
+            <TemperatureInfoCard events={temperatures} />
           </div>
         </div>
       </section>
@@ -236,7 +249,8 @@ function StoolAlertCard({ alert }: { alert: StoolAlert }) {
   )
 }
 
-function InfoCard({ label, icon: Icon, primary, secondary, elapsed, caption }: {
+function InfoCard({ testId, label, icon: Icon, primary, secondary, elapsed, caption }: {
+  testId: string
   label: string
   icon: typeof Milk
   primary: string
@@ -245,7 +259,7 @@ function InfoCard({ label, icon: Icon, primary, secondary, elapsed, caption }: {
   caption?: string
 }) {
   return (
-    <Card data-testid="feeding-info-card" className="bg-card/80">
+    <Card data-testid={testId} className="bg-card/80">
       <CardContent className="flex items-center gap-4 px-4 py-0 sm:block sm:px-5 sm:py-0">
         <Icon className="size-5 shrink-0 text-primary sm:mb-5" aria-hidden="true" />
         <div>
@@ -288,7 +302,7 @@ function TemperatureInfoCard({ events }: { events: BabyEvent[] }) {
   const latest = events[events.length - 1]
 
   return (
-    <Card data-testid="temperature-info-card" className="bg-card/80 lg:col-span-2">
+    <Card data-testid="temperature-info-card" className="h-full bg-card/80">
       <CardContent className="px-4 py-0 sm:px-5 sm:py-0">
         <Thermometer className="mb-3 size-5 text-primary sm:mb-5" aria-hidden="true" />
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t.eventLabels.temperature}</p>

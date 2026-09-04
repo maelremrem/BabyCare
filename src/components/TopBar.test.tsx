@@ -138,7 +138,7 @@ describe("TopBar", () => {
     vi.unstubAllGlobals()
   })
 
-  test("enregistre le sexe et le type d’allaitement avec le profil du bébé", async () => {
+  test("permet d’activer le sein et le biberon ensemble", async () => {
     const user = userEvent.setup()
     const onProfileChange = vi.fn(async () => undefined)
     render(
@@ -166,11 +166,15 @@ describe("TopBar", () => {
     expect(girlButton.querySelector(".lucide-venus")).toBeInTheDocument()
     await user.click(girlButton)
     await user.click(screen.getByRole("button", { name: "Choisir Vert pour ce bébé" }))
-    await user.click(screen.getByRole("button", { name: "Au biberon" }))
+    const breastButton = screen.getByRole("button", { name: "Au sein" })
+    const bottleButton = screen.getByRole("button", { name: "Au biberon" })
+    await user.click(bottleButton)
     expect(girlButton).toHaveAttribute("aria-pressed", "true")
+    expect(breastButton).toHaveAttribute("aria-pressed", "true")
+    expect(bottleButton).toHaveAttribute("aria-pressed", "true")
     await user.click(screen.getByRole("button", { name: "Enregistrer le profil" }))
 
-    await waitFor(() => expect(onProfileChange).toHaveBeenCalledWith("Lou", "2026-01-02", "girl", "bottle", "green"))
+    await waitFor(() => expect(onProfileChange).toHaveBeenCalledWith("Lou", "2026-01-02", "girl", "mixed", "green"))
   })
 
   test("demande une confirmation avant de réinitialiser la base", async () => {

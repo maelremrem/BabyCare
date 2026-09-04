@@ -418,10 +418,18 @@ test("conserve le profil du bébé et refuse une naissance future", () => withSe
   assert.equal(invalidColor.status, 400)
   assert.equal((await invalidColor.json()).code, "invalid_accent_color")
 
-  const invalidFeedingType = await fetch(`${baseUrl}/api/settings/profile`, {
+  const mixedFeeding = await fetch(`${baseUrl}/api/settings/profile`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl", feeding_type: "mixed" })
+  }).then((response) => response.json())
+  assert.equal(mixedFeeding.feeding_type, "mixed")
+  assert.equal(mixedFeeding.babies[0].feeding_type, "mixed")
+
+  const invalidFeedingType = await fetch(`${baseUrl}/api/settings/profile`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ baby_name: "Lou", birth_date: "2025-12-03", baby_sex: "girl", feeding_type: "formula" })
   })
   assert.equal(invalidFeedingType.status, 400)
   assert.equal((await invalidFeedingType.json()).code, "invalid_feeding_type")

@@ -150,12 +150,12 @@ const fr = {
       boy: "Garçon"
     } satisfies Record<Exclude<BabySex, "">, string>,
     sexHelp: "Nécessaire avec la date de naissance pour afficher les références OMS.",
-    feedingType: "Type d’allaitement",
+    feedingType: "Repas disponibles",
     feedingTypeOptions: {
       breast: "Au sein",
       bottle: "Au biberon"
     },
-    feedingTypeHelp: "Adapte les actions rapides et les statistiques de repas.",
+    feedingTypeHelp: "Activez le sein, le biberon ou les deux. Au moins un choix reste actif.",
     saveProfile: "Enregistrer le profil",
     invalidBirthDate: "Utilisez le format jj/mm/aaaa pour la date de naissance.",
     futureBirthDate: "La date de naissance ne peut pas être dans le futur.",
@@ -574,12 +574,12 @@ const en: Messages = {
       boy: "Boy"
     },
     sexHelp: "Required with the birth date to show WHO reference ranges.",
-    feedingType: "Feeding type",
+    feedingType: "Available feedings",
     feedingTypeOptions: {
       breast: "Breastfeeding",
       bottle: "Bottle feeding"
     },
-    feedingTypeHelp: "Adjusts quick actions and feeding statistics.",
+    feedingTypeHelp: "Enable breastfeeding, bottle feeding, or both. At least one option remains active.",
     saveProfile: "Save profile",
     invalidBirthDate: "Use the mm/dd/yyyy format for the birth date.",
     futureBirthDate: "The birth date cannot be in the future.",

@@ -32,6 +32,7 @@ test("migre les données existantes vers le premier bébé", () => {
     assert.equal(baby.name, "Lou")
     assert.equal(baby.accent_color, "green")
     assert.equal(baby.feeding_type, "breast")
+    assert.equal(baby.bottle_enabled, 0)
     assert.equal(migrated.prepare("SELECT baby_id FROM events").get().baby_id, baby.id)
     assert.equal(Number(migrated.prepare("SELECT value FROM app_settings WHERE key = 'active_baby_id'").get().value), baby.id)
   } finally {

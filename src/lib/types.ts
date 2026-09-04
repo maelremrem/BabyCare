@@ -54,7 +54,15 @@ export const ACCENT_OPTIONS = [
 
 export type AccentColor = typeof ACCENT_OPTIONS[number]["id"]
 export type BabySex = "" | "girl" | "boy"
-export type FeedingType = "breast" | "bottle"
+export type FeedingType = "breast" | "bottle" | "mixed"
+
+export function hasBreastFeeding(feedingType: FeedingType) {
+  return feedingType === "breast" || feedingType === "mixed"
+}
+
+export function hasBottleFeeding(feedingType: FeedingType) {
+  return feedingType === "bottle" || feedingType === "mixed"
+}
 
 export interface BabyProfile {
   id: number

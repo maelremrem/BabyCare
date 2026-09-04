@@ -133,7 +133,9 @@ function WidgetView({
   const activeEvent = running[0] || null
   const lastFeeding = events.find((event) => feedType === "bottle"
     ? event.type === "bottle"
-    : event.type === "breast_left" || event.type === "breast_right")
+    : feedType === "breast"
+      ? event.type === "breast_left" || event.type === "breast_right"
+      : event.type === "bottle" || event.type === "breast_left" || event.type === "breast_right")
   const lastDiaper = events.find((event) => event.type === "diaper")
   const lastTemperature = events.find((event) => event.type === "temperature" && event.value_real != null)
   const completedCareCount = care.filter((item) => item.completed === 1).length
@@ -157,7 +159,7 @@ function WidgetView({
       const detail = formatDuration(Math.max(0, Math.floor((now.getTime() - Date.parse(lastFeeding.started_at)) / 1000)), locale)
       const caption = relativeTime(lastFeeding.started_at, locale)
       return {
-        label: feedType === "bottle" ? t.widget.latestBottle : t.widget.latestFeeding,
+        label: lastFeeding.type === "bottle" ? t.widget.latestBottle : t.widget.latestFeeding,
         value,
         detail: detail || t.common.noValue,
         caption
@@ -170,7 +172,7 @@ function WidgetView({
       detail: t.widget.noData,
       caption: ""
     }
-  }, [activeEvent, activeTimer, feedType, lastFeeding, locale, now, t])
+  }, [activeEvent, activeTimer, lastFeeding, locale, now, t])
 
   if (loading) return <WidgetShell><WidgetLoading /></WidgetShell>
 

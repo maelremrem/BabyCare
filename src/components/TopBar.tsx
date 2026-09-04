@@ -15,7 +15,7 @@ import { useClock } from "@/hooks/useClock"
 import { useAppUpdate } from "@/hooks/useAppUpdate"
 import { formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, formatShortDate, getAgeParts } from "@/lib/dates"
 import { getLocaleTag, interpolate, localizedErrorMessage, type LanguagePreference, useI18n } from "@/lib/i18n"
-import { ACCENT_OPTIONS, type AccentColor, type AppSettings, type BabySex, type FeedingType } from "@/lib/types"
+import { ACCENT_OPTIONS, hasBottleFeeding, hasBreastFeeding, type AccentColor, type AppSettings, type BabySex, type FeedingType } from "@/lib/types"
 
 interface TopBarProps {
   settings: AppSettings
@@ -172,6 +172,19 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
     } finally {
       setSaving(false)
     }
+  }
+
+  function toggleFeedingType(value: "breast" | "bottle") {
+    setFeedingType((current) => {
+      if (value === "breast") {
+        if (current === "mixed") return "bottle"
+        if (current === "bottle") return "mixed"
+        return current
+      }
+      if (current === "mixed") return "breast"
+      if (current === "breast") return "mixed"
+      return current
+    })
   }
 
   function startAddingBaby() {
@@ -427,9 +440,9 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                       <Button
                         key={value}
                         type="button"
-                        variant={feedingType === value ? "default" : "outline"}
-                        aria-pressed={feedingType === value}
-                        onClick={() => setFeedingType(value)}
+                        variant={(value === "breast" ? hasBreastFeeding(feedingType) : hasBottleFeeding(feedingType)) ? "default" : "outline"}
+                        aria-pressed={value === "breast" ? hasBreastFeeding(feedingType) : hasBottleFeeding(feedingType)}
+                        onClick={() => toggleFeedingType(value)}
                       >
                         {t.settings.feedingTypeOptions[value]}
                       </Button>

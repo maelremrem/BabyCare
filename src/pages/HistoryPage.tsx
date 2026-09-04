@@ -12,7 +12,7 @@ import { api, isDemoMode } from "@/lib/api"
 import { dayHeading, formatDuration, groupEventsByDay } from "@/lib/dates"
 import { calculateHistoryStatistics } from "@/lib/historyStatistics"
 import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
-import { EVENT_LABELS, type BabyEvent, type EventType, type FeedingType } from "@/lib/types"
+import { EVENT_LABELS, hasBottleFeeding, hasBreastFeeding, type BabyEvent, type EventType, type FeedingType } from "@/lib/types"
 
 interface HistoryPageProps {
   refreshKey: number
@@ -123,6 +123,8 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
 
   const groups = groupEventsByDay(events)
   const statistics = useMemo(() => calculateHistoryStatistics(statisticsEvents), [statisticsEvents])
+  const breastEnabled = hasBreastFeeding(feedingType)
+  const bottleEnabled = hasBottleFeeding(feedingType)
   const monthLabel = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", { month: "long", year: "numeric" }).format(new Date())
   const formatTemperature = (value: number | null) => value == null
     ? "—"
@@ -189,7 +191,7 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
         <h3 id="history-statistics-title" className="text-sm font-semibold tracking-wide text-muted-foreground first-letter:uppercase">
           {interpolate(t.history.statisticsTitle, { month: monthLabel })}
         </h3>
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className={`grid gap-3 ${breastEnabled && bottleEnabled ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
           <Card data-testid="temperature-statistics" className="gap-4 border-chart-1/30 bg-card/80 py-5">
             <CardContent className="space-y-4 px-5">
               <div className="flex items-center gap-3">
@@ -210,24 +212,19 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
             </CardContent>
           </Card>
 
-          <Card data-testid="feeding-statistics" className="gap-4 border-chart-2/30 bg-card/80 py-5">
+          {breastEnabled ? <Card data-testid="feeding-statistics" className="gap-4 border-chart-2/30 bg-card/80 py-5">
             <CardContent className="space-y-4 px-5">
               <div className="flex items-center gap-3">
                 <span className="grid size-10 place-items-center rounded-xl bg-chart-2/15 text-chart-2"><Utensils className="size-5" /></span>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{feedingType === "bottle" ? t.history.bottleStatistics : t.history.feedingAverage}</p>
-                  <p className="mt-1 text-2xl font-semibold">{statisticsLoading ? "—" : feedingType === "bottle" ? bottleIntervalAverage : feedingAverage}</p>
-                  <p className="text-xs text-muted-foreground">{feedingType === "bottle" ? t.history.bottleIntervalAverage : t.history.feedingDurationAverage}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t.history.feedingAverage}</p>
+                  <p className="mt-1 text-2xl font-semibold">{statisticsLoading ? "—" : feedingAverage}</p>
+                  <p className="text-xs text-muted-foreground">{t.history.feedingDurationAverage}</p>
                 </div>
               </div>
               {statisticsLoading ? (
                 <p className="text-sm text-muted-foreground">{t.history.loading}</p>
-              ) : feedingType === "bottle" && statistics.bottle.total ? (
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.averageQuantity}</span><strong className="mt-1 block">{bottleQuantityAverage}</strong></div>
-                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.bottleCount}</span><strong className="mt-1 block">{statistics.bottle.total}</strong></div>
-                </div>
-              ) : feedingType === "breast" && statistics.feeding.total ? (
+              ) : statistics.feeding.total ? (
                 <div className="grid gap-2 text-sm sm:grid-cols-3">
                   <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.feedingIntervalAverage}</span><strong className="mt-1 block">{feedingIntervalAverage}</strong></div>
                   <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.leftBreast}</span><strong className="mt-1 block">{percentage(statistics.feeding.leftCount, statistics.feeding.total)} % <span className="font-normal text-muted-foreground">({statistics.feeding.leftCount})</span></strong><span className="mt-2 block text-xs text-muted-foreground">{t.history.leftBreastDurationAverage}: {leftBreastDurationAverage}</span></div>
@@ -235,7 +232,28 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
                 </div>
               ) : <p className="text-sm text-muted-foreground">{t.history.noMonthlyData}</p>}
             </CardContent>
-          </Card>
+          </Card> : null}
+
+          {bottleEnabled ? <Card data-testid={breastEnabled ? "bottle-statistics" : "feeding-statistics"} className="gap-4 border-chart-2/30 bg-card/80 py-5">
+            <CardContent className="space-y-4 px-5">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-chart-2/15 text-chart-2"><Utensils className="size-5" /></span>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t.history.bottleStatistics}</p>
+                  <p className="mt-1 text-2xl font-semibold">{statisticsLoading ? "—" : bottleIntervalAverage}</p>
+                  <p className="text-xs text-muted-foreground">{t.history.bottleIntervalAverage}</p>
+                </div>
+              </div>
+              {statisticsLoading ? (
+                <p className="text-sm text-muted-foreground">{t.history.loading}</p>
+              ) : statistics.bottle.total ? (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.averageQuantity}</span><strong className="mt-1 block">{bottleQuantityAverage}</strong></div>
+                  <div className="rounded-lg bg-muted/60 p-3"><span className="text-muted-foreground">{t.history.bottleCount}</span><strong className="mt-1 block">{statistics.bottle.total}</strong></div>
+                </div>
+              ) : <p className="text-sm text-muted-foreground">{t.history.noMonthlyData}</p>}
+            </CardContent>
+          </Card> : null}
 
           <Card data-testid="stool-statistics" className="gap-4 border-chart-3/30 bg-card/80 py-5">
             <CardContent className="space-y-4 px-5">

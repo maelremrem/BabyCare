@@ -30,7 +30,7 @@ const EVENT_TYPES = new Set([
 const TIMER_TYPES = new Set(["breast_left", "breast_right", "nap"])
 const ACCENT_COLORS = new Set(["orange", "blue", "green", "pink", "purple"])
 const BABY_SEXES = new Set(["", "girl", "boy"])
-const FEEDING_TYPES = new Set(["breast", "bottle"])
+const FEEDING_TYPES = new Set(["breast", "bottle", "mixed"])
 const LANGUAGE_PREFERENCES = new Set(["system", "fr", "en"])
 const DAILY_CARE_TYPES = ["eyes", "face", "nose", "cord"]
 const BATH_ITEMS = [
@@ -292,7 +292,18 @@ function readSettings(db) {
     activeBaby = db.prepare("SELECT * FROM babies ORDER BY id LIMIT 1").get()
     if (activeBaby) saveSetting(db, "active_baby_id", String(activeBaby.id))
   }
-  const babies = db.prepare("SELECT id, name, birth_date, sex AS baby_sex, feeding_type, accent_color FROM babies ORDER BY created_at, id").all()
+  const normalizeFeedingType = (baby) => baby?.feeding_type === "bottle"
+    ? "bottle"
+    : baby?.bottle_enabled === 1 ? "mixed" : "breast"
+  const babies = db.prepare("SELECT id, name, birth_date, sex AS baby_sex, feeding_type, bottle_enabled, accent_color FROM babies ORDER BY created_at, id").all()
+    .map((baby) => ({
+      id: baby.id,
+      name: baby.name,
+      birth_date: baby.birth_date,
+      baby_sex: baby.baby_sex,
+      feeding_type: normalizeFeedingType(baby),
+      accent_color: baby.accent_color
+    }))
   return {
     active_baby_id: activeBaby?.id || 0,
     babies,
@@ -300,7 +311,7 @@ function readSettings(db) {
     baby_name: activeBaby?.name || "",
     birth_date: activeBaby?.birth_date || "",
     baby_sex: BABY_SEXES.has(activeBaby?.sex) ? activeBaby.sex : "",
-    feeding_type: FEEDING_TYPES.has(activeBaby?.feeding_type) ? activeBaby.feeding_type : "breast",
+    feeding_type: normalizeFeedingType(activeBaby),
     language_preference: LANGUAGE_PREFERENCES.has(values.language_preference) ? values.language_preference : "system"
   }
 }
@@ -494,9 +505,11 @@ export function createApp({ db = createDatabase(), updateService = createUpdateS
       return sendApiError(response, 400, "invalid_accent_color")
     }
 
+    const storedFeedingType = feedingType === "mixed" ? "breast" : feedingType
+    const bottleEnabled = feedingType === "breast" ? 0 : 1
     db.prepare(`
-      UPDATE babies SET name = ?, birth_date = ?, sex = ?, feeding_type = ?, accent_color = ?, updated_at = ? WHERE id = ?
-    `).run(babyName.trim(), birthDate, babySex, feedingType, accentColor, nowIso(), activeBabyId(db))
+      UPDATE babies SET name = ?, birth_date = ?, sex = ?, feeding_type = ?, bottle_enabled = ?, accent_color = ?, updated_at = ? WHERE id = ?
+    `).run(babyName.trim(), birthDate, babySex, storedFeedingType, bottleEnabled, accentColor, nowIso(), activeBabyId(db))
     response.json(readSettings(db))
   })
 
@@ -518,10 +531,12 @@ export function createApp({ db = createDatabase(), updateService = createUpdateS
       return sendApiError(response, 400, "invalid_accent_color")
     }
     const timestamp = nowIso()
+    const storedFeedingType = feedingType === "mixed" ? "breast" : feedingType
+    const bottleEnabled = feedingType === "breast" ? 0 : 1
     const result = db.prepare(`
-      INSERT INTO babies (name, birth_date, sex, feeding_type, accent_color, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(babyName.trim(), birthDate, babySex, feedingType, accentColor, timestamp, timestamp)
+      INSERT INTO babies (name, birth_date, sex, feeding_type, bottle_enabled, accent_color, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(babyName.trim(), birthDate, babySex, storedFeedingType, bottleEnabled, accentColor, timestamp, timestamp)
     saveSetting(db, "active_baby_id", String(result.lastInsertRowid))
     response.status(201).json(readSettings(db))
   })
