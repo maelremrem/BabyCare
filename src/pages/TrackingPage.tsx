@@ -121,6 +121,11 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
       icon: Bath,
       primary: lastBath ? formatTime(lastBath.started_at, locale) : t.common.none,
       secondary: lastBath ? relativeTime(lastBath.started_at, locale) : "",
+      care: {
+        label: t.eventLabels.daily_care,
+        primary: lastDailyCare ? formatTime(lastDailyCare.started_at, locale) : t.common.none,
+        secondary: lastDailyCare ? relativeTime(lastDailyCare.started_at, locale) : ""
+      },
       caption: undefined
     }
   ]
@@ -275,17 +280,27 @@ function InfoCard({ testId, label, icon: Icon, primary, secondary, elapsed, capt
   )
 }
 
-function CompactInfoCard({ label, icon: Icon, primary, secondary }: {
+function CompactInfoCard({ label, icon: Icon, primary, secondary, care }: {
   label: string
   icon: typeof Milk
   primary: string
   secondary: string
+  care?: { label: string; primary: string; secondary: string }
 }) {
   return (
     <Card className="bg-card/80">
       <CardContent className="flex min-h-0 items-center gap-3 px-3 py-0 sm:px-4 sm:py-0">
         <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
         <div className="min-w-0">
+          {care ? (
+            <div className="mb-3 border-b border-border pb-3">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{care.label}</p>
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <p className="font-medium">{care.primary}</p>
+                <p className="text-xs text-muted-foreground">{care.secondary || "—"}</p>
+              </div>
+            </div>
+          ) : null}
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
           <div className="flex flex-wrap items-baseline gap-x-2">
             <p className="font-medium">{primary}</p>
