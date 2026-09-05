@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { api } from "@/lib/api"
+import { reconcileUpdateStatus } from "@/lib/updateStatus"
 import type { UpdateStatus, VersionInfo } from "@/lib/types"
 
 async function refreshForNewClient(serverVersion: string) {
@@ -25,7 +26,7 @@ export function useAppUpdate() {
     try {
       const info = await api.versionInfo(force)
       setVersionInfo(info)
-      setStatus(info.status)
+      setStatus((current) => reconcileUpdateStatus(current, info.status))
       if (info.currentVersion !== __APP_VERSION__ && !refreshing.current) {
         refreshing.current = true
         await refreshForNewClient(info.currentVersion)
@@ -37,7 +38,7 @@ export function useAppUpdate() {
 
   const loadStatus = useCallback(async () => {
     const nextStatus = await api.updateStatus()
-    setStatus(nextStatus)
+    setStatus((current) => reconcileUpdateStatus(current, nextStatus))
     if (nextStatus.state === "complete" && completionRefreshTimer.current === null) {
       completionRefreshTimer.current = window.setTimeout(() => {
         completionRefreshTimer.current = null
