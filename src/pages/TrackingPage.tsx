@@ -40,7 +40,8 @@ export function TrackingPage({ events, running, loading, stoolAlert, feedingType
   const lastBreastFeeding = events.find((event) => event.type === "breast_left" || event.type === "breast_right")
   const lastBottle = events.find((event) => event.type === "bottle")
   const lastBottleQuantity = events.find((event) => event.type === "bottle" && Number.isFinite(event.value_real))?.value_real ?? 150
-  const nextBreast = lastBreastFeeding?.type === "breast_left" ? "breast_right" : "breast_left"
+  const lastBreastUse = events.find((event) => ["breast_left", "breast_right", "pump_left", "pump_right"].includes(event.type))
+  const nextBreast = lastBreastUse?.type === "breast_left" || lastBreastUse?.type === "pump_left" ? "breast_right" : "breast_left"
   const lastDiaper = events.find((event) => event.type === "diaper")
   const lastBath = events.find((event) => event.type === "bath")
   const lastDailyCare = events.find((event) => event.type === "daily_care")

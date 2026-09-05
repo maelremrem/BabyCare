@@ -24,6 +24,7 @@ const toLocalInput = (value: string) => {
 
 export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps) {
   const { t } = useI18n()
+  const [pumpType, setPumpType] = useState<"pump_left" | "pump_right">("pump_left")
   const [notes, setNotes] = useState("")
   const [startedAt, setStartedAt] = useState("")
   const [value, setValue] = useState("")
@@ -36,13 +37,14 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
 
   useEffect(() => {
     if (!event) return
+    if (event.type === "pump_left" || event.type === "pump_right") setPumpType(event.type)
     setNotes(event.notes || "")
     setStartedAt(toLocalInput(event.started_at))
     setValue(event.value_real == null
       ? event.value_text || ""
       : event.type === "weight"
         ? event.value_real.toFixed(3)
-        : event.type === "bottle"
+        : ["bottle", "pump_left", "pump_right"].includes(event.type)
           ? event.value_real.toFixed(0)
         : event.value_real.toFixed(1))
     setDetail(typeof event.metadata?.diaper_type === "string" ? event.metadata.diaper_type : "")
@@ -73,7 +75,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
   if (!event) return null
 
   const save = async () => {
-    const isNumericMeasurement = event.type === "temperature" || event.type === "weight" || event.type === "height" || event.type === "bottle"
+    const isNumericMeasurement = event.type === "temperature" || event.type === "weight" || event.type === "height" || ["bottle", "pump_left", "pump_right"].includes(event.type)
     const isTimer = event.type === "breast_left" || event.type === "breast_right" || event.type === "nap"
     const duration = Number(durationHours) * 3600 + Number(durationMinutes) * 60 + Number(durationSeconds)
     const metadata = event.type === "diaper"
@@ -84,6 +86,7 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
           ? { vitamins }
         : event.metadata
     await api.updateEvent(event.id, {
+      type: event.type === "pump_left" || event.type === "pump_right" ? pumpType : event.type,
       notes,
       started_at: new Date(startedAt).toISOString(),
       value_real: isNumericMeasurement ? Number(value) : event.value_real,
@@ -129,7 +132,16 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
               <Input type="number" min="20" max="200" step="0.1" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
           )}
-          {event.type === "bottle" && (
+          {(event.type === "pump_left" || event.type === "pump_right") && (
+            <div className="grid grid-cols-2 gap-2">
+              {(["pump_left", "pump_right"] as const).map((side) => (
+                <Button key={side} aria-pressed={pumpType === side} variant={pumpType === side ? "default" : "outline"} onClick={() => setPumpType(side)}>
+                  {side === "pump_left" ? t.eventLabels.breast_left : t.eventLabels.breast_right}
+                </Button>
+              ))}
+            </div>
+          )}
+          {["bottle", "pump_left", "pump_right"].includes(event.type) && (
             <label className="grid gap-2 text-sm font-medium">
               {t.eventEditor.bottleQuantity}
               <Input type="number" min="1" max="1000" step="1" value={value} onChange={(e) => setValue(e.target.value)} />

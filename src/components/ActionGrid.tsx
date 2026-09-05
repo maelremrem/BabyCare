@@ -33,6 +33,10 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
   const [vitaminOpen, setVitaminOpen] = useState(false)
   const [observationOpen, setObservationOpen] = useState(false)
   const [diaperOpen, setDiaperOpen] = useState(false)
+  const [pumpOpen, setPumpOpen] = useState(false)
+  const [pumpSide, setPumpSide] = useState<"pump_left" | "pump_right">("pump_left")
+  const [pumpQuantity, setPumpQuantity] = useState(150)
+  const [pumpSaving, setPumpSaving] = useState(false)
   const [bottleOpen, setBottleOpen] = useState(false)
   const [bottleQuantity, setBottleQuantity] = useState(bottleDefaultQuantity)
   const [temperature, setTemperature] = useState(37)
@@ -108,6 +112,12 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
             </Button>
           </>
         ) : null}
+        <Button variant="outline" className={actionClass} onClick={() => {
+          setPumpSide(nextBreast === "breast_left" ? "pump_left" : "pump_right")
+          setPumpOpen(true)
+        }}>
+          <Milk className="size-6" /> {t.actions.pump}
+        </Button>
         {hasBottleFeeding(feedingType) ? (
           <Button variant="outline" className={actionClass} onClick={() => {
             setBottleQuantity(bottleDefaultQuantity)
@@ -133,6 +143,38 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
           <MessageSquarePlus className="size-6" /> {t.actions.addObservation}
         </Button>
       </div>
+
+      <Dialog open={pumpOpen} onOpenChange={setPumpOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Milk /> {t.actions.pump}</DialogTitle>
+            <DialogDescription>{t.actions.pumpDescription}</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            {(["pump_left", "pump_right"] as const).map((side) => (
+              <Button key={side} className="h-12" aria-pressed={pumpSide === side} variant={pumpSide === side ? "default" : "outline"} onClick={() => setPumpSide(side)}>
+                {side === "pump_left" ? t.eventLabels.breast_left : t.eventLabels.breast_right}
+              </Button>
+            ))}
+          </div>
+          <MeasurementPicker value={pumpQuantity} onChange={setPumpQuantity} min={10} max={1000} step={10} decimals={0} unit="ml" label={t.actions.pump} stepLabel="10 ml" />
+          <DialogFooter>
+            <Button className="h-12" disabled={pumpSaving} onClick={async () => {
+              setPumpSaving(true)
+              try {
+                await api.createEvent({ type: pumpSide, value_real: pumpQuantity })
+                toast.success(interpolate(t.actions.recorded, { label: `${t.eventLabels[pumpSide]} · ${pumpQuantity} ml` }))
+                setPumpOpen(false)
+                await onChanged()
+              } catch (error) {
+                toast.error(localizedErrorMessage(error, t, t.common.actionImpossible))
+              } finally {
+                setPumpSaving(false)
+              }
+            }}>{t.common.save}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={bottleOpen} onOpenChange={setBottleOpen}>
         <DialogContent className="sm:max-w-md">

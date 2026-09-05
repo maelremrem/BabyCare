@@ -289,3 +289,28 @@ describe("TrackingPage", () => {
     expect(screen.getByTestId("bath-diaper-stack").nextElementSibling).toHaveClass("lg:col-span-2")
   })
 })
+
+ test.each([
+  ["pump_right", "Sein Gauche", "Sein Droit"],
+  ["pump_left", "Sein Droit", "Sein Gauche"]
+ ] as const)("alterne après %s sans changer la dernière tétée", (type, next, other) => {
+  render(<TrackingPage events={[{ ...temperatureEvent, type, value_real: 90 }, leftBreastEvent]} running={[]} loading={false} stoolAlert={null} onChanged={vi.fn(async () => undefined)} onEdit={vi.fn()} onOpenCare={vi.fn()} />)
+  expect(screen.getByRole("button", { name: next })).toHaveClass("text-primary")
+  expect(screen.getByRole("button", { name: other })).not.toHaveClass("text-primary")
+  expect(within(screen.getByTestId("feeding-info-card")).getByText("Sein gauche")).toBeInTheDocument()
+ })
+
+ test("enregistre le sein choisi et les millilitres du tire-lait", async () => {
+  const { api } = await import("@/lib/api")
+  const user = userEvent.setup()
+  const onChanged = vi.fn(async () => undefined)
+  render(<TrackingPage events={[]} running={[]} loading={false} stoolAlert={null} onChanged={onChanged} onEdit={vi.fn()} onOpenCare={vi.fn()} />)
+  await user.click(screen.getByRole("button", { name: "Tire-lait" }))
+  const dialog = within(screen.getByRole("dialog"))
+  await user.click(dialog.getByRole("button", { name: "Sein droit" }))
+  expect(dialog.getByRole("button", { name: "Sein droit" })).toHaveAttribute("aria-pressed", "true")
+  await user.click(dialog.getByRole("button", { name: "Augmenter tire-lait" }))
+  await user.click(dialog.getByRole("button", { name: "Enregistrer" }))
+  expect(api.createEvent).toHaveBeenCalledWith({ type: "pump_right", value_real: 160 })
+  expect(onChanged).toHaveBeenCalledOnce()
+ })

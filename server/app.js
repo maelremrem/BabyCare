@@ -14,6 +14,8 @@ const EVENT_TYPES = new Set([
   "breast_left",
   "breast_right",
   "bottle",
+  "pump_left",
+  "pump_right",
   "nap",
   "bath",
   "face_care",
@@ -66,6 +68,7 @@ const API_ERRORS = {
   invalid_birth_date: "La date de naissance est invalide ou située dans le futur.",
   invalid_baby_sex: "Le sexe renseigné est invalide.",
   invalid_feeding_type: "Le type d’allaitement est invalide.",
+  invalid_pump_quantity: "La quantité de lait recueillie doit être comprise entre 1 et 1000 ml.",
   invalid_bottle_quantity: "La quantité du biberon doit être comprise entre 1 et 1000 ml.",
   baby_not_found: "Bébé introuvable.",
   cannot_delete_last_baby: "Le dernier bébé ne peut pas être supprimé.",
@@ -114,6 +117,8 @@ const EXPORT_MESSAGES = {
       diaper: "Couche",
       breast_left: "Sein gauche",
       breast_right: "Sein droit",
+      pump_left: "Tire-lait · Sein gauche",
+      pump_right: "Tire-lait · Sein droit",
       bottle: "Biberon",
       nap: "Sieste",
       bath: "Bain",
@@ -187,6 +192,8 @@ const EXPORT_MESSAGES = {
       diaper: "Diaper",
       breast_left: "Left breast",
       breast_right: "Right breast",
+      pump_left: "Breast pump · Left breast",
+      pump_right: "Breast pump · Right breast",
       bottle: "Bottle",
       nap: "Nap",
       bath: "Bath",
@@ -654,6 +661,9 @@ export function createApp({ db = createDatabase(), updateService = createUpdateS
     if (type === "bottle" && (!Number.isFinite(value_real) || value_real < 1 || value_real > 1000)) {
       return sendApiError(response, 400, "invalid_bottle_quantity")
     }
+    if (["pump_left", "pump_right"].includes(type) && (!Number.isFinite(value_real) || value_real < 1 || value_real > 1000)) {
+      return sendApiError(response, 400, "invalid_pump_quantity")
+    }
     const timestamp = nowIso()
     const babyId = activeBabyId(db)
     const start = started_at ? new Date(started_at).toISOString() : timestamp
@@ -753,6 +763,12 @@ export function createApp({ db = createDatabase(), updateService = createUpdateS
       const quantity = Number(request.body.value_real)
       if (!Number.isFinite(quantity) || quantity < 1 || quantity > 1000) {
         return sendApiError(response, 400, "invalid_bottle_quantity")
+      }
+    }
+    if (["pump_left", "pump_right"].includes(updatedType)) {
+      const quantity = request.body.value_real === undefined ? event.value_real : request.body.value_real
+      if (!Number.isFinite(quantity) || quantity < 1 || quantity > 1000) {
+        return sendApiError(response, 400, "invalid_pump_quantity")
       }
     }
     if (request.body.duration_seconds !== undefined) {
@@ -934,7 +950,7 @@ export function createApp({ db = createDatabase(), updateService = createUpdateS
               ? `${event.value_real.toFixed(3)} kg`
               : event.type === "height" && event.value_real != null
                 ? `${event.value_real.toFixed(1)} cm`
-              : event.type === "bottle" && event.value_real != null
+              : ["bottle", "pump_left", "pump_right"].includes(event.type) && event.value_real != null
                 ? `${event.value_real.toFixed(0)} ml`
               : event.value_real ?? event.value_text ?? "",
           detail: displayDetail(event.metadata, locale),

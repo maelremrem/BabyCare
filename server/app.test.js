@@ -628,3 +628,25 @@ test("réinitialise la checklist après chaque validation", () => withServer(asy
   const logs = await fetch(`${baseUrl}/api/events?type=daily_care`).then((response) => response.json())
   assert.equal(logs.total, 2)
 }))
+
+for (const type of ["pump_left", "pump_right"]) {
+  test(`enregistre et modifie le tire-lait ${type}`, () => withServer(async (baseUrl) => {
+    const request = (path, method, body) => fetch(`${baseUrl}/api/events${path}`, {
+      method, headers: { "content-type": "application/json" }, body: JSON.stringify(body)
+    })
+    const response = await request("", "POST", { type, value_real: 90 })
+    assert.equal(response.status, 201)
+    const event = await response.json()
+    assert.equal(event.type, type)
+    assert.equal(event.value_real, 90)
+    assert.equal(event.status, "completed")
+    assert.equal(event.duration_seconds, null)
+    for (const value_real of [0, 1001, null, "90"]) {
+      assert.equal((await request("", "POST", { type, value_real })).status, 400)
+      assert.equal((await request(`/${event.id}`, "PATCH", { value_real })).status, 400)
+    }
+    const updated = await request(`/${event.id}`, "PATCH", { type: type === "pump_left" ? "pump_right" : "pump_left", value_real: 120 })
+    assert.equal(updated.status, 200)
+    assert.equal((await updated.json()).value_real, 120)
+  }))
+}

@@ -35,6 +35,8 @@ const EVENT_ICONS: Record<EventType, LucideIcon> = {
   breast_left: Milk,
   breast_right: Milk,
   bottle: Milk,
+  pump_left: Milk,
+  pump_right: Milk,
   nap: Moon,
   bath: Bath,
   face_care: HeartPulse,
@@ -70,7 +72,7 @@ export function EventRow({ event, onClick, showIcon = false }: EventRowProps) {
       ? `${event.value_real.toFixed(3)} kg`
       : event.type === "height" && event.value_real != null
         ? `${event.value_real.toFixed(1)} cm`
-      : event.type === "bottle" && event.value_real != null
+      : ["bottle", "pump_left", "pump_right"].includes(event.type) && event.value_real != null
         ? `${event.value_real.toFixed(0)} ml`
     : diaperType
       ? t.diaperTypes[diaperType as keyof typeof t.diaperTypes]

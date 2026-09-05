@@ -5,6 +5,8 @@ export const EVENT_LABELS = {
   diaper: "Couche",
   breast_left: "Sein gauche",
   breast_right: "Sein droit",
+  pump_left: "Tire-lait · Sein gauche",
+  pump_right: "Tire-lait · Sein droit",
   bottle: "Biberon",
   nap: "Sieste",
   bath: "Bain",
