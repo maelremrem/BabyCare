@@ -214,8 +214,27 @@ systemctl enable --now "${UPDATE_PATH_NAME}"
 systemctl restart "${SERVICE_NAME}"
 
 echo "[6/6] Vérification du service BabyCare v${release_version}"
+service_ready=false
+for attempt in {1..60}; do
+  if curl -fsS --max-time 2 http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
+    service_ready=true
+    break
+  fi
+  sleep 1
+done
+if [[ "${service_ready}" != true ]]; then
+  echo "BabyCare n’a pas répondu après son démarrage. Consultez : journalctl -u ${SERVICE_NAME}" >&2
+  exit 1
+fi
 systemctl --no-pager --full status "${SERVICE_NAME}"
 
 echo
 echo "BabyCare est à jour et démarrera automatiquement avec Debian."
 echo "Ouvrez http://$(detect_server_ip):3000 depuis votre réseau local."
+if [[ -s "${DATA_DIR}/.auth-password" && -r "${DATA_DIR}/.auth-password" ]]; then
+  printf '\nMot de passe généré : %s\n' "$(cat "${DATA_DIR}/.auth-password")"
+  printf 'Conservé dans : %s/.auth-password\n' "${DATA_DIR}"
+  echo "Si vous avez configuré un mot de passe personnalisé, utilisez celui-ci à la place."
+else
+  echo "Utilisez le mot de passe configuré pour le service BabyCare."
+fi

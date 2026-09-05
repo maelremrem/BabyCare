@@ -6,6 +6,8 @@ L’API, les exports et le widget nécessitent désormais une connexion. Les ins
 
 Au premier démarrage, BabyCare crée un mot de passe aléatoire dans `.auth-password`, dans le même dossier que `babycare.db`. Le fichier est créé avec les permissions `0600`. Le journal du serveur indique le chemin, sans afficher le secret.
 
+Le script d’installation Debian attend que le serveur réponde puis affiche ce mot de passe dans son récapitulatif final, avec l’adresse de connexion. Lors d’une réinstallation, le mot de passe existant est conservé et affiché à nouveau. Un mot de passe personnalisé configuré pour le service reste prioritaire.
+
 - Installation systemd : `sudo cat /var/lib/babycare/.auth-password`
 - Docker : `docker compose exec babycare cat /data/.auth-password`
 - Développement : lire `data/.auth-password` sur le serveur.
