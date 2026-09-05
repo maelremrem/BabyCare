@@ -1,3 +1,5 @@
+import { PasswordSettings } from "./PasswordSettings"
+import { isDemoMode } from "@/lib/api"
 import { useEffect, useState, type FormEvent } from "react"
 import { Baby, Calendar, Check, ChevronLeft, ChevronRight, Download, LoaderCircle, Mars, Plus, RotateCcw, Settings, Trash2, Venus } from "lucide-react"
 import { toast } from "sonner"
@@ -456,6 +458,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
                   {addingBaby ? t.settings.createBaby : t.settings.saveProfile}
                 </Button>
               </form>
+              {!isDemoMode && <PasswordSettings />}
 
               </div>
 

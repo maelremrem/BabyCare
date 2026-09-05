@@ -710,7 +710,7 @@ test("refuse les changements incohérents et normalise les dates", () => withSer
 }))
 
 test("protège les données, les exports et les opérations administratives", () => withServer(async (baseUrl) => {
-  for (const [route, method] of [["/api/settings", "GET"], ["/api/events", "GET"], ["/api/changes", "GET"], ["/api/export/xlsx", "GET"], ["/api/database", "DELETE"], ["/api/update", "POST"], ["/api/update/rollback", "POST"]]) {
+  for (const [route, method] of [["/api/auth/password", "PUT"], ["/api/settings", "GET"], ["/api/events", "GET"], ["/api/changes", "GET"], ["/api/export/xlsx", "GET"], ["/api/database", "DELETE"], ["/api/update", "POST"], ["/api/update/rollback", "POST"]]) {
     const response = await globalThis.fetch(`${baseUrl}${route}`, { method, headers: { "X-BabyCare-Request": "1" } })
     assert.equal(response.status, 401, route)
   }

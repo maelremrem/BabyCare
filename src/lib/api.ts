@@ -148,3 +148,9 @@ export function subscribeToServerChanges(onChange: () => void, onConnection?: (c
     document.removeEventListener("visibilitychange", visible)
   }
 }
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return rawRequest<{ changed: boolean }>("/api/auth/password", {
+    method: "PUT", body: JSON.stringify({ currentPassword, newPassword })
+  })
+}

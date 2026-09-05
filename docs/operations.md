@@ -4,7 +4,7 @@
 
 L’API, les exports et le widget nécessitent désormais une connexion. Les installations existantes conservent leurs données. L’écran de connexion apparaît après la mise à niveau.
 
-Au premier démarrage, BabyCare crée un mot de passe aléatoire dans `.auth-password`, dans le même dossier que `babycare.db`. Le fichier est créé avec les permissions `0600`. Le journal du serveur indique le chemin, sans afficher le secret.
+Au premier démarrage, BabyCare crée un mot de passe aléatoire de **6 caractères** (lettres et chiffres) dans `.auth-password`, dans le même dossier que `babycare.db`. Le fichier est créé avec les permissions `0600`. Le journal du serveur indique le chemin, sans afficher le secret.
 
 Le script d’installation Debian attend que le serveur réponde puis affiche ce mot de passe dans son récapitulatif final, avec l’adresse de connexion. Lors d’une réinstallation, le mot de passe existant est conservé et affiché à nouveau. Un mot de passe personnalisé configuré pour le service reste prioritaire.
 
@@ -14,7 +14,9 @@ Le script d’installation Debian attend que le serveur réponde puis affiche ce
 
 Le mot de passe familial donne accès à tous les profils et aux opérations d’administration, y compris suppression, mise à jour et retour à la version précédente. Il ne s’agit pas de comptes individuels avec des rôles distincts.
 
-Pour choisir le mot de passe, configurer `BABYCARE_PASSWORD` ou `BABYCARE_PASSWORD_FILE` dans l’environnement du service, puis le redémarrer. Il doit contenir au moins 12 caractères. Éviter de placer le secret dans le dépôt. Sans variable, modifier le fichier généré et redémarrer permet de le renouveler. Les sessions existantes sont alors invalidées.
+Pour choisir le mot de passe, configurer `BABYCARE_PASSWORD` ou `BABYCARE_PASSWORD_FILE` dans l’environnement du service, puis le redémarrer. Il doit contenir au moins 6 caractères. Éviter de placer le secret dans le dépôt. Sans variable, modifier le fichier généré et redémarrer permet de le renouveler. Les sessions existantes sont alors invalidées.
+
+Dans **Paramètres → Mot de passe**, renseigner le mot de passe actuel, le nouveau (au moins 6 caractères) et sa confirmation. Le changement est enregistré dans le fichier de mot de passe et reste actif après redémarrage. La session courante est renouvelée et les autres sessions sont invalidées. Les mots de passe existants ne sont pas raccourcis automatiquement. Si `BABYCARE_PASSWORD` est défini, il reste géré par la configuration du serveur et le changement dans l’interface est refusé. Un fichier fourni par `BABYCARE_PASSWORD_FILE` doit être remplaçable par le compte du service.
 
 Les sessions durent au maximum sept jours et sont invalidées au redémarrage du serveur. Le bouton « Se déconnecter » termine la session du navigateur. Les cookies sont `HttpOnly` et `SameSite=Strict`. Sur une installation HTTPS, configurer `BABYCARE_COOKIE_SECURE=true` dans l’environnement du conteneur/service. Le mode HTTP reste utilisable sur le réseau local de confiance, mais ne chiffre pas les échanges. L’API de santé `/api/health` reste publique pour les contrôles Docker et les mises à jour.
 
