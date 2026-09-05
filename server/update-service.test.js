@@ -5,6 +5,28 @@ import path from "node:path"
 import test from "node:test"
 import { compareVersions, createUpdateService } from "./update-service.js"
 
+test("conserve la progression si le statut est temporairement illisible puis reprend l’installation", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "babycare-status-read-"))
+  try {
+    const statusPath = path.join(directory, "status.json")
+    const service = createUpdateService({ updateDirectory: directory })
+    assert.equal(service.status().state, "idle")
+    fs.writeFileSync(statusPath, JSON.stringify({ state: "downloading", progress: 49, targetVersion: "0.3.0" }))
+    assert.equal(service.status().progress, 49)
+    fs.rmSync(statusPath)
+    assert.equal(service.status().progress, 49)
+    assert.equal(service.status().active, true)
+    fs.writeFileSync(statusPath, "{")
+    assert.equal(service.status().progress, 49)
+    fs.writeFileSync(statusPath, JSON.stringify({ state: "verifying", progress: 54, targetVersion: "0.3.0" }))
+    assert.equal(service.status().progress, 54)
+    fs.writeFileSync(statusPath, JSON.stringify({ state: "queued", progress: 0, targetVersion: "0.4.0" }))
+    assert.equal(service.status().progress, 0)
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test("compare les versions sémantiques", () => {
   assert.equal(compareVersions("1.2.0", "1.1.9"), 1)
   assert.equal(compareVersions("v1.2.0", "1.2.0"), 0)

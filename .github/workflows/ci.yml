@@ -19,3 +19,5 @@ jobs:
         run: npm ci
       - name: Vérifier l’application
         run: npm run check
+      - name: Vérifier les distributions modernes et iOS 15
+        run: npm run build:distribution

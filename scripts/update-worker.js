@@ -22,8 +22,10 @@ function writeStatus(state, progress, command, extra = {}) {
   fs.mkdirSync(updateDirectory, { recursive: true })
   const temporaryPath = `${statusPath}.${process.pid}.tmp`
   fs.writeFileSync(temporaryPath, `${JSON.stringify({ state, progress, command, updatedAt: new Date().toISOString(), ...extra }, null, 2)}\n`, { mode: 0o644 })
+  // systemd's UMask=0027 strips world-read on creation. Set permissions
+  // before publishing so the application can read every status snapshot.
+  fs.chmodSync(temporaryPath, 0o644)
   fs.renameSync(temporaryPath, statusPath)
-  fs.chmodSync(statusPath, 0o644)
 }
 
 function run(command, args, options = {}) {

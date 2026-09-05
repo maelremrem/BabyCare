@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { ClipboardCheck, History, LayoutDashboard, Stethoscope } from "lucide-react"
 import { toast } from "sonner"
 import { EventEditor } from "@/components/EventEditor"
@@ -13,9 +13,9 @@ import { useScreenWakeLock } from "@/hooks/useScreenWakeLock"
 import { api, isDemoMode, subscribeToServerChanges } from "@/lib/api"
 import { I18nProvider, localizedErrorMessage, messages, resolveLocale, type LanguagePreference } from "@/lib/i18n"
 import { ACCENT_OPTIONS, type AppSettings, type BabyEvent, type DailyCare, type StoolAlert } from "@/lib/types"
-import { CarePage } from "@/pages/CarePage"
-import { HistoryPage } from "@/pages/HistoryPage"
-import { MedicalPage } from "@/pages/MedicalPage"
+const CarePage = lazy(() => import("@/pages/CarePage").then((module) => ({ default: module.CarePage })))
+const HistoryPage = lazy(() => import("@/pages/HistoryPage").then((module) => ({ default: module.HistoryPage })))
+const MedicalPage = lazy(() => import("@/pages/MedicalPage").then((module) => ({ default: module.MedicalPage })))
 import { TrackingPage } from "@/pages/TrackingPage"
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -68,6 +68,9 @@ export default function App() {
   const preventSleep = screenAwakePreferences.enabled && running.length > 0
   const useVideoFallback = screenAwakePreferences.enabled && screenAwakePreferences.videoFallback
   const { activateVideoFallback, deactivateVideoFallback } = useScreenWakeLock(preventSleep, useVideoFallback)
+  const refreshGeneration = useRef(0)
+  const [connected, setConnected] = useState(true)
+  const [switching, setSwitching] = useState(false)
   const [care, setCare] = useState<DailyCare[]>([])
   const [editing, setEditing] = useState<BabyEvent | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -78,7 +81,9 @@ export default function App() {
   const activeColor = activeAccentColor(settings)
 
   const refreshAll = useCallback(async () => {
+    const generation = ++refreshGeneration.current
     const [, daily, alert] = await Promise.all([refresh(), api.dailyCare(), api.stoolAlert()])
+    if (generation !== refreshGeneration.current) return
     setCare(daily)
     setStoolAlert(alert)
     setRefreshKey((value) => value + 1)
@@ -99,10 +104,12 @@ export default function App() {
   }, [])
 
   useEffect(() => subscribeToServerChanges(() => {
-    Promise.all([refreshAll(), api.settings()])
-      .then(([, nextSettings]) => setSettings(nextSettings))
+    api.settings()
+      .then(async (nextSettings) => { setSettings(nextSettings); await refreshAll() })
       .catch(() => undefined)
-  }), [refreshAll])
+  }, setConnected), [refreshAll])
+
+  useEffect(() => { setEditing(null) }, [settings.active_baby_id])
 
   useEffect(() => {
     const accent = ACCENT_OPTIONS.find((option) => option.id === activeColor) || ACCENT_OPTIONS[0]
@@ -115,7 +122,7 @@ export default function App() {
   const locale = resolveLocale(settings.language_preference)
   const t = messages[locale]
 
-  if (bootstrapLoading || loading) return <AppLoading accentColor={activeColor} />
+  if (bootstrapLoading || loading || switching) return <AppLoading accentColor={activeColor} />
 
   return (
     <I18nProvider preference={settings.language_preference}>
@@ -123,9 +130,12 @@ export default function App() {
         <TopBar
           settings={settings}
           onBabySelect={async (babyId) => {
-            setSettings(await api.selectBaby(babyId))
-            await refreshAll()
+            setSwitching(true)
             setEditing(null)
+            try {
+              setSettings(await api.selectBaby(babyId))
+              await refreshAll()
+            } finally { setSwitching(false) }
           }}
           onBabyAdd={async (babyName, birthDate, babySex, feedingType, accentColor) => {
             setSettings(await api.createBaby(babyName, birthDate, babySex, feedingType, accentColor))
@@ -163,6 +173,8 @@ export default function App() {
           }}
           hasRunningTimer={running.length > 0}
         />
+        {!connected && <p role="status" className="px-4 py-2 text-center text-sm text-amber-600">{locale === "fr" ? "Connexion interrompue. Les données seront actualisées à la reconnexion." : "Connection lost. Data will refresh when reconnected."}</p>}
+        <Suspense fallback={<AppLoading accentColor={activeColor} />}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-14 sm:px-6">
           <div className="sticky top-[73px] z-30 -mx-4 bg-background/95 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
             <TabsList className="grid h-14 w-full grid-cols-4 rounded-2xl bg-card p-1.5">
@@ -174,6 +186,7 @@ export default function App() {
           </div>
           <TabsContent value="tracking" className="mt-5">
             <TrackingPage
+              key={settings.active_baby_id}
               events={events}
               running={running}
               loading={loading}
@@ -187,15 +200,16 @@ export default function App() {
             />
           </TabsContent>
           <TabsContent value="care" className="mt-5">
-            <CarePage care={care} onChanged={refreshAll} onValidated={() => setActiveTab("tracking")} />
+            <CarePage key={settings.active_baby_id} care={care} onChanged={refreshAll} onValidated={() => setActiveTab("tracking")} />
           </TabsContent>
           <TabsContent value="medical" className="mt-5">
-            <MedicalPage settings={settings} refreshKey={refreshKey} onChanged={refreshAll} onEdit={setEditing} />
+            <MedicalPage key={settings.active_baby_id} settings={settings} refreshKey={refreshKey} onChanged={refreshAll} onEdit={setEditing} />
           </TabsContent>
           <TabsContent value="history" className="mt-5">
-            <HistoryPage refreshKey={refreshKey} feedingType={settings.feeding_type || "breast"} onEdit={setEditing} />
+            <HistoryPage key={settings.active_baby_id} babyId={settings.active_baby_id} refreshKey={refreshKey} feedingType={settings.feeding_type || "breast"} onEdit={setEditing} />
           </TabsContent>
         </Tabs>
+        </Suspense>
         <AppFooter />
         <EventEditor event={editing} onOpenChange={(open) => !open && setEditing(null)} onChanged={refreshAll} />
         <DemoNoticeDialog enabled={isDemoMode} />

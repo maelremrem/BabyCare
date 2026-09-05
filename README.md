@@ -22,7 +22,7 @@ BabyCare is designed for parents and caregivers sharing baby care inside the sam
 - access: no user account in the MVP.
 
 > [!IMPORTANT]
-> BabyCare contains private family and health-adjacent information and does not include authentication yet. Do not expose it directly to the Internet. Keep it on your local network or put an authentication layer in front of it.
+> BabyCare requires a family password. On first startup, a password is generated beside the database in `.auth-password` (readable only by the service user). See [authentication, backups and upgrades](docs/operations.md). Use HTTPS when accessing it beyond a trusted local network.
 
 ## Features
 
@@ -292,7 +292,7 @@ The important data is stored in one file:
 /var/lib/babycare/babycare.db
 ```
 
-Back it up regularly. To guarantee a consistent copy while the app is running, use SQLite backup tooling or briefly stop the service before copying the file.
+BabyCare automatically creates verified SQLite backups at startup before migration, every 24 hours, and before resets or update requests. Keep an external copy too; see the [backup and restore guide](docs/operations.md).
 
 ## WHO Growth References
 
@@ -357,7 +357,7 @@ BabyCare s’adresse principalement aux parents et aux personnes qui participent
 - accès : sans compte utilisateur dans le MVP.
 
 > [!IMPORTANT]
-> BabyCare contient des informations privées, familiales et proches du domaine de la santé, et ne possède pas encore d’authentification. Ne l’exposez pas directement sur Internet. Limitez son accès au réseau local ou ajoutez une couche d’authentification devant le service.
+> BabyCare demande un mot de passe familial. Au premier démarrage, un mot de passe est généré à côté de la base dans `.auth-password` (lisible uniquement par le compte du service). Consultez le [guide de connexion, sauvegarde et mise à niveau](docs/operations.md). Utilisez HTTPS pour tout accès au-delà du réseau local de confiance.
 
 ## Fonctionnalités
 
@@ -608,7 +608,7 @@ La donnée importante se trouve dans un seul fichier :
 /var/lib/babycare/babycare.db
 ```
 
-Sauvegardez régulièrement ce fichier. Pour garantir une copie cohérente pendant que l’application fonctionne, utilisez la commande de sauvegarde SQLite ou arrêtez brièvement le service avant la copie.
+BabyCare crée automatiquement des sauvegardes SQLite vérifiées au démarrage avant migration, toutes les 24 heures et avant une réinitialisation ou une demande de mise à jour. Conservez aussi une copie externe ; consultez le [guide de sauvegarde et restauration](docs/operations.md).
 
 ## Références De Croissance OMS
 

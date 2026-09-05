@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { fetchAllEvents } from "@/lib/eventPages"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Ruler, Scale } from "lucide-react"
 import { toast } from "sonner"
 import { EventRow } from "@/components/EventRow"
@@ -84,6 +85,8 @@ function measurementDate(value: string, locale: "fr" | "en") {
 }
 
 export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: MedicalPageProps) {
+  const generation = useRef(0)
+  const pending = useRef<AbortController | null>(null)
   const { locale, t } = useI18n()
   const [weights, setWeights] = useState<BabyEvent[]>([])
   const [heights, setHeights] = useState<BabyEvent[]>([])
@@ -97,25 +100,31 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
   const [growthWindowStart, growthWindowEnd] = growthWindow
 
   const loadMeasurements = useCallback(async () => {
+    const current = ++generation.current
+    pending.current?.abort()
+    const controller = new AbortController()
+    pending.current = controller
     setLoading(true)
     try {
       const [weightResult, heightResult, vitaminResult] = await Promise.all([
-        api.events(medicalParams("weight")),
-        api.events(medicalParams("height")),
-        api.events(medicalParams("vitamin"))
+        fetchAllEvents(medicalParams("weight"), controller.signal),
+        fetchAllEvents(medicalParams("height"), controller.signal),
+        fetchAllEvents(medicalParams("vitamin"), controller.signal)
       ])
-      setWeights(weightResult.events)
-      setHeights(heightResult.events)
-      setVitamins(vitaminResult.events)
+      if (current !== generation.current) return
+      setWeights(weightResult)
+      setHeights(heightResult)
+      setVitamins(vitaminResult)
     } catch (error) {
-      toast.error(localizedErrorMessage(error, t, t.medical.unavailable))
+      if (current === generation.current && !(error instanceof DOMException && error.name === "AbortError")) toast.error(localizedErrorMessage(error, t, t.medical.unavailable))
     } finally {
-      setLoading(false)
+      if (current === generation.current) setLoading(false)
     }
   }, [t])
 
   useEffect(() => {
     loadMeasurements()
+    return () => { generation.current += 1; pending.current?.abort() }
   }, [loadMeasurements, refreshKey])
 
   useEffect(() => {

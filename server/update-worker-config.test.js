@@ -4,6 +4,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
+import vm from "node:vm"
 import { fileURLToPath } from "node:url"
 
 const workerSource = fs.readFileSync(new URL("../scripts/update-worker.js", import.meta.url), "utf8")
@@ -12,6 +13,28 @@ const updateService = fs.readFileSync(new URL("../scripts/babycare-update.servic
 const releaseWorkflow = fs.readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8")
 const releaseNpmrc = fs.readFileSync(new URL("../scripts/release.npmrc", import.meta.url), "utf8")
 const dockerWorkerSource = fs.readFileSync(new URL("../scripts/docker-update-worker.sh", import.meta.url), "utf8")
+
+test("publie un statut lisible par BabyCare même avec le umask systemd", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "babycare-status-permissions-"))
+  const previousMask = process.umask(0o027)
+  try {
+    const source = workerSource.slice(workerSource.indexOf("function writeStatus("), workerSource.indexOf("\nfunction run("))
+    let published = 0
+    const context = vm.createContext({
+      fs: { ...fs, renameSync(from, to) {
+        assert.equal(fs.statSync(from).mode & 0o777, 0o644, "le statut doit être lisible avant sa publication")
+        fs.renameSync(from, to)
+        published += 1
+      } },
+      process, updateDirectory: directory, statusPath: path.join(directory, "status.json")
+    })
+    vm.runInContext(`${source}\nwriteStatus("downloading", 49, "Package téléchargé"); writeStatus("verifying", 54, "Vérification");`, context)
+    assert.equal(published, 2)
+  } finally {
+    process.umask(previousMask)
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+})
 
 test("the updater validates the packaged native runtime without rebuilding it", () => {
   assert.match(workerSource, /verify-native-runtime\.js/)

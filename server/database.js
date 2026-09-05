@@ -101,6 +101,7 @@ function migrateToBabies(db) {
 
   db.prepare("UPDATE app_settings SET value = ? WHERE key = 'active_baby_id' AND NOT EXISTS (SELECT 1 FROM babies WHERE id = CAST(value AS INTEGER))").run(String(activeBabyId))
   db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_events_baby_time ON events(baby_id, datetime(started_at) DESC, id DESC);
     CREATE INDEX IF NOT EXISTS idx_events_baby_started_at ON events(baby_id, started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_daily_care_baby_date ON daily_care(baby_id, date);
     CREATE INDEX IF NOT EXISTS idx_bath_sessions_baby ON bath_sessions(baby_id);

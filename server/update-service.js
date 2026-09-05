@@ -67,6 +67,7 @@ export function createUpdateService({
   const rollbackPath = path.join(updateDirectory, "rollback.json")
   let cachedRelease = null
   let cachedAt = 0
+  let lastStoredStatus = {}
 
   async function latestRelease(force = false) {
     if (!enabled) return null
@@ -102,7 +103,8 @@ export function createUpdateService({
   }
 
   function status() {
-    const stored = readJson(statusPath, {})
+    const stored = readJson(statusPath, lastStoredStatus)
+    lastStoredStatus = stored
     const rollback = readJson(rollbackPath)
     return {
       state: stored.state || "idle",

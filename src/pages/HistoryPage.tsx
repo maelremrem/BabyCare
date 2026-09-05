@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { fetchAllEvents } from "@/lib/eventPages"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Clock3, Download, Search, Thermometer, Utensils } from "lucide-react"
 import { toast } from "sonner"
 import { EventRow } from "@/components/EventRow"
@@ -15,6 +16,7 @@ import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
 import { EVENT_LABELS, hasBottleFeeding, hasBreastFeeding, type BabyEvent, type EventType, type FeedingType } from "@/lib/types"
 
 interface HistoryPageProps {
+  babyId?: number
   refreshKey: number
   feedingType?: FeedingType
   onEdit: (event: BabyEvent) => void
@@ -50,25 +52,12 @@ function currentMonthParams() {
   return params
 }
 
-async function fetchAllEvents(params: URLSearchParams) {
-  const allEvents: BabyEvent[] = []
-  let offset = 0
-
-  while (true) {
-    const pageParams = new URLSearchParams(params)
-    pageParams.set("offset", String(offset))
-    const page = await api.events(pageParams)
-    allEvents.push(...page.events)
-    offset += page.events.length
-    if (page.events.length === 0 || offset >= page.total) return allEvents
-  }
-}
-
 function percentage(count: number, total: number) {
   return total ? Math.round((count / total) * 100) : 0
 }
 
-export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: HistoryPageProps) {
+export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit }: HistoryPageProps) {
+  const generation = useRef(0)
   const { locale, t } = useI18n()
   const [events, setEvents] = useState<BabyEvent[]>([])
   const [total, setTotal] = useState(0)
@@ -88,27 +77,30 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
   }, [period, type, search])
 
   const load = useCallback(async () => {
+    const current = ++generation.current
     setLoading(true)
     try {
       const result = await api.events(params)
+      if (current !== generation.current) return
       setEvents(result.events)
       setTotal(result.total)
     } catch (error) {
-      toast.error(localizedErrorMessage(error, t, t.history.unavailable))
+      if (current === generation.current && !(error instanceof DOMException && error.name === "AbortError")) toast.error(localizedErrorMessage(error, t, t.history.unavailable))
     } finally {
-      setLoading(false)
+      if (current === generation.current) setLoading(false)
     }
   }, [params, t])
 
   useEffect(() => {
     const timer = window.setTimeout(load, search ? 250 : 0)
-    return () => window.clearTimeout(timer)
+    return () => { window.clearTimeout(timer); generation.current += 1 }
   }, [load, search, refreshKey])
 
   useEffect(() => {
     let active = true
+    const controller = new AbortController()
     setStatisticsLoading(true)
-    fetchAllEvents(currentMonthParams())
+    fetchAllEvents(currentMonthParams(), controller.signal)
       .then((monthlyEvents) => {
         if (active) setStatisticsEvents(monthlyEvents)
       })
@@ -153,6 +145,7 @@ export function HistoryPage({ refreshKey, feedingType = "breast", onEdit }: Hist
   const exportParams = new URLSearchParams(params)
   exportParams.delete("limit")
   exportParams.set("locale", locale)
+  if (babyId) exportParams.set("baby_id", String(babyId))
 
   const exportDemoCsv = async () => {
     const result = await api.events(exportParams)

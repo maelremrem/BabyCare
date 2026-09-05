@@ -6,3 +6,7 @@ data/*.db
 data/*.db-*
 .DS_Store
 *.log
+
+# Local credentials and verified database snapshots
+data/.auth-password
+data/backups/

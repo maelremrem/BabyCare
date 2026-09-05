@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Baby, Droplets, Stethoscope, Thermometer } from "lucide-react"
 import { api, subscribeToServerChanges } from "@/lib/api"
 import { formatAgeCompact, formatDuration, formatTime, formatTimer, getAgeParts, relativeTime } from "@/lib/dates"
@@ -25,6 +25,8 @@ function activeBaby(settings: AppSettings) {
 }
 
 export function WidgetApp() {
+  const generation = useRef(0)
+  const [connected, setConnected] = useState(true)
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [events, setEvents] = useState<BabyEvent[]>([])
   const [running, setRunning] = useState<BabyEvent[]>([])
@@ -36,6 +38,7 @@ export function WidgetApp() {
   const [now, setNow] = useState(() => new Date())
 
   const loadWidget = useCallback(async () => {
+    const current = ++generation.current
     const params = new URLSearchParams({ limit: "12" })
     const [nextSettings, history, active, nextCare, nextAlert] = await Promise.all([
       api.settings(),
@@ -45,6 +48,7 @@ export function WidgetApp() {
       api.stoolAlert()
     ])
 
+    if (current !== generation.current) return
     setSettings(nextSettings)
     setEvents(history.events)
     setRunning(active)
@@ -62,11 +66,12 @@ export function WidgetApp() {
         setError(localizedErrorMessage(loadError, fallbackMessages, fallbackMessages.common.appUnavailable))
         setLoading(false)
       })
+    return () => { generation.current += 1 }
   }, [loadWidget])
 
   useEffect(() => subscribeToServerChanges(() => {
     loadWidget().catch(() => undefined)
-  }), [loadWidget])
+  }, setConnected), [loadWidget])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000)
@@ -92,7 +97,7 @@ export function WidgetApp() {
     <I18nProvider preference={settings.language_preference}>
       <WidgetView
         care={care}
-        error={error}
+        error={error || (!connected ? (resolveLocale(settings.language_preference) === "fr" ? "Connexion interrompue." : "Connection lost.") : null)}
         events={events}
         lastUpdatedAt={lastUpdatedAt}
         loading={loading}

@@ -7,19 +7,41 @@ import os from "node:os"
 import path from "node:path"
 import test from "node:test"
 import { createApp, shouldUseIos15Build } from "./app.js"
+import { createAuth } from "./auth.js"
 import { createDatabase } from "./database.js"
+
+const clients = new Map()
+async function fetch(url, init = {}) {
+  const client = clients.get(new URL(url).origin)
+  const response = await globalThis.fetch(url, { ...init, headers: {
+    "X-BabyCare-Request": "1", "X-Baby-Id": String(client?.babyId || 1),
+    ...(client ? { Cookie: client.cookie } : {}), ...init.headers
+  } })
+  if (client && response.ok && /\/api\/(settings|babies)/.test(url)) {
+    const settings = await response.clone().json()
+    if (settings.active_baby_id) client.babyId = settings.active_baby_id
+  }
+  return response
+}
 
 async function withServer(run, appOptions = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "babycare-test-"))
   const db = createDatabase(path.join(directory, "test.db"))
-  const server = createApp({ db, ...appOptions }).listen(0, "127.0.0.1")
+  const server = createApp({ db, auth: createAuth({ password: "test-password-for-babycare" }), ...appOptions }).listen(0, "127.0.0.1")
   await new Promise((resolve) => server.once("listening", resolve))
   const address = server.address()
+  const baseUrl = `http://127.0.0.1:${address.port}`
+  const login = await globalThis.fetch(`${baseUrl}/api/auth/session`, {
+    method: "POST", headers: { "Content-Type": "application/json", "X-BabyCare-Request": "1" },
+    body: JSON.stringify({ password: "test-password-for-babycare" })
+  })
+  clients.set(baseUrl, { babyId: 1, cookie: login.headers.get("set-cookie").split(";")[0] })
   try {
-    await run(`http://127.0.0.1:${address.port}`)
+    await run(baseUrl, db)
   } finally {
     await new Promise((resolve) => server.close(resolve))
     db.close()
+    clients.delete(baseUrl)
     fs.rmSync(directory, { recursive: true, force: true })
   }
 }
@@ -650,3 +672,65 @@ for (const type of ["pump_left", "pump_right"]) {
     assert.equal((await updated.json()).value_real, 120)
   }))
 }
+
+test("deux appareils conservent un contexte bébé indépendant", () => withServer(async (baseUrl) => {
+  const headers = { Cookie: clients.get(baseUrl).cookie, "X-BabyCare-Request": "1", "Content-Type": "application/json" }
+  const second = await fetch(`${baseUrl}/api/babies`, { method: "POST", body: JSON.stringify({ baby_name: "Second" }), headers }).then((r) => r.json())
+  const secondId = second.active_baby_id
+  const write = (id, notes) => globalThis.fetch(`${baseUrl}/api/events`, { method: "POST", headers: { ...headers, "X-Baby-Id": String(id) }, body: JSON.stringify({ type: "observation", notes }) })
+  const firstEvent = await (await write(1, "Premier appareil")).json()
+  const secondEvent = await (await write(secondId, "Deuxième appareil")).json()
+  assert.equal(firstEvent.baby_id, 1)
+  assert.equal(secondEvent.baby_id, secondId)
+  const wrongContext = await globalThis.fetch(`${baseUrl}/api/events/${firstEvent.id}`, { method: "DELETE", headers: { ...headers, "X-Baby-Id": String(secondId) } })
+  assert.equal(wrongContext.status, 404)
+  const missingContext = await globalThis.fetch(`${baseUrl}/api/events`, { method: "POST", headers, body: JSON.stringify({ type: "observation" }) })
+  assert.equal(missingContext.status, 400)
+  const profile = await globalThis.fetch(`${baseUrl}/api/settings`, { headers: { ...headers, "X-Baby-Id": "1" } }).then((r) => r.json())
+  assert.equal(profile.active_baby_id, 1)
+}))
+
+test("refuse les changements incohérents et normalise les dates", () => withServer(async (baseUrl) => {
+  const created = await fetch(`${baseUrl}/api/events`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "observation" }) }).then((r) => r.json())
+  for (const body of [
+    { type: "temperature" }, { type: "weight" }, { type: "bottle" },
+    { started_at: "not-a-date" }, { started_at: "2026-02-30T10:00:00Z" },
+    { notes: {} }, { metadata: [] }, { value_real: "37" },
+    { ended_at: "2020-01-01T00:00:00Z" }, { status: "running" }
+  ]) {
+    const response = await fetch(`${baseUrl}/api/events/${created.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    assert.equal(response.status, 400, JSON.stringify(body))
+  }
+  const valid = await fetch(`${baseUrl}/api/events/${created.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "temperature", value_real: 37, started_at: "2026-01-01T12:00:00+02:00" }) }).then((r) => r.json())
+  assert.equal(valid.started_at, "2026-01-01T10:00:00.000Z")
+  assert.equal(valid.value_real, 37)
+  const invalidCreate = await fetch(`${baseUrl}/api/events`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "observation", started_at: "bad" }) })
+  assert.equal(invalidCreate.status, 400)
+  assert.equal((await fetch(`${baseUrl}/api/events?limit=1.5`)).status, 400)
+}))
+
+test("protège les données, les exports et les opérations administratives", () => withServer(async (baseUrl) => {
+  for (const [route, method] of [["/api/settings", "GET"], ["/api/events", "GET"], ["/api/changes", "GET"], ["/api/export/xlsx", "GET"], ["/api/database", "DELETE"], ["/api/update", "POST"], ["/api/update/rollback", "POST"]]) {
+    const response = await globalThis.fetch(`${baseUrl}${route}`, { method, headers: { "X-BabyCare-Request": "1" } })
+    assert.equal(response.status, 401, route)
+  }
+  const cookie = clients.get(baseUrl).cookie
+  const csrf = await globalThis.fetch(`${baseUrl}/api/database`, { method: "DELETE", headers: { Cookie: cookie } })
+  assert.equal(csrf.status, 403)
+  const wrongPassword = await globalThis.fetch(`${baseUrl}/api/auth/session`, { method: "POST", headers: { "Content-Type": "application/json", "X-BabyCare-Request": "1" }, body: JSON.stringify({ password: "wrong" }) })
+  assert.equal(wrongPassword.status, 401)
+  assert.equal((await globalThis.fetch(`${baseUrl}/api/health`)).status, 200)
+  await globalThis.fetch(`${baseUrl}/api/auth/session`, { method: "DELETE", headers: { Cookie: cookie, "X-BabyCare-Request": "1" } })
+  assert.equal((await globalThis.fetch(`${baseUrl}/api/settings`, { headers: { Cookie: cookie } })).status, 401)
+}))
+
+test("pagine plus de 250 mesures avec un ordre stable", () => withServer(async (baseUrl, db) => {
+  const insert = db.prepare("INSERT INTO events (baby_id, type, status, started_at, value_real, created_at, updated_at) VALUES (1, 'weight', 'completed', ?, 4, ?, ?)")
+  const date = "2026-01-01T00:00:00.000Z"
+  db.transaction(() => { for (let i = 0; i < 301; i++) insert.run(date, date, date) })()
+  const first = await fetch(`${baseUrl}/api/events?type=weight&limit=250`).then((r) => r.json())
+  const second = await fetch(`${baseUrl}/api/events?type=weight&limit=250&offset=250`).then((r) => r.json())
+  assert.equal(first.total, 301)
+  assert.equal(second.events.length, 51)
+  assert.equal(new Set([...first.events, ...second.events].map((event) => event.id)).size, 301)
+}))
