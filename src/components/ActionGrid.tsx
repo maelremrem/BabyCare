@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { SortableTiles } from "./SortableTiles"
 import {
   Bath, CircleDot, HeartPulse, MessageSquarePlus, Milk, Moon, Pill, Shirt, Thermometer, WalletCards
 } from "lucide-react"
@@ -98,26 +99,34 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
     <>
       <fieldset disabled={saving} className="min-w-0 space-y-3" aria-busy={saving}>
       <legend className="sr-only">{t.tracking.quickActions}</legend>
-      <div className="grid grid-cols-2 gap-3">
+      <SortableTiles
+        labels={{
+          breast_left: t.actions.leftBreast, breast_right: t.actions.rightBreast,
+          bottle: t.eventLabels.bottle, diaper: t.eventLabels.diaper, nap: t.eventLabels.nap,
+          temperature: t.eventLabels.temperature, care: t.actions.careBath, pump: t.actions.pump,
+          clothes_change: t.eventLabels.clothes_change, irritation: t.eventLabels.irritation,
+          vitamin: t.eventLabels.vitamin, observation: t.actions.addObservation
+        }}
+        secondaryLabel={t.ux.otherActions} primary={<>
         {hasBreastFeeding(feedingType) ? (
           <>
-            <Button variant="outline" className={`${actionClass} ${nextBreast === "breast_left" ? activeBreastClass : ""}`} onClick={() => start("breast_left", t.eventLabels.breast_left)}>
+            <Button key="breast_left" variant="outline" className={`${actionClass} ${nextBreast === "breast_left" ? activeBreastClass : ""}`} onClick={() => start("breast_left", t.eventLabels.breast_left)}>
               <Milk className="size-6" /> {t.actions.leftBreast}
             </Button>
-            <Button variant="outline" className={`${actionClass} ${nextBreast === "breast_right" ? activeBreastClass : ""}`} onClick={() => start("breast_right", t.eventLabels.breast_right)}>
+            <Button key="breast_right" variant="outline" className={`${actionClass} ${nextBreast === "breast_right" ? activeBreastClass : ""}`} onClick={() => start("breast_right", t.eventLabels.breast_right)}>
               <Milk className="size-6" /> {t.actions.rightBreast}
             </Button>
           </>
         ) : null}
         {hasBottleFeeding(feedingType) ? (
-          <Button variant="outline" className={actionClass} onClick={() => {
+          <Button key="bottle" variant="outline" className={actionClass} onClick={() => {
             setBottleQuantity(bottleDefaultQuantity)
             setBottleOpen(true)
           }}>
             <Milk className="size-6" /> {t.eventLabels.bottle}
           </Button>
         ) : null}
-        <Popover open={diaperOpen} onOpenChange={open => { if (!busy.current) setDiaperOpen(open) }}>
+        <Popover key="diaper" open={diaperOpen} onOpenChange={open => { if (!busy.current) setDiaperOpen(open) }}>
           <PopoverTrigger asChild>
             <Button variant="outline" className={actionClass}><WalletCards className="size-6" /> {t.eventLabels.diaper}</Button>
           </PopoverTrigger>
@@ -133,41 +142,37 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
           </PopoverContent>
         </Popover>
 
-        <Button variant="outline" className={actionClass} onClick={() => start("nap", t.eventLabels.nap)}>
+        <Button key="nap" variant="outline" className={actionClass} onClick={() => start("nap", t.eventLabels.nap)}>
           <Moon className="size-6" /> {t.eventLabels.nap}
         </Button>
 
-      </div>
-      <details className="rounded-2xl border bg-card">
-        <summary className="min-h-12 cursor-pointer px-4 py-3 text-sm font-semibold">{t.ux.otherActions}</summary>
-        <div className="grid grid-cols-2 gap-3 p-3 pt-0">
-        <Button variant="outline" className={actionClass} onClick={() => setTemperatureOpen(true)}>
+      </>} secondary={<>
+        <Button key="temperature" variant="outline" className={actionClass} onClick={() => setTemperatureOpen(true)}>
           <Thermometer className="size-6" /> {t.eventLabels.temperature}
         </Button>
 
-        <Button variant="outline" className={actionClass} onClick={onOpenCare}>
+        <Button key="care" variant="outline" className={actionClass} onClick={onOpenCare}>
           <Bath className="size-6" /> {t.actions.careBath}
         </Button>
-        <Button variant="outline" className={actionClass} onClick={() => {
+        <Button key="pump" variant="outline" className={actionClass} onClick={() => {
           setPumpSide(nextBreast === "breast_left" ? "pump_left" : "pump_right")
           setPumpOpen(true)
         }}>
           <Milk className="size-6" /> {t.actions.pump}
         </Button>
-        <Button variant="outline" className={actionClass} onClick={() => create("clothes_change", { type: "clothes_change" }, t.actions.clothesChanged)}>
+        <Button key="clothes_change" variant="outline" className={actionClass} onClick={() => create("clothes_change", { type: "clothes_change" }, t.actions.clothesChanged)}>
           <Shirt className="size-6" /> {t.eventLabels.clothes_change}
         </Button>
-        <Button variant="outline" className={actionClass} onClick={() => setIrritationOpen(true)}>
+        <Button key="irritation" variant="outline" className={actionClass} onClick={() => setIrritationOpen(true)}>
           <HeartPulse className="size-6" /> {t.eventLabels.irritation}
         </Button>
-        <Button variant="outline" className={actionClass} onClick={() => setVitaminOpen(true)}>
+        <Button key="vitamin" variant="outline" className={actionClass} onClick={() => setVitaminOpen(true)}>
           <Pill className="size-6" /> {t.eventLabels.vitamin}
         </Button>
-        <Button variant="outline" className={actionClass} onClick={() => setObservationOpen(true)}>
+        <Button key="observation" variant="outline" className={actionClass} onClick={() => setObservationOpen(true)}>
           <MessageSquarePlus className="size-6" /> {t.actions.addObservation}
         </Button>
-        </div>
-      </details>
+      </>} />
       </fieldset>
       {!temperatureOpen && !bottleOpen && !pumpOpen && !irritationOpen && !vitaminOpen && !observationOpen && failure ? <p role="alert" className="text-sm text-destructive">{failure.message}</p> : null}
 

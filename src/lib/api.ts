@@ -154,3 +154,7 @@ export function changePassword(currentPassword: string, newPassword: string, rem
     method: "PUT", body: JSON.stringify({ currentPassword, newPassword, removePassword })
   })
 }
+
+export function getPasswordStatus() {
+  return rawRequest<{ enabled: boolean; authenticated: boolean }>("/api/auth/session")
+}

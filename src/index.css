@@ -176,3 +176,15 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+@keyframes tile-wiggle {
+  from { transform: rotate(-1deg); }
+  to { transform: rotate(1deg); }
+}
+.tile-editing { animation: tile-wiggle .16s ease-in-out infinite alternate; }
+.tile-editing:nth-child(even) { animation-direction: alternate-reverse; }
+.tile-preview > button { width: 100%; opacity: 1; }
+[data-tile-id] { -webkit-touch-callout: none; }
+@media (prefers-reduced-motion: reduce) {
+  .tile-editing { animation: none; }
+}
