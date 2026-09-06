@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, ExternalLink, X } from 'lucide-react'
+import { Bell, ExternalLink, BrushCleaning } from 'lucide-react'
 import { isDemoMode, notificationsApi, subscribeToServerChanges, type NotificationAction, type WebhookSettings } from '@/lib/api'
 import { useI18n } from '@/lib/i18n'
 import { Button } from './ui/button'
@@ -111,7 +111,7 @@ export function Notifications() {
           <Button type="button" variant="ghost" disabled={!visibleActions.length} onClick={clearNotifications}
             aria-label={fr ? 'Nettoyer les notifications' : 'Clear notifications'} title={fr ? 'Nettoyer' : 'Clear'}
             className="group relative h-11 w-24 shrink-0 text-muted-foreground hover:text-destructive">
-            <X aria-hidden="true" className="size-4 group-hover:opacity-0 group-focus-visible:opacity-0 [@media(hover:none)]:opacity-0" />
+            <BrushCleaning aria-hidden="true" className="size-4 group-hover:opacity-0 group-focus-visible:opacity-0 [@media(hover:none)]:opacity-0" />
             <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100">{fr ? 'Nettoyer' : 'Clear'}</span>
           </Button>
         </div>
