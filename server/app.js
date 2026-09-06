@@ -1,3 +1,4 @@
+import { installNotifications } from "./notifications.js"
 import { registerRoutinesRoutes } from "./routines-routes.js"
 import { registerEventsRoutes } from "./events-routes.js"
 import { backupDatabase, backupExistingDatabase } from "./backups.js"
@@ -74,6 +75,8 @@ export function createApp({ db = createDatabase(), updateService = createUpdateS
     }
     next()
   })
+
+  installNotifications(app, db)
 
   function broadcastChange() {
     const message = `event: change\ndata: ${JSON.stringify({ changed_at: nowIso() })}\n\n`
@@ -258,9 +261,10 @@ export function createApp({ db = createDatabase(), updateService = createUpdateS
       db.prepare("DELETE FROM daily_care_validations").run()
       db.prepare("DELETE FROM daily_care").run()
       db.prepare("DELETE FROM events").run()
+      db.prepare("DELETE FROM notification_actions").run()
       db.prepare("DELETE FROM babies").run()
       db.prepare("DELETE FROM app_settings").run()
-      db.prepare("DELETE FROM sqlite_sequence").run()
+      db.prepare("DELETE FROM sqlite_sequence WHERE name != 'notification_actions'").run()
       saveSetting(db, "language_preference", "system")
       const timestamp = nowIso()
       const baby = db.prepare("INSERT INTO babies (name, birth_date, sex, accent_color, created_at, updated_at) VALUES ('', '', '', 'orange', ?, ?)").run(timestamp, timestamp)

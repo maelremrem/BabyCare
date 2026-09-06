@@ -646,3 +646,7 @@ BabyCare est en développement actif. L’interface et les principaux parcours d
 BabyCare est copyright © 2026 Maël Remérand et est distribué sous licence GNU Affero General Public License v3.0, **AGPL-3.0-only**. Consultez [`LICENSE`](./LICENSE) pour le texte de la licence.
 
 Le nom et le logo BabyCare sont réservés ; consultez [`TRADEMARKS.md`](./TRADEMARKS.md). Les contributions sont encouragées sous forme de pull requests vers le dépôt officiel ; consultez [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+### Notifications
+
+La cloche affiche les dernières actions depuis la précédente connexion. Configurez un webhook ntfy ou Gotify dans **Cloche → Notifications externes** : [guide de configuration](docs/notifications.md).
