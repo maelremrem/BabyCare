@@ -51,3 +51,39 @@ test('activity survives deletion, tracks automatic timer stops and settings neve
     assert.equal((await request('notifications/test', 'POST')).status, 400)
   } finally { await new Promise(resolve => server.close(resolve)); db.close() }
 })
+
+test('migrates old activity and hides only the requesting device actions before pagination', async () => {
+  const db = createDatabase(':memory:')
+  db.exec(`CREATE TABLE notification_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, baby_id INTEGER NOT NULL, baby_name TEXT NOT NULL,
+    event_type TEXT NOT NULL, action TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  ); INSERT INTO notification_actions VALUES (1, 1, 'Lou', 'bottle', 'created', '2026-01-01T00:00:00.000Z');`)
+  const server = createApp({ db, auth: null }).listen(0, '127.0.0.1')
+  await new Promise(resolve => server.once('listening', resolve))
+  const base = `http://127.0.0.1:${server.address().port}/api/`
+  const deviceA = 'a'.repeat(32)
+  const deviceB = 'b'.repeat(32)
+  const request = (device, path, method = 'GET', body) => fetch(base + path, {
+    method, headers: { 'Content-Type': 'application/json', 'X-Baby-Id': '1', 'X-BabyCare-Device': device },
+    body: body ? JSON.stringify(body) : undefined
+  })
+  const list = async device => (await request(device, 'notifications?since=2000-01-01')).json()
+  try {
+    const first = await (await request(deviceA, 'events/start', 'POST', { type: 'nap' })).json()
+    await request(deviceB, 'events/start', 'POST', { type: 'breast_left' })
+    assert.deepEqual((await list(deviceA)).map(row => row.action), ['started', 'stopped', 'created'])
+    assert.deepEqual((await list(deviceB)).map(row => row.action), ['started', 'created'])
+    await request(deviceA, `events/${first.id}`, 'PATCH', { notes: 'edited' })
+    await request(deviceA, `events/${first.id}`, 'DELETE')
+    assert.deepEqual((await list(deviceB)).map(row => row.action), ['deleted', 'updated', 'started', 'created'])
+    assert.deepEqual((await list(deviceA)).map(row => row.action), ['started', 'stopped', 'created'])
+    for (let index = 0; index < 101; index++) {
+      const created = await request(deviceA, 'events', 'POST', { type: 'bottle', value_real: 90 })
+      assert.equal(created.status, 201)
+    }
+    assert.equal((await list(deviceA)).length, 3)
+    assert.equal((await list(deviceB)).length, 100)
+    assert.equal((await list('invalid')).length, 100)
+    assert.equal(Object.hasOwn((await list(deviceB))[0], 'device_id'), false)
+  } finally { await new Promise(resolve => server.close(resolve)); db.close() }
+})

@@ -1,3 +1,5 @@
+import { notificationContext, notificationDevice } from './notification-context.js'
+
 const defaults = { enabled: false, provider: 'ntfy', url: '', token: '' }
 
 export function validateWebhook(body, previous = defaults) {
@@ -32,10 +34,14 @@ export function installNotifications(app, db) {
     baby_name TEXT NOT NULL, event_type TEXT NOT NULL, action TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   ); CREATE INDEX IF NOT EXISTS notification_actions_date ON notification_actions(created_at);`)
+  if (!db.prepare('PRAGMA table_info(notification_actions)').all().some(column => column.name === 'device_id')) {
+    db.exec('ALTER TABLE notification_actions ADD COLUMN device_id TEXT')
+  }
   for (const [operation, row, action] of [['INSERT', 'NEW', "'created'"], ['UPDATE', 'NEW', "CASE WHEN OLD.status = 'running' AND NEW.status = 'completed' THEN 'stopped' ELSE 'updated' END"], ['DELETE', 'OLD', "'deleted'"]]) {
-    db.exec(`CREATE TRIGGER IF NOT EXISTS notifications_${operation.toLowerCase()} AFTER ${operation} ON events BEGIN
-      INSERT INTO notification_actions (baby_id, baby_name, event_type, action)
-      VALUES (${row}.baby_id, COALESCE((SELECT name FROM babies WHERE id = ${row}.baby_id), ''), ${row}.type, ${operation === 'INSERT' ? "CASE WHEN NEW.status = 'running' THEN 'started' ELSE 'created' END" : action});
+    db.exec(`DROP TRIGGER IF EXISTS notifications_${operation.toLowerCase()};
+    CREATE TRIGGER notifications_${operation.toLowerCase()} AFTER ${operation} ON events BEGIN
+      INSERT INTO notification_actions (baby_id, baby_name, event_type, action, device_id)
+      VALUES (${row}.baby_id, COALESCE((SELECT name FROM babies WHERE id = ${row}.baby_id), ''), ${row}.type, ${operation === 'INSERT' ? "CASE WHEN NEW.status = 'running' THEN 'started' ELSE 'created' END" : action}, notification_device());
       DELETE FROM notification_actions WHERE id <= (SELECT MAX(id) - 1000 FROM notification_actions);
     END;`)
   }
@@ -57,12 +63,16 @@ export function installNotifications(app, db) {
         sendWebhook(config, `${row.baby_name || 'Bébé'} : ${labels[row.action]} (${row.event_type})`).catch(() => console.warn('BabyCare: échec de notification externe')).finally(() => { pending-- })
       }
     })
-    next()
+    notificationContext.run(notificationDevice(request), next)
   })
   app.get('/api/notifications', (request, response) => {
     const since = request.query.since
     if (typeof since !== 'string' || !Number.isFinite(Date.parse(since))) return response.status(400).json({ error: 'Invalid notification cursor' })
-    response.json(db.prepare('SELECT * FROM notification_actions WHERE created_at > ? ORDER BY id DESC LIMIT 100').all(new Date(since).toISOString()))
+    const device = notificationDevice(request)
+    response.json(db.prepare(`SELECT id, baby_id, baby_name, event_type, action, created_at
+      FROM notification_actions WHERE created_at > ?
+      AND (? IS NULL OR device_id IS NULL OR device_id != ?)
+      ORDER BY id DESC LIMIT 100`).all(new Date(since).toISOString(), device, device))
   })
   app.get('/api/notifications/settings', (_request, response) => response.json(publicConfig(read())))
   app.put('/api/notifications/settings', (request, response) => {

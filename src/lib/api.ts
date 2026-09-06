@@ -1,3 +1,4 @@
+import { getDeviceId } from "./device"
 import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, FeedingType, StoolAlert, UpdateStatus, VersionInfo } from "./types"
 import type { LanguagePreference } from "@/lib/i18n"
 import { demoApi } from "@/lib/demoApi"
@@ -35,7 +36,7 @@ function rememberBaby(id: number) {
 async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", "X-BabyCare-Request": "1", ...init?.headers }
+    headers: { "Content-Type": "application/json", "X-BabyCare-Request": "1", "X-BabyCare-Device": getDeviceId(), ...init?.headers }
   })
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))

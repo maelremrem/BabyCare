@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, ExternalLink } from 'lucide-react'
+import { Bell, ExternalLink, BrushCleaning } from 'lucide-react'
 import { isDemoMode, notificationsApi, subscribeToServerChanges, type NotificationAction, type WebhookSettings } from '@/lib/api'
 import { useI18n } from '@/lib/i18n'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
+
+const CLEARED_KEY = 'babycare-notifications-cleared-v1'
+const READ_KEY = 'babycare-notifications-read-v1'
 
 const guide = 'https://github.com/maelremrem/BabyCare/blob/main/docs/notifications.md'
 
@@ -12,6 +15,18 @@ export function Notifications() {
   const { locale, t } = useI18n()
   const fr = locale === 'fr'
   const [open, setOpen] = useState(false)
+  const [readId, setReadId] = useState(() => {
+    try {
+      const stored = Number(localStorage.getItem(READ_KEY))
+      return Number.isSafeInteger(stored) && stored > 0 ? stored : 0
+    } catch { return 0 }
+  })
+  const [clearedId, setClearedId] = useState(() => {
+    try {
+      const stored = Number(localStorage.getItem(CLEARED_KEY))
+      return Number.isSafeInteger(stored) && stored > 0 ? stored : 0
+    } catch { return 0 }
+  })
   const [external, setExternal] = useState(false)
   const [actions, setActions] = useState<NotificationAction[]>([])
   const [error, setError] = useState('')
@@ -49,6 +64,23 @@ export function Notifications() {
     return () => { active = false }
   }, [external, fr])
 
+  useEffect(() => {
+    if (!open || !actions.length) return
+    const latest = Math.max(...actions.map(action => action.id))
+    if (latest <= readId) return
+    setReadId(latest)
+    try { localStorage.setItem(READ_KEY, String(latest)) } catch { /* Keep read state for this session. */ }
+  }, [open, actions, readId])
+
+  const visibleActions = actions.filter(action => action.id > clearedId)
+  function clearNotifications() {
+    const latest = Math.max(clearedId, ...visibleActions.map(action => action.id))
+    setClearedId(latest)
+    try { localStorage.setItem(CLEARED_KEY, String(latest)) } catch { /* Keep cleared state for this session. */ }
+  }
+
+  const unreadCount = open ? 0 : visibleActions.filter(action => action.id > readId).length
+
   const labels = fr
     ? { created: 'Ajout', started: 'Démarrage', stopped: 'Fin', updated: 'Modification', deleted: 'Suppression' }
     : { created: 'Added', started: 'Started', stopped: 'Stopped', updated: 'Updated', deleted: 'Deleted' }
@@ -66,17 +98,26 @@ export function Notifications() {
   }
 
   return <>
-    <Button variant="ghost" size="icon" className="relative size-11 shrink-0 rounded-xl" aria-label={`Notifications (${actions.length})`} onClick={() => setOpen(true)}>
+    <Button variant="ghost" size="icon" className="relative size-11 shrink-0 rounded-xl" aria-label={`Notifications (${unreadCount})`} onClick={() => setOpen(true)}>
       <Bell className="size-5" />
-      {actions.length > 0 && <span className="absolute right-0 top-0 rounded-full bg-primary px-1 text-[10px] text-primary-foreground">{actions.length === 100 ? '99+' : actions.length}</span>}
+      {unreadCount > 0 && <span className="absolute right-0 top-0 rounded-full bg-primary px-1 text-[10px] text-primary-foreground">{unreadCount === 100 ? '99+' : unreadCount}</span>}
     </Button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader><DialogTitle>Notifications</DialogTitle><DialogDescription>{fr ? 'Les dernières actions depuis votre précédente connexion sur ce navigateur (100 maximum).' : 'Latest actions since your previous connection in this browser (up to 100).'}</DialogDescription></DialogHeader>
         <Button variant="outline" onClick={() => { setOpen(false); setExternal(true); setConfig(null); setConfigError(''); setMessage('') }}><ExternalLink />{fr ? 'Notifications externes' : 'External notifications'}</Button>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">{fr ? 'Dernières actions' : 'Latest actions'}</p>
+          <Button type="button" variant="ghost" disabled={!visibleActions.length} onClick={clearNotifications}
+            aria-label={fr ? 'Nettoyer les notifications' : 'Clear notifications'} title={fr ? 'Nettoyer' : 'Clear'}
+            className="group relative h-11 w-24 shrink-0 text-muted-foreground hover:text-destructive">
+            <BrushCleaning aria-hidden="true" className="size-4 group-hover:opacity-0 group-focus-visible:opacity-0 [@media(hover:none)]:opacity-0" />
+            <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100">{fr ? 'Nettoyer' : 'Clear'}</span>
+          </Button>
+        </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        {!error && !actions.length && <p className="py-5 text-center text-sm text-muted-foreground">{fr ? 'Aucune nouvelle action.' : 'No new actions.'}</p>}
-        <ul className="divide-y">{actions.map(action => <li key={action.id} className="py-3 text-sm">
+        {!error && !visibleActions.length && <p className="py-5 text-center text-sm text-muted-foreground">{fr ? 'Aucune nouvelle action.' : 'No new actions.'}</p>}
+        <ul className="divide-y">{visibleActions.map(action => <li key={action.id} className="py-3 text-sm">
           <p className="font-medium">{action.baby_name || (fr ? 'Bébé' : 'Baby')} · {labels[action.action]}</p>
           <p>{t.eventLabels[action.event_type] || action.event_type}</p>
           <time className="text-xs text-muted-foreground" dateTime={action.created_at}>{new Date(action.created_at).toLocaleString(locale)}</time>
