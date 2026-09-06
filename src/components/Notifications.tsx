@@ -6,12 +6,20 @@ import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 
+const READ_KEY = 'babycare-notifications-read-v1'
+
 const guide = 'https://github.com/maelremrem/BabyCare/blob/main/docs/notifications.md'
 
 export function Notifications() {
   const { locale, t } = useI18n()
   const fr = locale === 'fr'
   const [open, setOpen] = useState(false)
+  const [readId, setReadId] = useState(() => {
+    try {
+      const stored = Number(localStorage.getItem(READ_KEY))
+      return Number.isSafeInteger(stored) && stored > 0 ? stored : 0
+    } catch { return 0 }
+  })
   const [external, setExternal] = useState(false)
   const [actions, setActions] = useState<NotificationAction[]>([])
   const [error, setError] = useState('')
@@ -49,6 +57,16 @@ export function Notifications() {
     return () => { active = false }
   }, [external, fr])
 
+  useEffect(() => {
+    if (!open || !actions.length) return
+    const latest = Math.max(...actions.map(action => action.id))
+    if (latest <= readId) return
+    setReadId(latest)
+    try { localStorage.setItem(READ_KEY, String(latest)) } catch { /* Keep read state for this session. */ }
+  }, [open, actions, readId])
+
+  const unreadCount = open ? 0 : actions.filter(action => action.id > readId).length
+
   const labels = fr
     ? { created: 'Ajout', started: 'Démarrage', stopped: 'Fin', updated: 'Modification', deleted: 'Suppression' }
     : { created: 'Added', started: 'Started', stopped: 'Stopped', updated: 'Updated', deleted: 'Deleted' }
@@ -66,9 +84,9 @@ export function Notifications() {
   }
 
   return <>
-    <Button variant="ghost" size="icon" className="relative size-11 shrink-0 rounded-xl" aria-label={`Notifications (${actions.length})`} onClick={() => setOpen(true)}>
+    <Button variant="ghost" size="icon" className="relative size-11 shrink-0 rounded-xl" aria-label={`Notifications (${unreadCount})`} onClick={() => setOpen(true)}>
       <Bell className="size-5" />
-      {actions.length > 0 && <span className="absolute right-0 top-0 rounded-full bg-primary px-1 text-[10px] text-primary-foreground">{actions.length === 100 ? '99+' : actions.length}</span>}
+      {unreadCount > 0 && <span className="absolute right-0 top-0 rounded-full bg-primary px-1 text-[10px] text-primary-foreground">{unreadCount === 100 ? '99+' : unreadCount}</span>}
     </Button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto">
