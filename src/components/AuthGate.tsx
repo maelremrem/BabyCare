@@ -7,6 +7,8 @@ import { Input } from "./ui/input"
 export function AuthGate({ children }: { children: ReactNode }) {
   const [authenticated, setAuthenticated] = useState(isDemoMode)
   const [loading, setLoading] = useState(!isDemoMode)
+  const [passwordEnabled, setPasswordEnabled] = useState<boolean | null>(null)
+  const [sessionCheck, setSessionCheck] = useState(0)
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -15,16 +17,38 @@ export function AuthGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isDemoMode) return
     let active = true
-    fetch("/api/auth/session").then(async (response) => {
+    let retry: ReturnType<typeof setTimeout> | undefined
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    setLoading(true)
+    setPasswordEnabled(null)
+    setError("")
+    fetch("/api/auth/session", { cache: "no-store", signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error()
       const session = await response.json()
-      if (active) setAuthenticated(session.enabled !== true || session.authenticated === true)
-    }).catch(() => { if (active) setError(fr ? "Connexion au serveur impossible. Réessayez." : "Unable to reach the server. Try again.") })
-      .finally(() => { if (active) setLoading(false) })
-    const expired = () => { setAuthenticated(false); setPassword("") }
-    window.addEventListener("babycare-auth-required", expired)
-    return () => { active = false; window.removeEventListener("babycare-auth-required", expired) }
-  }, [fr])
+      if (typeof session.enabled !== "boolean" || typeof session.authenticated !== "boolean") throw new Error()
+      if (active) {
+        setPasswordEnabled(session.enabled)
+        setAuthenticated(!session.enabled || session.authenticated)
+      }
+    }).catch(() => {
+      if (!active) return
+      setAuthenticated(false)
+      setError(fr ? "Le serveur est temporairement indisponible. Reconnexion automatique…" : "The server is temporarily unavailable. Reconnecting automatically…")
+      retry = setTimeout(() => setSessionCheck(value => value + 1), 5000)
+    }).finally(() => { clearTimeout(timeout); if (active) setLoading(false) })
+    const recheck = () => { setLoading(true); setPassword(""); setSessionCheck(value => value + 1) }
+    window.addEventListener("babycare-auth-required", recheck)
+    window.addEventListener("online", recheck)
+    return () => {
+      active = false
+      controller.abort()
+      clearTimeout(timeout)
+      clearTimeout(retry)
+      window.removeEventListener("babycare-auth-required", recheck)
+      window.removeEventListener("online", recheck)
+    }
+  }, [fr, sessionCheck])
 
   async function login(event: FormEvent) {
     event.preventDefault()
@@ -53,13 +77,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
     try {
       const response = await fetch("/api/auth/session", { method: "DELETE", headers: { "X-BabyCare-Request": "1" } })
       if (!response.ok) throw new Error()
-      setAuthenticated(false)
+      setLoading(true)
+      setSessionCheck(value => value + 1)
     } catch { setError(fr ? "Déconnexion impossible. Réessayez." : "Unable to sign out. Try again.") }
     finally { setSubmitting(false) }
   }
 
   if (loading) return <AppLoading accentColor="orange" />
-  if (authenticated) return <>{children}{!isDemoMode && <div className="p-3 text-center"><Button variant="ghost" disabled={submitting} onClick={logout}>{fr ? "Se déconnecter" : "Sign out"}</Button>{error && <p role="alert">{error}</p>}</div>}</>
+  if (!isDemoMode && passwordEnabled === null) return <main className="flex min-h-dvh items-center justify-center bg-background p-6">
+    <div className="w-full max-w-sm space-y-5 rounded-2xl border bg-card p-6">
+      <h1 className="text-2xl font-semibold">BabyCare</h1>
+      <p role="alert" className="text-sm text-muted-foreground">{error}</p>
+      <Button className="w-full" onClick={() => setSessionCheck(value => value + 1)}>{fr ? "Réessayer" : "Try again"}</Button>
+    </div>
+  </main>
+  if (authenticated) return <>{children}{!isDemoMode && passwordEnabled && <div className="p-3 text-center"><Button variant="ghost" disabled={submitting} onClick={logout}>{fr ? "Se déconnecter" : "Sign out"}</Button>{error && <p role="alert">{error}</p>}</div>}</>
   return <main className="flex min-h-dvh items-center justify-center bg-background p-6">
     <form onSubmit={login} className="w-full max-w-sm space-y-5 rounded-2xl border bg-card p-6">
       <h1 className="text-2xl font-semibold">BabyCare</h1>
