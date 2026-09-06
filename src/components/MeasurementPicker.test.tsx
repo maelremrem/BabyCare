@@ -13,16 +13,16 @@ function TemperatureHarness() {
 describe("MeasurementPicker", () => {
   afterEach(() => vi.useRealTimers())
 
-  test("accepte une saisie décimale française au double-clic", async () => {
+  test("accepte une saisie décimale française via la commande visible", async () => {
     const user = userEvent.setup()
     render(<TemperatureHarness />)
 
-    await user.dblClick(screen.getByTitle("Double-cliquer pour saisir la valeur"))
+    await user.click(screen.getByRole("button", { name: "Saisir une valeur" }))
     const input = screen.getByRole("textbox", { name: "Saisie directe de température" })
     await user.clear(input)
     await user.type(input, "38,2{Enter}")
 
-    expect(screen.getByRole("spinbutton", { name: "Sélecteur de température" })).toHaveAttribute("aria-valuetext", "38.2 °C")
+    expect(screen.getByRole("spinbutton", { name: "Sélecteur de température" })).toHaveAttribute("aria-valuetext", "38,2 °C")
   })
 
   test("accélère les pas lorsque le bouton reste maintenu", () => {

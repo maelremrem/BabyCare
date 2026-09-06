@@ -126,7 +126,7 @@ const serverApi = {
     method: "PUT",
     body: JSON.stringify({ completed })
   }),
-  validateDailyCare: () => request<BabyEvent>("/api/routines/daily/validate", { method: "POST" })
+  validateDailyCare: (careTypes?: DailyCare["care_type"][]) => request<BabyEvent>("/api/routines/daily/validate", { method: "POST", body: JSON.stringify(careTypes ? { care_types: careTypes } : {}) })
 }
 
 export const api = isDemoMode ? demoApi : serverApi
@@ -149,8 +149,12 @@ export function subscribeToServerChanges(onChange: () => void, onConnection?: (c
   }
 }
 
-export function changePassword(currentPassword: string, newPassword: string) {
+export function changePassword(currentPassword: string, newPassword: string, removePassword = false) {
   return rawRequest<{ changed: boolean }>("/api/auth/password", {
-    method: "PUT", body: JSON.stringify({ currentPassword, newPassword })
+    method: "PUT", body: JSON.stringify({ currentPassword, newPassword, removePassword })
   })
+}
+
+export function getPasswordStatus() {
+  return rawRequest<{ enabled: boolean; authenticated: boolean }>("/api/auth/session")
 }

@@ -45,13 +45,6 @@ function periodParams(period: string) {
   return params
 }
 
-function currentMonthParams() {
-  const today = new Date()
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-  const params = new URLSearchParams({ from: isoDate(firstDay), to: isoDate(today), limit: "250" })
-  return params
-}
-
 function percentage(count: number, total: number) {
   return total ? Math.round((count / total) * 100) : 0
 }
@@ -60,6 +53,9 @@ export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit
   const generation = useRef(0)
   const { locale, t } = useI18n()
   const [events, setEvents] = useState<BabyEvent[]>([])
+  const moreBusy = useRef(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadError, setLoadError] = useState("")
   const [total, setTotal] = useState(0)
   const [period, setPeriod] = useState("7")
   const [type, setType] = useState("all")
@@ -71,25 +67,51 @@ export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit
   const params = useMemo(() => {
     const next = periodParams(period)
     next.set("limit", "100")
+    if (babyId) next.set("baby_id", String(babyId))
     if (type !== "all") next.set("type", type)
     if (search.trim()) next.set("search", search.trim())
     return next
-  }, [period, type, search])
+  }, [period, type, search, babyId])
 
   const load = useCallback(async () => {
     const current = ++generation.current
     setLoading(true)
+    setEvents([])
+    setTotal(0)
+    setLoadError("")
+    setLoadingMore(false)
+    moreBusy.current = false
     try {
       const result = await api.events(params)
       if (current !== generation.current) return
       setEvents(result.events)
       setTotal(result.total)
     } catch (error) {
-      if (current === generation.current && !(error instanceof DOMException && error.name === "AbortError")) toast.error(localizedErrorMessage(error, t, t.history.unavailable))
+      if (current === generation.current && !(error instanceof DOMException && error.name === "AbortError")) setLoadError(localizedErrorMessage(error, t, t.history.unavailable))
     } finally {
       if (current === generation.current) setLoading(false)
     }
   }, [params, t])
+
+  const loadMore = async () => {
+    if (moreBusy.current || loading) return
+    moreBusy.current = true
+    setLoadingMore(true)
+    setLoadError("")
+    const current = generation.current
+    const next = new URLSearchParams(params)
+    next.set("offset", String(events.length))
+    try {
+      const result = await api.events(next)
+      if (current !== generation.current) return
+      setEvents(previous => [...previous, ...result.events.filter(event => !previous.some(item => item.id === event.id))])
+      setTotal(result.total)
+    } catch (error) {
+      if (current === generation.current) setLoadError(localizedErrorMessage(error, t, t.history.unavailable))
+    } finally {
+      if (current === generation.current) { moreBusy.current = false; setLoadingMore(false) }
+    }
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(load, search ? 250 : 0)
@@ -100,9 +122,10 @@ export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit
     let active = true
     const controller = new AbortController()
     setStatisticsLoading(true)
-    fetchAllEvents(currentMonthParams(), controller.signal)
-      .then((monthlyEvents) => {
-        if (active) setStatisticsEvents(monthlyEvents)
+    setStatisticsEvents([])
+    fetchAllEvents(params, controller.signal)
+      .then((filteredEvents) => {
+        if (active) setStatisticsEvents(filteredEvents)
       })
       .catch((error) => {
         if (active) toast.error(localizedErrorMessage(error, t, t.history.unavailable))
@@ -110,14 +133,13 @@ export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit
       .finally(() => {
         if (active) setStatisticsLoading(false)
       })
-    return () => { active = false }
-  }, [refreshKey, t])
+    return () => { active = false; controller.abort() }
+  }, [params, refreshKey, t])
 
   const groups = groupEventsByDay(events)
   const statistics = useMemo(() => calculateHistoryStatistics(statisticsEvents), [statisticsEvents])
   const breastEnabled = hasBreastFeeding(feedingType)
   const bottleEnabled = hasBottleFeeding(feedingType)
-  const monthLabel = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", { month: "long", year: "numeric" }).format(new Date())
   const formatTemperature = (value: number | null) => value == null
     ? "—"
     : `${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)} °C`
@@ -148,9 +170,9 @@ export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit
   if (babyId) exportParams.set("baby_id", String(babyId))
 
   const exportDemoCsv = async () => {
-    const result = await api.events(exportParams)
+    const allEvents = await fetchAllEvents(exportParams)
     const header = ["started_at", "type", "value_real", "value_text", "notes"]
-    const rows = result.events.map((event) => header.map((key) => {
+    const rows = allEvents.map((event) => header.map((key) => {
       const value = String(event[key as keyof BabyEvent] ?? "")
       return `"${value.split("\"").join("\"\"")}"`
     }).join(","))
@@ -171,7 +193,7 @@ export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit
         </div>
         {isDemoMode ? (
           <Button className="h-11" onClick={() => exportDemoCsv().catch((error) => toast.error(localizedErrorMessage(error, t, t.history.unavailable)))}>
-            <Download /> {t.history.exportExcel}
+            <Download /> {t.ux.exportCsv}
           </Button>
         ) : (
           <Button className="h-11" asChild>
@@ -180,10 +202,36 @@ export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit
         )}
       </div>
 
-      <section aria-labelledby="history-statistics-title" className="space-y-3">
-        <h3 id="history-statistics-title" className="text-sm font-semibold tracking-wide text-muted-foreground first-letter:uppercase">
-          {interpolate(t.history.statisticsTitle, { month: monthLabel })}
-        </h3>
+      <Card>
+        <CardContent className="grid gap-3 p-4 md:grid-cols-[12rem_14rem_1fr]">
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger aria-label={t.ux.period} className="h-12 w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">{t.history.periods.today}</SelectItem>
+              <SelectItem value="yesterday">{t.history.periods.yesterday}</SelectItem>
+              <SelectItem value="7">{t.history.periods.seven}</SelectItem>
+              <SelectItem value="30">{t.history.periods.thirty}</SelectItem>
+              <SelectItem value="all">{t.history.periods.all}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger aria-label={t.ux.eventType} className="h-12 w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.history.allTypes}</SelectItem>
+              {Object.keys(EVENT_LABELS).map((value) => <SelectItem key={value} value={value as EventType}>{t.eventLabels[value as EventType]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input aria-label={t.history.searchPlaceholder} className="h-12 pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.history.searchPlaceholder} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <details className="rounded-2xl border bg-card p-4">
+        <summary className="min-h-11 cursor-pointer text-sm font-semibold">
+          {t.ux.statistics}
+        </summary>
         <div className={`grid gap-3 ${breastEnabled && bottleEnabled ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
           <Card data-testid="temperature-statistics" className="gap-4 border-chart-1/30 bg-card/80 py-5">
             <CardContent className="space-y-4 px-5">
@@ -261,34 +309,11 @@ export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit
             </CardContent>
           </Card>
         </div>
-      </section>
+      </details>
 
-      <Card>
-        <CardContent className="grid gap-3 p-4 md:grid-cols-[12rem_14rem_1fr]">
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">{t.history.periods.today}</SelectItem>
-              <SelectItem value="yesterday">{t.history.periods.yesterday}</SelectItem>
-              <SelectItem value="7">{t.history.periods.seven}</SelectItem>
-              <SelectItem value="30">{t.history.periods.thirty}</SelectItem>
-              <SelectItem value="all">{t.history.periods.all}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={type} onValueChange={setType}>
-            <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t.history.allTypes}</SelectItem>
-              {Object.keys(EVENT_LABELS).map((value) => <SelectItem key={value} value={value as EventType}>{t.eventLabels[value as EventType]}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="h-11 pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.history.searchPlaceholder} />
-          </div>
-        </CardContent>
-      </Card>
 
+      {loadError ? <div role="alert" className="rounded-xl border border-destructive/40 p-3 text-sm"><p>{loadError}</p><Button className="mt-2 min-h-11" variant="outline" onClick={() => void (events.length ? loadMore() : load())}>{t.ux.retry}</Button></div> : null}
+      <p role="status" className="text-sm text-muted-foreground">{loading ? t.history.loading : interpolate(t.ux.showing, { count: events.length, total })}</p>
       <Card>
         <CardContent className="p-3 sm:p-5">
           {loading ? (
@@ -304,6 +329,7 @@ export function HistoryPage({ babyId, refreshKey, feedingType = "breast", onEdit
           ))}
         </CardContent>
       </Card>
+      {!loading && events.length < total ? <Button className="min-h-12 w-full" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? t.history.loading : t.ux.loadMore}</Button> : null}
     </div>
   )
 }

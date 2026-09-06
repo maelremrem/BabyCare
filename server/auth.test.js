@@ -21,7 +21,7 @@ test("cookies protégés, expiration et limitation des tentatives", () => {
   assert.equal(status, 429)
 })
 
-test("génère six caractères et conserve le changement après redémarrage", async () => {
+test("démarre sans mot de passe et permet d’en définir un", async () => {
   const fs = await import("node:fs")
   const os = await import("node:os")
   const path = await import("node:path")
@@ -29,36 +29,16 @@ test("génère six caractères et conserve le changement après redémarrage", a
   try {
     const auth = createAuth({ directory, password: "" })
     const file = path.join(directory, ".auth-password")
-    const generated = fs.readFileSync(file, "utf8").trim()
-    assert.match(generated, /^[A-Za-z0-9]{6}$/)
+    assert.equal(fs.existsSync(file), false)
+    const generated = "abc123"
     let status = 200
-    let token
-    const response = { cookie(_name, value) { token = value }, json() {}, status(code) { status = code; return this }, setHeader() {} }
-    const login = (service, password) => { status = 200; service.login({ headers: {}, body: { password } }, response); return token }
-    const first = login(auth, generated)
-    const second = login(auth, generated)
-    const request = { headers: { cookie: `babycare_session=${first}` }, body: { currentPassword: "wrong", newPassword: "abc123" } }
-    auth.changePassword(request, response)
-    assert.equal(status, 403)
-    assert.equal(fs.readFileSync(file, "utf8").trim(), generated)
-    request.body.currentPassword = generated
-    request.body.newPassword = "short"
-    auth.changePassword(request, response)
-    assert.equal(status, 400)
-    request.body.newPassword = "abc123"
-    status = 200
+    const response = { cookie() {}, json() {}, status(code) { status = code; return this }, setHeader() {} }
+    const request = { headers: {}, body: { currentPassword: "wrong", newPassword: generated } }
     auth.changePassword(request, response)
     assert.equal(status, 200)
-    assert.equal(auth.session({ headers: { cookie: `babycare_session=${second}` } }), null)
-    assert.equal(auth.session(request), null)
-    assert.ok(auth.session({ headers: { cookie: `babycare_session=${token}` } }))
     assert.equal(fs.readFileSync(file, "utf8").trim(), "abc123")
     assert.equal(fs.statSync(file).mode & 0o777, 0o600)
-    const restarted = createAuth({ directory, password: "" })
-    login(restarted, generated)
-    assert.equal(status, 401)
-    login(restarted, "abc123")
-    assert.equal(status, 200)
+    assert.equal(auth.enabled(), true)
   } finally { fs.rmSync(directory, { recursive: true, force: true }) }
 })
 

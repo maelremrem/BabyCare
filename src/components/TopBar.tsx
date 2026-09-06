@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { useClock } from "@/hooks/useClock"
 import { useAppUpdate } from "@/hooks/useAppUpdate"
-import { formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, formatShortDate, getAgeParts } from "@/lib/dates"
+import { formatAgeCompact, formatAgeDetailed, formatBirthDate, formatClock, formatLongDate, getAgeParts } from "@/lib/dates"
 import { getLocaleTag, interpolate, localizedErrorMessage, type LanguagePreference, useI18n } from "@/lib/i18n"
 import { ACCENT_OPTIONS, hasBottleFeeding, hasBreastFeeding, type AccentColor, type AppSettings, type BabySex, type FeedingType } from "@/lib/types"
 
@@ -235,11 +235,11 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur-xl">
       <div className="mx-auto flex min-h-[73px] max-w-6xl items-center gap-1 px-3 py-3 sm:gap-3 sm:px-6">
         <BabyCareIcon accentColor={activeBabyColor} className="size-10 shrink-0 rounded-xl sm:size-11" />
-        <div className="flex min-w-0 max-w-28 flex-col leading-tight sm:max-w-64 sm:flex-row sm:items-center sm:gap-2">
-          <p className="shrink-0 text-sm font-semibold tracking-tight sm:text-lg">BabyCare</p>
+        <div className="flex min-w-0 flex-1 items-center gap-2 leading-tight sm:flex-none sm:max-w-64">
+          <p className="hidden shrink-0 font-semibold tracking-tight sm:block sm:text-lg">BabyCare</p>
           {settings.babies.length ? (
             <Select value={String(settings.active_baby_id)} onValueChange={(value) => onBabySelect(Number(value)).catch((error) => toast.error(localizedErrorMessage(error, t, t.common.actionImpossible)))}>
-              <SelectTrigger aria-label={t.settings.selectBaby} className="h-7 min-w-0 border-0 bg-transparent px-1 text-xs font-medium shadow-none sm:text-base">
+              <SelectTrigger aria-label={t.settings.selectBaby} className="h-11 min-w-0 border-0 bg-transparent px-2 text-base font-semibold shadow-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -255,7 +255,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
         {age ? (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" className="h-8 shrink-0 rounded-lg px-1 text-[11px] font-medium text-primary sm:px-2 sm:text-sm">
+              <Button variant="ghost" className="h-11 shrink-0 rounded-lg px-2 text-xs font-medium text-primary sm:text-sm">
                 {formatAgeCompact(age, locale)}
               </Button>
             </PopoverTrigger>
@@ -266,9 +266,8 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
           </Popover>
         ) : null}
 
-        <p className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground md:hidden">{formatShortDate(now, locale)}</p>
         <p className="ml-auto hidden whitespace-nowrap text-sm text-muted-foreground md:block">{formatLongDate(now, locale)}</p>
-        <time className="whitespace-nowrap font-mono text-xs font-medium tabular-nums sm:text-lg">{formatClock(now, locale)}</time>
+        <time className="hidden whitespace-nowrap font-mono text-sm font-medium tabular-nums sm:block">{formatClock(now, locale)}</time>
 
         <Dialog open={settingsOpen} onOpenChange={(open) => {
           setSettingsOpen(open)
@@ -278,7 +277,7 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
             <Button
               variant="ghost"
               size="icon"
-              className="relative size-9 shrink-0 rounded-xl sm:size-10"
+              className="relative size-11 shrink-0 rounded-xl"
               aria-label={appUpdate.versionInfo?.updateAvailable
                 ? `${t.settings.open} — ${interpolate(t.update.available, { version: appUpdate.versionInfo.availableVersion || "" })}`
                 : t.settings.open}

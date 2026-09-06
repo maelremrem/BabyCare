@@ -734,3 +734,24 @@ test("pagine plus de 250 mesures avec un ordre stable", () => withServer(async (
   assert.equal(second.events.length, 51)
   assert.equal(new Set([...first.events, ...second.events].map((event) => event.id)).size, 301)
 }))
+
+test("valide atomiquement une sélection de soins sans déclarer les autres effectués", () => withServer(async (baseUrl, db) => {
+  const initial = db.prepare("SELECT COUNT(*) AS count FROM events").get().count
+  for (const care_types of [[], ["unknown"], ["eyes", "eyes"], "eyes"]) {
+    const response = await fetch(`${baseUrl}/api/routines/daily/validate`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ care_types })
+    })
+    assert.equal(response.status, 400)
+  }
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM events").get().count, initial)
+  const response = await fetch(`${baseUrl}/api/routines/daily/validate`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ care_types: ["eyes", "face"] })
+  })
+  assert.equal(response.status, 201)
+  const event = await response.json()
+  assert.deepEqual(event.metadata.care_types, ["eyes", "face"])
+  assert.equal(event.value_text, "2 / 4")
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM events").get().count, initial + 1)
+  const stored = db.prepare("SELECT metadata FROM events WHERE id = ?").get(event.id)
+  assert.deepEqual(JSON.parse(stored.metadata).care_types, ["eyes", "face"])
+}))

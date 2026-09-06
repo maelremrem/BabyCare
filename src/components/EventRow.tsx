@@ -1,3 +1,4 @@
+import { formatNumber } from "@/lib/numbers"
 import {
   Bath,
   ChevronRight,
@@ -65,15 +66,20 @@ export function EventRow({ event, onClick, showIcon = false }: EventRowProps) {
     : typeof event.metadata?.vitamin === "string"
       ? [event.metadata.vitamin]
       : []
+  const careNames: Record<string, string> = { eyes: t.eventLabels.eye_care, face: t.eventLabels.face_care, nose: t.eventLabels.nose_care, cord: t.eventLabels.cord_care }
+  const careDetail = event.type === "daily_care" && Array.isArray(event.metadata?.care_types)
+    ? event.metadata.care_types.map(type => careNames[String(type)] || String(type)).join(", ") : null
   const isTimer = event.type === "breast_left" || event.type === "breast_right" || event.type === "nap"
   const detail = event.type === "temperature" && event.value_real != null
-    ? `${event.value_real.toFixed(1)} °C`
+    ? `${formatNumber(event.value_real, 1, locale)} °C`
     : event.type === "weight" && event.value_real != null
-      ? `${event.value_real.toFixed(3)} kg`
+      ? `${formatNumber(event.value_real, 3, locale)} kg`
       : event.type === "height" && event.value_real != null
-        ? `${event.value_real.toFixed(1)} cm`
+        ? `${formatNumber(event.value_real, 1, locale)} cm`
       : ["bottle", "pump_left", "pump_right"].includes(event.type) && event.value_real != null
-        ? `${event.value_real.toFixed(0)} ml`
+        ? `${formatNumber(event.value_real, 0, locale)} ml`
+    : careDetail
+      ? careDetail
     : diaperType
       ? t.diaperTypes[diaperType as keyof typeof t.diaperTypes]
       : irritationLocations.length > 0
@@ -91,13 +97,13 @@ export function EventRow({ event, onClick, showIcon = false }: EventRowProps) {
       className={cn(
         "grid w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-muted/50 active:bg-muted",
         showIcon
-          ? "grid-cols-[3.5rem_2.25rem_1fr_auto] sm:grid-cols-[4.5rem_2.25rem_1fr_auto_auto]"
-          : "grid-cols-[3.5rem_1fr_auto] sm:grid-cols-[4.5rem_1fr_auto_auto]"
+          ? "grid-cols-[3rem_minmax(0,1fr)_auto] sm:grid-cols-[3.5rem_2.25rem_minmax(0,1fr)_auto_auto]"
+          : "grid-cols-[3rem_minmax(0,1fr)_auto] sm:grid-cols-[3.5rem_minmax(0,1fr)_auto_auto]"
       )}
     >
       <time className="font-mono text-sm tabular-nums text-muted-foreground">{formatTime(event.started_at, locale)}</time>
       {showIcon ? (
-        <span className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
+        <span className="hidden size-9 sm:flex items-center justify-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
           <Icon className="size-4" />
         </span>
       ) : null}
