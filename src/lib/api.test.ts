@@ -45,3 +45,17 @@ test("sends the device baby ID and rejects responses for an old selection", asyn
   await client.running()
   expect(fetchMock).toHaveBeenLastCalledWith("/api/events/running", expect.objectContaining({ headers: expect.objectContaining({ "X-Baby-Id": "2" }) }))
 })
+
+test('uses the same device identity for writes and notification reads', async () => {
+  vi.resetModules()
+  const { api: client, notificationsApi } = await import('./api')
+  const fetchMock = vi.fn(async (url: string) => Response.json(url === '/api/settings' ? { active_baby_id: 1 } : []))
+  vi.stubGlobal('fetch', fetchMock)
+  await client.createEvent({ type: 'bottle' })
+  await notificationsApi.list('2026-01-01T00:00:00.000Z')
+  const calls = fetchMock.mock.calls as unknown as [string, RequestInit][]
+  const write = calls.find(([url]) => url === '/api/events')![1].headers as Record<string, string>
+  const read = calls.find(([url]) => url.startsWith('/api/notifications?'))![1].headers as Record<string, string>
+  expect(write['X-BabyCare-Device']).toMatch(/^[a-f0-9]{32}$/)
+  expect(read['X-BabyCare-Device']).toBe(write['X-BabyCare-Device'])
+})
