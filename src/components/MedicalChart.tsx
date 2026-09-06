@@ -1,3 +1,4 @@
+import { formatNumber } from "@/lib/numbers"
 import { memo, useMemo } from "react"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -20,9 +21,9 @@ interface MedicalChartProps {
   onAdd?: () => void
 }
 
-const WIDTH = 600
+const WIDTH = 440
 const HEIGHT = 220
-const PADDING_X = 48
+const PADDING_X = 60
 const PADDING_Y = 28
 function shortDate(value: string, locale: "fr" | "en") {
   return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", { day: "2-digit", month: "2-digit" }).format(new Date(value))
@@ -44,7 +45,6 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
 
   const allMeasurements = useMemo(() => events
     .filter((event) => event.value_real != null)
-    .slice(0, 250)
     .reverse(), [events])
   const measurementsWithAge = allMeasurements.map((event) => ({
     event,
@@ -66,7 +66,7 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
       <Button
         type="button"
         size="sm"
-        className="rounded-full px-3 text-xs font-semibold sm:px-4"
+        className="min-h-11 rounded-full px-3 text-sm font-semibold sm:px-4"
         aria-label={addAriaLabel ?? addLabel}
         onClick={onAdd}
       >
@@ -146,11 +146,15 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
         </div>
         {addAction ?? (
           <CardAction className="font-mono text-xl font-semibold tabular-nums text-primary">
-            {latest?.value_real?.toFixed(decimals) ?? "—"} <span className="text-sm">{unit}</span>
+            {latest?.value_real != null ? formatNumber(latest.value_real, decimals, locale) : "—"} <span className="text-sm">{unit}</span>
           </CardAction>
         )}
       </CardHeader>
       <CardContent>
+        {latest?.value_real != null ? <div className="mb-3">
+          <p className="text-xs text-muted-foreground">{t.ux.latest} · {new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", { day: "numeric", month: "short", year: "numeric" }).format(new Date(latest.started_at))}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{formatNumber(latest.value_real, decimals, locale)} <span className="text-base font-normal text-muted-foreground">{unit}</span></p>
+        </div> : null}
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={interpolate(t.chart.evolution, { title: title.toLowerCase() })} className="h-52 w-full overflow-visible">
           {[0, 1, 2, 3, 4].map((line) => {
             const y = PADDING_Y + line / 4 * drawableHeight
@@ -158,7 +162,7 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
             return (
               <g key={line}>
                 <line x1={PADDING_X} x2={WIDTH - PADDING_X} y1={y} y2={y} stroke="currentColor" strokeOpacity="0.12" vectorEffect="non-scaling-stroke" />
-                <text x={PADDING_X - 8} y={y + 4} textAnchor="end" fill="currentColor" opacity="0.55" fontSize="11">{label.toFixed(decimals)}</text>
+                <text x={PADDING_X - 8} y={y + 4} textAnchor="end" fill="currentColor" opacity="0.8" fontSize="16">{formatNumber(label, decimals, locale)}</text>
               </g>
             )
           })}
@@ -171,19 +175,19 @@ export const MedicalChart = memo(function MedicalChart({ title, indicator, event
           {points.length > 1 ? <path d={path} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /> : null}
           {points.map((point) => (
             <circle key={point.event.id} cx={point.x} cy={point.y} r="5" fill="var(--primary)" stroke="var(--card)" strokeWidth="3">
-              <title>{`${shortDate(point.event.started_at, locale)} : ${point.event.value_real?.toFixed(decimals)} ${unit}`}</title>
+              <title>{`${shortDate(point.event.started_at, locale)} : ${formatNumber(point.event.value_real!, decimals, locale)} ${unit}`}</title>
             </circle>
           ))}
-          <text x={PADDING_X} y={HEIGHT - 5} fill="currentColor" opacity="0.55" fontSize="11">
+          <text x={PADDING_X} y={HEIGHT - 5} fill="currentColor" opacity="0.8" fontSize="16">
             {referenceEnabled ? formatMonth(windowStart, locale) : shortDate(visibleMeasurements[0].event.started_at, locale)}
           </text>
-          <text x={WIDTH - PADDING_X} y={HEIGHT - 5} textAnchor="end" fill="currentColor" opacity="0.55" fontSize="11">
+          <text x={WIDTH - PADDING_X} y={HEIGHT - 5} textAnchor="end" fill="currentColor" opacity="0.8" fontSize="16">
             {referenceEnabled ? formatMonth(windowEnd, locale) : shortDate(visibleMeasurements[visibleMeasurements.length - 1]?.event.started_at || "", locale)}
           </text>
         </svg>
 
         {referenceEnabled ? (
-          <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="size-2.5 rounded-sm bg-emerald-500/25" aria-hidden="true" />
             {t.chart.whoZone}
           </div>

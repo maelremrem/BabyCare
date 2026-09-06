@@ -236,5 +236,5 @@ if [[ -s "${DATA_DIR}/.auth-password" && -r "${DATA_DIR}/.auth-password" ]]; the
   printf 'Conservé dans : %s/.auth-password\n' "${DATA_DIR}"
   echo "Si vous avez configuré un mot de passe personnalisé, utilisez celui-ci à la place."
 else
-  echo "Utilisez le mot de passe configuré pour le service BabyCare."
+  echo "Aucun mot de passe n’est défini au premier démarrage. Vous pouvez en ajouter un dans Paramètres."
 fi

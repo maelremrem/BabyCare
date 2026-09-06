@@ -3,24 +3,16 @@ import fs from "node:fs"
 import path from "node:path"
 
 const COOKIE = "babycare_session"
-const PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000
 
 export function createAuth({ directory, password = process.env.BABYCARE_PASSWORD, secure = process.env.BABYCARE_COOKIE_SECURE === "true", now = Date.now } = {}) {
   const file = password ? null : process.env.BABYCARE_PASSWORD_FILE || path.join(directory, ".auth-password")
-  if (!password) {
-    fs.mkdirSync(path.dirname(file), { recursive: true })
-    try {
-      fs.writeFileSync(file, `${Array.from({ length: 6 }, () => PASSWORD_ALPHABET[crypto.randomInt(PASSWORD_ALPHABET.length)]).join("")}\n`, { flag: "wx", mode: 0o600 })
-      console.info(`BabyCare : mot de passe initial disponible dans ${file}`)
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error
-    }
-    password = fs.readFileSync(file, "utf8").trim()
-  }
-  if (typeof password !== "string" || password.length < 6 || password.length > 1024) throw new Error("Le mot de passe BabyCare doit contenir entre 6 et 1024 caractères.")
+  const configuredFile = Boolean(file && fs.existsSync(file))
+  if (!password && configuredFile) password = fs.readFileSync(file, "utf8").trim()
+  let enabled = Boolean(password)
+  if (enabled && (typeof password !== "string" || password.length < 6 || password.length > 1024)) throw new Error("Le mot de passe BabyCare doit contenir entre 6 et 1024 caractères.")
   const salt = crypto.randomBytes(16)
-  let expected = crypto.scryptSync(password, salt, 64)
+  let expected = enabled ? crypto.scryptSync(password, salt, 64) : null
   const sessions = new Map()
   let attempts = 0
   let windowEnds = 0
@@ -32,7 +24,7 @@ export function createAuth({ directory, password = process.env.BABYCARE_PASSWORD
       sessions.delete(token)
       return null
     }
-    return entry
+    return enabled ? entry : { expires: Infinity }
   }
   function cookie(response, token, maxAge) {
     response.cookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure, path: "/", maxAge })
@@ -45,14 +37,22 @@ export function createAuth({ directory, password = process.env.BABYCARE_PASSWORD
     return false
   }
   function matches(value) {
-    return typeof value === "string" && value.length <= 1024 && crypto.timingSafeEqual(crypto.scryptSync(value, salt, 64), expected)
+    return enabled && typeof value === "string" && value.length <= 1024 && crypto.timingSafeEqual(crypto.scryptSync(value, salt, 64), expected)
   }
   return {
     session,
     changePassword(request, response) {
       if (!file) return response.status(409).json({ code: "password_managed", error: "Le mot de passe est défini dans la configuration du serveur." })
       if (!allowAttempt(response)) return
-      if (!matches(request.body?.currentPassword)) return response.status(403).json({ code: "invalid_password", error: "Mot de passe actuel incorrect." })
+      if (enabled && !matches(request.body?.currentPassword)) return response.status(403).json({ code: "invalid_password", error: "Mot de passe actuel incorrect." })
+      if (request.body?.removePassword === true) {
+        fs.rmSync(file, { force: true })
+        expected = null
+        enabled = false
+        sessions.clear()
+        if (typeof response.clearCookie === "function") response.clearCookie(COOKIE, { path: "/" })
+        return response.json({ changed: true, enabled: false })
+      }
       const nextPassword = request.body?.newPassword
       if (typeof nextPassword !== "string" || nextPassword.length < 6 || nextPassword.length > 1024 || nextPassword.trim() !== nextPassword || /[\r\n]/.test(nextPassword)) {
         return response.status(400).json({ code: "invalid_new_password", error: "Choisissez un mot de passe de 6 à 1024 caractères, sans espaces au début ou à la fin." })
@@ -64,6 +64,8 @@ export function createAuth({ directory, password = process.env.BABYCARE_PASSWORD
         fs.renameSync(temporary, file)
       } finally { fs.rmSync(temporary, { force: true }) }
       expected = nextHash
+      password = nextPassword
+      enabled = true
       sessions.clear()
       const token = crypto.randomBytes(32).toString("base64url")
       sessions.set(token, { expires: now() + SESSION_MS })
@@ -71,6 +73,7 @@ export function createAuth({ directory, password = process.env.BABYCARE_PASSWORD
       response.json({ changed: true })
     },
     login(request, response) {
+      if (!enabled) return response.json({ authenticated: true, enabled: false })
       if (!allowAttempt(response)) return
       const submitted = request.body?.password
       const valid = matches(submitted)
@@ -87,7 +90,8 @@ export function createAuth({ directory, password = process.env.BABYCARE_PASSWORD
       sessions.delete(tokenFor(request))
       cookie(response, "", 0)
       response.status(204).end()
-    }
+    },
+    enabled: () => enabled
   }
 }
 
@@ -100,12 +104,12 @@ export function installAuth(app, auth) {
     }
     next()
   })
-  app.get("/api/auth/session", (request, response) => response.json({ authenticated: Boolean(auth.session(request)) }))
+  app.get("/api/auth/session", (request, response) => response.json({ authenticated: Boolean(auth.session(request)), enabled: auth.enabled() }))
   app.post("/api/auth/session", (request, response) => auth.login(request, response))
   app.delete("/api/auth/session", (request, response) => auth.logout(request, response))
   app.use("/api", (request, response, next) => {
     if (request.path === "/health" && request.method === "GET") return next()
-    if (!auth.session(request)) return response.status(401).json({ code: "authentication_required", error: "Connectez-vous pour accéder à BabyCare." })
+    if (auth.enabled() && !auth.session(request)) return response.status(401).json({ code: "authentication_required", error: "Connectez-vous pour accéder à BabyCare." })
     next()
   })
   app.put("/api/auth/password", (request, response) => auth.changePassword(request, response))

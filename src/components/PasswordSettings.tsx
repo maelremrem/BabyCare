@@ -13,18 +13,19 @@ export function PasswordSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [saved, setSaved] = useState(false)
+  const [remove, setRemove] = useState(false)
 
   async function save(event: FormEvent) {
     event.preventDefault()
     setError("")
     setSaved(false)
-    if (newPassword !== confirmation) {
+    if (!remove && newPassword !== confirmation) {
       setError(fr ? "Les nouveaux mots de passe ne correspondent pas." : "The new passwords do not match.")
       return
     }
     setSaving(true)
     try {
-      await changePassword(currentPassword, newPassword)
+      await changePassword(currentPassword, newPassword, remove)
       setCurrentPassword("")
       setNewPassword("")
       setConfirmation("")
@@ -43,12 +44,13 @@ export function PasswordSettings() {
 
   return <form onSubmit={save} aria-labelledby="password-settings-title" className="space-y-3 rounded-2xl border bg-card/60 p-4">
     <h3 id="password-settings-title" className="font-semibold">{fr ? "Mot de passe" : "Password"}</h3>
-    <p className="text-xs text-muted-foreground">{fr ? "Choisissez au moins 6 caractères. Les autres appareils devront se reconnecter." : "Choose at least 6 characters. Other devices will need to sign in again."}</p>
-    <div className="space-y-1"><label htmlFor="current-password" className="text-sm">{fr ? "Mot de passe actuel" : "Current password"}</label><Input id="current-password" type="password" autoComplete="current-password" required maxLength={1024} value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></div>
-    <div className="space-y-1"><label htmlFor="new-password" className="text-sm">{fr ? "Nouveau mot de passe" : "New password"}</label><Input id="new-password" type="password" autoComplete="new-password" required minLength={6} maxLength={1024} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></div>
-    <div className="space-y-1"><label htmlFor="confirm-password" className="text-sm">{fr ? "Confirmer le nouveau mot de passe" : "Confirm new password"}</label><Input id="confirm-password" type="password" autoComplete="new-password" required minLength={6} maxLength={1024} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></div>
+    <p className="text-xs text-muted-foreground">{fr ? "Le mot de passe est facultatif. Les autres appareils devront se reconnecter après un changement." : "A password is optional. Other devices will need to sign in after a change."}</p>
+    <div className="space-y-1"><label htmlFor="current-password" className="text-sm">{fr ? "Mot de passe actuel (si défini)" : "Current password (if set)"}</label><Input id="current-password" type="password" autoComplete="current-password" maxLength={1024} value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></div>
+    {!remove && <><div className="space-y-1"><label htmlFor="new-password" className="text-sm">{fr ? "Nouveau mot de passe" : "New password"}</label><Input id="new-password" type="password" autoComplete="new-password" required minLength={6} maxLength={1024} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></div>
+    <div className="space-y-1"><label htmlFor="confirm-password" className="text-sm">{fr ? "Confirmer le nouveau mot de passe" : "Confirm new password"}</label><Input id="confirm-password" type="password" autoComplete="new-password" required minLength={6} maxLength={1024} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></div></>}
+    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={remove} onChange={(event) => setRemove(event.target.checked)} />{fr ? "Retirer le mot de passe" : "Remove password"}</label>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {saved && <p role="status" className="text-sm">{fr ? "Mot de passe modifié." : "Password changed."}</p>}
-    <Button type="submit" disabled={saving} className="w-full">{saving ? (fr ? "Enregistrement…" : "Saving…") : (fr ? "Changer le mot de passe" : "Change password")}</Button>
+    <Button type="submit" disabled={saving} className="w-full">{saving ? (fr ? "Enregistrement…" : "Saving…") : (remove ? (fr ? "Retirer le mot de passe" : "Remove password") : (fr ? "Changer le mot de passe" : "Change password"))}</Button>
   </form>
 }

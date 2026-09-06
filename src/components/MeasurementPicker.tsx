@@ -1,3 +1,4 @@
+import { formatNumber } from "@/lib/numbers"
 import { useEffect, useRef, useState } from "react"
 import { Minus, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,7 +18,7 @@ interface MeasurementPickerProps {
 }
 
 export function MeasurementPicker({ value, onChange, min, max, step, decimals, unit, label, stepLabel }: MeasurementPickerProps) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const lowerLabel = label.toLowerCase()
   const currentValue = useRef(value)
   const dragY = useRef<number | null>(null)
@@ -47,7 +48,7 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
 
   const beginEditing = () => {
     cancelledEdit.current = false
-    setDraft(value.toFixed(decimals).replace(".", ","))
+    setDraft(value.toFixed(decimals).replace(".", locale === "fr" ? "," : "."))
     setEditing(true)
   }
 
@@ -66,12 +67,12 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
 
   const surrounding = [-2, -1, 0, 1, 2].map((offset) => {
     const measurement = Math.round((value + offset * step) * multiplier) / multiplier
-    return measurement >= min && measurement <= max ? measurement.toFixed(decimals) : null
+    return measurement >= min && measurement <= max ? formatNumber(measurement, decimals, locale) : null
   })
 
   return (
     <div className="select-none py-3">
-      <div className="flex items-center justify-center gap-4 sm:gap-5">
+      <div className="flex items-center justify-center gap-2 sm:gap-5">
         <HoldStepButton label={interpolate(t.measurement.decrease, { label: lowerLabel })} disabled={value <= min} onStep={() => update(-1)}>
           <Minus />
         </HoldStepButton>
@@ -82,8 +83,8 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
           aria-valuemin={editing ? undefined : min}
           aria-valuemax={editing ? undefined : max}
           aria-valuenow={editing ? undefined : value}
-          aria-valuetext={editing ? undefined : `${value.toFixed(decimals)} ${unit}`}
-          className="w-48 cursor-grab touch-none rounded-sm text-center outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+          aria-valuetext={editing ? undefined : `${formatNumber(value, decimals, locale)} ${unit}`}
+          className="w-40 min-w-0 cursor-grab touch-none rounded-sm text-center outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
           onKeyDown={(event) => {
             if (editing) return
             if (event.key === "ArrowUp" || event.key === "ArrowRight") {
@@ -166,6 +167,7 @@ export function MeasurementPicker({ value, onChange, min, max, step, decimals, u
           <Plus />
         </HoldStepButton>
       </div>
+      <div className="mt-2 text-center"><button type="button" className="min-h-12 rounded-xl px-4 text-sm font-semibold text-primary hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring" onClick={beginEditing}>{t.ux.enterValue}</button></div>
       <p className="mt-2 text-center text-xs text-muted-foreground">{interpolate(t.measurement.instructions, { step: stepLabel })}</p>
     </div>
   )

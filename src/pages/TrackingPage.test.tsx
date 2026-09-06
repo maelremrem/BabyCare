@@ -81,27 +81,16 @@ afterEach(() => {
 })
 
 describe("TrackingPage", () => {
-  test("place les repas avant la pile couche/bain et la température", () => {
+  test("présente le résumé puis les actions avant les informations secondaires", () => {
     renderTracking(overdueAlert)
-
-    const alert = screen.getByRole("alert")
-    expect(alert).toHaveTextContent("Aucune selle depuis 49 h")
-
-    const informationSection = screen.getByRole("heading", { name: "Dernières informations" }).closest("section")
-    expect(informationSection).not.toBeNull()
-    const labels = ["Tétée", "Couche", "Bain", "Température"].map((label) => (
-      within(informationSection!).getByText(label, { exact: true })
-    ))
-    expect(labels.map((element) => element.textContent)).toEqual(["Tétée", "Couche", "Bain", "Température"])
-    expect(labels[1].closest('[data-slot="card"]')?.querySelector(".lucide-wallet-cards")).toBeInTheDocument()
-    labels.slice(1).forEach((element, index) => {
-      expect(labels[index].compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    })
-    expect(informationSection).toHaveTextContent("Zone idéale 36,5–37,5 °C")
-    expect(screen.getByTestId("temperature-info-card")).toHaveClass("h-full")
-    const compactStack = screen.getByTestId("bath-diaper-stack")
-    expect(within(compactStack).getByText("Couche", { exact: true })).toBeInTheDocument()
-    expect(within(compactStack).getByText("Bain", { exact: true })).toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent("Aucune selle depuis 49 h")
+    const summary = screen.getByRole("heading", { name: "En un coup d’œil" }).closest("section")!
+    expect(summary).toHaveTextContent("Tétée")
+    expect(summary).toHaveTextContent("Couche")
+    expect(summary).toHaveTextContent("Sommeil")
+    const actions = screen.getByRole("heading", { name: "Actions rapides" })
+    expect(summary.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(actions.compareDocumentPosition(screen.getByText("Dernières informations")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   test("masque l’alerte lorsque le transit est à jour", () => {
@@ -109,29 +98,14 @@ describe("TrackingPage", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
 
-  test("alerte quand les soins visage cordon datent de plus de 24 h et permet de les valider", async () => {
+  test("un rappel ouvre les soins sans valider automatiquement la routine", async () => {
     const user = userEvent.setup()
-    const onChanged = vi.fn(async () => undefined)
-    render(
-      <TrackingPage
-        events={[overdueDailyCareEvent, temperatureEvent]}
-        running={[]}
-        loading={false}
-        stoolAlert={{ ...overdueAlert, overdue: false }}
-        onChanged={onChanged}
-        onEdit={vi.fn()}
-        onOpenCare={vi.fn()}
-      />
-    )
-
-    const alert = screen.getByRole("alert")
-    expect(alert).toHaveTextContent("Soins visage et cordon à effectuer")
-    await user.click(screen.getByRole("button", { name: "Soin Visage/Cordon effectué" }))
-
-    expect(apiMock.updateDailyCare).toHaveBeenCalledTimes(4)
-    expect(apiMock.updateDailyCare.mock.calls.map(([careType]) => careType)).toEqual(["eyes", "face", "nose", "cord"])
-    expect(apiMock.validateDailyCare).toHaveBeenCalledOnce()
-    expect(onChanged).toHaveBeenCalledOnce()
+    const onOpenCare = vi.fn()
+    render(<TrackingPage events={[overdueDailyCareEvent]} running={[]} loading={false} stoolAlert={null} onChanged={vi.fn(async () => undefined)} onEdit={vi.fn()} onOpenCare={onOpenCare} />)
+    expect(screen.getByRole("region", { name: "Rappel de soins" })).toHaveTextContent("24 heures")
+    await user.click(screen.getByRole("button", { name: "Personnaliser les soins" }))
+    expect(onOpenCare).toHaveBeenCalledOnce()
+    expect(apiMock.validateDailyCare).not.toHaveBeenCalled()
   })
 
   test("accentue le sein à utiliser après la dernière tétée", () => {
@@ -188,7 +162,7 @@ describe("TrackingPage", () => {
       />
     )
 
-    expect(screen.getByText("Depuis la dernière tétée : 2 h 30 min")).toBeInTheDocument()
+    expect(screen.getByText("Il y a 2 h 30 min")).toBeInTheDocument()
 
     const bottle = { ...temperatureEvent, id: 3, type: "bottle" as const, value_real: 120 }
     rerender(
@@ -204,7 +178,7 @@ describe("TrackingPage", () => {
       />
     )
 
-    expect(screen.getByText("Depuis le dernier biberon : 2 h 30 min")).toBeInTheDocument()
+    expect(screen.getByText("Il y a 2 h 30 min")).toBeInTheDocument()
     expect(within(screen.getByTestId("feeding-info-card")).queryByText("il y a 2 h")).not.toBeInTheDocument()
   })
 
@@ -284,9 +258,7 @@ describe("TrackingPage", () => {
     expect(screen.getByRole("button", { name: "Biberon" })).toBeInTheDocument()
     expect(screen.getByTestId("feeding-info-card")).toBeInTheDocument()
     expect(screen.getByTestId("bottle-info-card")).toBeInTheDocument()
-    expect(screen.getByTestId("feeding-info-grid")).toHaveClass("sm:grid-cols-2")
-    expect(screen.getByTestId("care-temperature-grid")).toHaveClass("lg:grid-cols-3")
-    expect(screen.getByTestId("bath-diaper-stack").nextElementSibling).toHaveClass("lg:col-span-2")
+    expect(screen.getByTestId("feeding-info-grid")).toHaveClass("grid-cols-2")
   })
 })
 
@@ -314,3 +286,11 @@ describe("TrackingPage", () => {
   expect(api.createEvent).toHaveBeenCalledWith({ type: "pump_right", value_real: 160 })
   expect(onChanged).toHaveBeenCalledOnce()
  })
+
+test("un soin partiel ne masque pas le rappel d’un autre soin en retard", () => {
+  render(<TrackingPage babyId={99} events={[
+    { ...recentDailyCareEvent, metadata: { care_types: ["eyes"] } },
+    { ...overdueDailyCareEvent, metadata: { care_types: ["face", "nose", "cord"] } }
+  ]} running={[]} loading={false} stoolAlert={null} onChanged={vi.fn(async () => undefined)} onEdit={vi.fn()} onOpenCare={vi.fn()} />)
+  expect(screen.getByRole("region", { name: "Rappel de soins" })).toHaveTextContent("24 heures")
+})

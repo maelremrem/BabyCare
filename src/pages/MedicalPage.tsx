@@ -1,3 +1,4 @@
+import { formatNumber } from "@/lib/numbers"
 import { fetchAllEvents } from "@/lib/eventPages"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Ruler, Scale } from "lucide-react"
@@ -95,6 +96,8 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
   const [measurementType, setMeasurementType] = useState<MeasurementType | null>(null)
   const [measurementValue, setMeasurementValue] = useState(0)
   const [notes, setNotes] = useState("")
+  const [saveError, setSaveError] = useState("")
+  const saveBusy = useRef(false)
   const [saving, setSaving] = useState(false)
   const [growthWindow, setGrowthWindow] = useState<[number, number]>(() => defaultGrowthWindow(settings.birth_date))
   const [growthWindowStart, growthWindowEnd] = growthWindow
@@ -154,20 +157,24 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
     const last = (type === "weight" ? weights : heights)[0]
     setMeasurementValue(last?.value_real ?? typeConfig.defaultValue)
     setNotes("")
+    setSaveError("")
     setMeasurementType(type)
   }
 
   const saveMeasurement = async () => {
-    if (!measurementType || !config) return
+    if (!measurementType || !config || saveBusy.current) return
+    saveBusy.current = true
+    setSaveError("")
     setSaving(true)
     try {
       await api.createEvent({ type: measurementType, value_real: measurementValue, notes })
-      toast.success(`${measurementLabels[measurementType]} · ${measurementValue.toFixed(config.decimals)} ${config.unit}`)
+      toast.success(`${measurementLabels[measurementType]} · ${formatNumber(measurementValue, config.decimals, locale)} ${config.unit}`)
       setMeasurementType(null)
-      await onChanged()
+      try { await onChanged() } catch { toast.warning(t.ux.refreshError) }
     } catch (error) {
-      toast.error(localizedErrorMessage(error, t, t.medical.saveError))
+      setSaveError(localizedErrorMessage(error, t, t.medical.saveError))
     } finally {
+      saveBusy.current = false
       setSaving(false)
     }
   }
@@ -179,35 +186,6 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
         <p className="mt-1 text-sm text-muted-foreground">{t.medical.description}</p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <MedicalChart
-          title={t.medical.weightChart}
-          indicator="weight"
-          events={weights}
-          unit="kg"
-          decimals={3}
-          settings={settings}
-          windowStart={growthWindowStart}
-          windowEnd={growthWindowEnd}
-          addLabel={t.medical.add}
-          addAriaLabel={`${t.medical.addMeasurement} ${t.eventLabels.weight}`}
-          onAdd={() => openMeasurement("weight")}
-        />
-        <MedicalChart
-          title={t.medical.heightChart}
-          indicator="height"
-          events={heights}
-          unit="cm"
-          decimals={1}
-          settings={settings}
-          windowStart={growthWindowStart}
-          windowEnd={growthWindowEnd}
-          addLabel={t.medical.add}
-          addAriaLabel={`${t.medical.addMeasurement} ${t.eventLabels.height}`}
-          onAdd={() => openMeasurement("height")}
-        />
-      </div>
-
       {!settings.birth_date || !settings.baby_sex ? (
         <p className="-mt-5 text-center text-xs text-muted-foreground">
           {t.medical.missingProfile}
@@ -217,12 +195,19 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 id="growth-period-title" className="text-sm font-semibold">{t.medical.displayedPeriod}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">{t.medical.sharedPeriod}</p>
             </div>
             <span className="rounded-full bg-muted px-3 py-1 font-mono text-xs tabular-nums text-muted-foreground">
               {formatGrowthMonth(growthWindowStart, locale)} → {formatGrowthMonth(growthWindowEnd, locale)}
             </span>
           </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {([1, 3, 60] as const).map(months => <Button key={months} className="min-h-11" variant={Math.abs(growthWindowEnd - growthWindowStart - months) < .01 ? "default" : "outline"} aria-pressed={Math.abs(growthWindowEnd - growthWindowStart - months) < .01} onClick={() => {
+              const age = getAgeInMonths(settings.birth_date, new Date().toISOString()) ?? 0
+              const end = months === 60 ? 60 : Math.min(60, Math.max(months, age + .5))
+              setGrowthWindow([Math.max(0, end - months), end])
+            }}>{months === 1 ? t.ux.oneMonth : months === 3 ? t.ux.threeMonths : t.ux.all}</Button>)}
+          </div>
+          <details><summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t.medical.browseGrowth}</summary><p className="text-xs text-muted-foreground">{t.medical.sharedPeriod}</p>
           <label className="mt-4 block text-xs text-muted-foreground" htmlFor="growth-window">
             {t.medical.browseGrowth}
           </label>
@@ -255,12 +240,41 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
               className="growth-range-input"
             />
           </div>
-          <p className="mt-3 text-center text-xs text-muted-foreground">
-            {t.medical.whoDisclaimer}
-          </p>
+          </details>
         </section>
       )}
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        <MedicalChart
+          title={t.medical.weightChart}
+          indicator="weight"
+          events={weights}
+          unit="kg"
+          decimals={3}
+          settings={settings}
+          windowStart={growthWindowStart}
+          windowEnd={growthWindowEnd}
+          addLabel={t.medical.add}
+          addAriaLabel={`${t.medical.addMeasurement} ${t.eventLabels.weight}`}
+          onAdd={() => openMeasurement("weight")}
+        />
+        <MedicalChart
+          title={t.medical.heightChart}
+          indicator="height"
+          events={heights}
+          unit="cm"
+          decimals={1}
+          settings={settings}
+          windowStart={growthWindowStart}
+          windowEnd={growthWindowEnd}
+          addLabel={t.medical.add}
+          addAriaLabel={`${t.medical.addMeasurement} ${t.eventLabels.height}`}
+          onAdd={() => openMeasurement("height")}
+        />
+      </div>
+
+
+      <p className="text-xs text-muted-foreground">{t.medical.whoDisclaimer}</p>
       <section>
         <div className="mb-3">
           <h3 className="text-xs font-semibold uppercase tracking-[.18em] text-muted-foreground">{t.medical.measurementsHistory}</h3>
@@ -292,7 +306,7 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
               </DialogTitle>
               <DialogDescription>
                 {lastMeasurement?.value_real != null
-                  ? interpolate(t.medical.lastMeasurement, { value: lastMeasurement.value_real.toFixed(config.decimals), unit: config.unit, date: measurementDate(lastMeasurement.started_at, locale) })
+                  ? interpolate(t.medical.lastMeasurement, { value: formatNumber(lastMeasurement.value_real, config.decimals, locale), unit: config.unit, date: measurementDate(lastMeasurement.started_at, locale) })
                   : t.medical.noPreviousMeasurement}
               </DialogDescription>
             </DialogHeader>
@@ -308,8 +322,9 @@ export function MedicalPage({ settings, refreshKey, onChanged, onEdit }: Medical
               stepLabel={measurementStepLabels[measurementType]}
             />
             <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={t.common.optionalObservation} />
+            {saveError ? <p role="alert" className="text-sm text-destructive">{saveError}</p> : null}
             <DialogFooter>
-              <Button className="h-12" disabled={saving} onClick={saveMeasurement}>{t.common.save}</Button>
+              <Button className="h-12" disabled={saving} onClick={saveMeasurement}>{saving ? t.ux.saving : saveError ? t.ux.retry : t.common.save}</Button>
             </DialogFooter>
           </DialogContent>
         ) : null}

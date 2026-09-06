@@ -522,16 +522,17 @@ export const demoApi = {
     return item
   },
 
-  async validateDailyCare(): Promise<BabyEvent> {
+  async validateDailyCare(careTypes?: DailyCare["care_type"][]): Promise<BabyEvent> {
     const state = readState()
     ensureDailyCare(state)
     const todayItems = state.dailyCare.filter((item) => item.date === localDate())
-    if (todayItems.some((item) => !item.completed)) throw new Error("Complete the checklist before validating care.")
+    if (careTypes && (!careTypes.length || careTypes.some(type => !DAILY_CARE_TYPES.includes(type)) || new Set(careTypes).size !== careTypes.length)) throw new Error("Invalid daily care.")
+    const selected = careTypes ?? DAILY_CARE_TYPES
+    if (!careTypes && todayItems.some((item) => !item.completed)) throw new Error("Complete the checklist before validating care.")
     const event = addCompletedEvent(state, {
       type: "daily_care",
-      value_text: "4 / 4",
-      notes: "Eyes, nose, cord and face completed",
-      metadata: { date: localDate(), care_types: DAILY_CARE_TYPES }
+      value_text: `${selected.length} / ${DAILY_CARE_TYPES.length}`,
+      metadata: { date: localDate(), care_types: selected }
     })
     todayItems.forEach((item) => {
       item.completed = 0

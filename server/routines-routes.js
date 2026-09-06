@@ -19,21 +19,27 @@ export function registerRoutinesRoutes(app, db) {
   app.post("/api/routines/daily/validate", (request, response) => {
     const date = request.body?.date || localDate()
     const babyId = activeBabyId(request)
+    const selected = request.body?.care_types
+    if (selected !== undefined && (!Array.isArray(selected) || !selected.length || selected.some(type => !DAILY_CARE_TYPES.includes(type)) || new Set(selected).size !== selected.length)) {
+      return sendApiError(response, 400, "invalid_daily_care")
+    }
+    const careTypes = selected ?? DAILY_CARE_TYPES
     const insertCare = db.prepare("INSERT OR IGNORE INTO daily_care (baby_id, date, care_type) VALUES (?, ?, ?)")
     const validate = db.transaction(() => {
       DAILY_CARE_TYPES.forEach((type) => insertCare.run(babyId, date, type))
       const incomplete = db.prepare("SELECT COUNT(*) AS count FROM daily_care WHERE baby_id = ? AND date = ? AND completed = 0").get(babyId, date).count
-      if (incomplete > 0) return { incomplete: true }
+      if (!selected && incomplete > 0) return { incomplete: true }
 
       const timestamp = nowIso()
       const event = db.prepare(`
         INSERT INTO events (baby_id, type, status, started_at, value_text, notes, metadata, created_at, updated_at)
-        VALUES (?, 'daily_care', 'completed', ?, '4 / 4', ?, ?, ?, ?)
+        VALUES (?, 'daily_care', 'completed', ?, ?, ?, ?, ?, ?)
       `).run(
         babyId,
         timestamp,
-        "Yeux, nez, cordon et visage effectués",
-        JSON.stringify({ date, care_types: DAILY_CARE_TYPES }),
+        `${careTypes.length} / ${DAILY_CARE_TYPES.length}`,
+        null,
+        JSON.stringify({ date, care_types: careTypes }),
         timestamp,
         timestamp
       )

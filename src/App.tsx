@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { ClipboardCheck, History, LayoutDashboard, Stethoscope } from "lucide-react"
 import { toast } from "sonner"
+import { ContentLoading } from "@/components/ContentLoading"
+import { ActiveTimer } from "@/components/ActiveTimer"
 import { EventEditor } from "@/components/EventEditor"
 import { AppFooter } from "@/components/AppFooter"
 import { AppLoading } from "@/components/AppLoading"
@@ -75,6 +77,10 @@ export default function App() {
   const [editing, setEditing] = useState<BabyEvent | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [activeTab, setActiveTab] = useState("tracking")
+  const navigate = (tab: string) => {
+    setActiveTab(tab)
+    window.scrollTo({ top: 0, behavior: "instant" })
+  }
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [stoolAlert, setStoolAlert] = useState<StoolAlert | null>(null)
   const [bootstrapLoading, setBootstrapLoading] = useState(true)
@@ -126,7 +132,7 @@ export default function App() {
 
   return (
     <I18nProvider preference={settings.language_preference}>
-      <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      <div className="flex min-h-dvh flex-col bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] text-foreground sm:pb-0">
         <TopBar
           settings={settings}
           onBabySelect={async (babyId) => {
@@ -174,19 +180,22 @@ export default function App() {
           hasRunningTimer={running.length > 0}
         />
         {!connected && <p role="status" className="px-4 py-2 text-center text-sm text-amber-600">{locale === "fr" ? "Connexion interrompue. Les données seront actualisées à la reconnexion." : "Connection lost. Data will refresh when reconnected."}</p>}
-        <Suspense fallback={<AppLoading accentColor={activeColor} />}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-14 sm:px-6">
-          <div className="sticky top-[73px] z-30 -mx-4 bg-background/95 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
+        <Tabs value={activeTab} onValueChange={navigate} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 sm:px-6">
+          <div className="app-navigation z-40 bg-background/95 px-3 py-2 backdrop-blur-xl sm:-mx-6 sm:px-6">
             <TabsList className="grid h-14 w-full grid-cols-4 rounded-2xl bg-card p-1.5">
-              <TabsTrigger value="tracking" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><LayoutDashboard className="hidden sm:block" /> <span>{t.tabs.tracking}</span></TabsTrigger>
-              <TabsTrigger value="care" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><ClipboardCheck className="hidden sm:block" /> <span>{t.tabs.care}</span></TabsTrigger>
-              <TabsTrigger value="medical" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><Stethoscope className="hidden sm:block" /> <span>{t.tabs.medical}</span></TabsTrigger>
-              <TabsTrigger value="history" className="h-full gap-1 rounded-xl px-1 text-[10px] font-semibold tracking-wide sm:text-sm"><History className="hidden sm:block" /> <span>{t.tabs.history}</span></TabsTrigger>
+              <TabsTrigger value="tracking" className="h-full flex-col gap-1 rounded-xl px-1 text-xs font-semibold sm:flex-row sm:text-sm"><LayoutDashboard className="size-4" /> <span>{t.ux.today}</span></TabsTrigger>
+              <TabsTrigger value="care" className="h-full flex-col gap-1 rounded-xl px-1 text-xs font-semibold sm:flex-row sm:text-sm"><ClipboardCheck className="size-4" /> <span>{t.tabs.care}</span></TabsTrigger>
+              <TabsTrigger value="medical" className="h-full flex-col gap-1 rounded-xl px-1 text-xs font-semibold sm:flex-row sm:text-sm"><Stethoscope className="size-4" /> <span>{t.ux.growth}</span></TabsTrigger>
+              <TabsTrigger value="history" className="h-full flex-col gap-1 rounded-xl px-1 text-xs font-semibold sm:flex-row sm:text-sm"><History className="size-4" /> <span>{t.tabs.history}</span></TabsTrigger>
             </TabsList>
           </div>
+        {running.length > 0 ? <div id="active-timers" className="sticky top-[73px] z-30 -mx-1 space-y-2 bg-background/95 px-1 py-2 sm:top-[151px]">
+          {running.map(event => <ActiveTimer key={`${settings.active_baby_id}-${event.id}`} event={event} onChanged={refreshAll} />)}
+        </div> : null}
           <TabsContent value="tracking" className="mt-5">
             <TrackingPage
               key={settings.active_baby_id}
+              babyId={settings.active_baby_id}
               events={events}
               running={running}
               loading={loading}
@@ -194,26 +203,31 @@ export default function App() {
               feedingType={settings.feeding_type || "breast"}
               onChanged={refreshAll}
               onEdit={setEditing}
-              onOpenCare={() => setActiveTab("care")}
+              onOpenCare={() => navigate("care")}
               onTimerStartAttempt={activateVideoFallback}
               onTimerStartFailed={deactivateVideoFallback}
             />
           </TabsContent>
           <TabsContent value="care" className="mt-5">
-            <CarePage key={settings.active_baby_id} care={care} onChanged={refreshAll} onValidated={() => setActiveTab("tracking")} />
+            <Suspense fallback={<ContentLoading label={t.loading.appText} />}>
+            <CarePage key={settings.active_baby_id} babyId={settings.active_baby_id} care={care} onChanged={refreshAll} onValidated={() => navigate("tracking")} />
+            </Suspense>
           </TabsContent>
           <TabsContent value="medical" className="mt-5">
+            <Suspense fallback={<ContentLoading label={t.loading.appText} />}>
             <MedicalPage key={settings.active_baby_id} settings={settings} refreshKey={refreshKey} onChanged={refreshAll} onEdit={setEditing} />
+            </Suspense>
           </TabsContent>
           <TabsContent value="history" className="mt-5">
+            <Suspense fallback={<ContentLoading label={t.loading.appText} />}>
             <HistoryPage key={settings.active_baby_id} babyId={settings.active_baby_id} refreshKey={refreshKey} feedingType={settings.feeding_type || "breast"} onEdit={setEditing} />
+            </Suspense>
           </TabsContent>
         </Tabs>
-        </Suspense>
         <AppFooter />
         <EventEditor event={editing} onOpenChange={(open) => !open && setEditing(null)} onChanged={refreshAll} />
         <DemoNoticeDialog enabled={isDemoMode} />
-        <Toaster position="bottom-center" richColors />
+        <Toaster position="top-center" richColors />
       </div>
     </I18nProvider>
   )

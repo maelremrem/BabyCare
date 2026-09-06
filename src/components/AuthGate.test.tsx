@@ -6,7 +6,7 @@ import { AuthGate } from "./AuthGate"
 afterEach(() => vi.unstubAllGlobals())
 
 test("requires a successful login and hides content again when the session expires", async () => {
-  const request = vi.fn().mockResolvedValueOnce(Response.json({ authenticated: false }))
+  const request = vi.fn().mockResolvedValueOnce(Response.json({ authenticated: false, enabled: true }))
     .mockResolvedValueOnce(Response.json({ authenticated: true }))
   vi.stubGlobal("fetch", request)
   const user = userEvent.setup()

@@ -18,7 +18,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     fetch("/api/auth/session").then(async (response) => {
       if (!response.ok) throw new Error()
       const session = await response.json()
-      if (active) setAuthenticated(session.authenticated === true)
+      if (active) setAuthenticated(session.enabled !== true || session.authenticated === true)
     }).catch(() => { if (active) setError(fr ? "Connexion au serveur impossible. Réessayez." : "Unable to reach the server. Try again.") })
       .finally(() => { if (active) setLoading(false) })
     const expired = () => { setAuthenticated(false); setPassword("") }
