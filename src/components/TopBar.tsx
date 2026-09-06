@@ -1,3 +1,4 @@
+import { Notifications } from "./Notifications"
 import { PasswordSettings } from "./PasswordSettings"
 import { isDemoMode } from "@/lib/api"
 import { useEffect, useState, type FormEvent } from "react"
@@ -268,6 +269,8 @@ export function TopBar({ settings, onBabySelect, onBabyAdd, onBabyDelete, onLang
 
         <p className="ml-auto hidden whitespace-nowrap text-sm text-muted-foreground md:block">{formatLongDate(now, locale)}</p>
         <time className="hidden whitespace-nowrap font-mono text-sm font-medium tabular-nums sm:block">{formatClock(now, locale)}</time>
+
+        <Notifications />
 
         <Dialog open={settingsOpen} onOpenChange={(open) => {
           setSettingsOpen(open)

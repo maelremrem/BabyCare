@@ -47,10 +47,17 @@ test("une préférence corrompue est ignorée et un stockage indisponible ne blo
   localStorage.setItem(TILE_ORDER_KEY, "bad json")
   const view = grid()
   expect(order(view.container)).toEqual(["A", "B", "C"])
-  vi.spyOn(localStorage, "setItem").mockImplementation(() => { throw new Error("full") })
+  // jsdom Storage intercepts instance properties, so spying on setItem does not
+  // reliably replace it. Stub the storage boundary in both jsdom and Node.
+  const save = vi.fn(() => { throw new Error("full") })
+  vi.stubGlobal("localStorage", {
+    getItem: localStorage.getItem.bind(localStorage),
+    setItem: save
+  })
   fireEvent.click(screen.getByRole("button", { name: "Réorganiser" }))
   fireEvent.keyDown(screen.getByRole("button", { name: "Déplacer 1" }), { key: "ArrowRight" })
   expect(order(view.container)).toEqual(["B", "A", "C"])
+  expect(save).toHaveBeenCalledWith(TILE_ORDER_KEY, JSON.stringify(["b", "a", "c"]))
   expect(screen.getByRole("alert")).toHaveTextContent("indisponible")
 })
 

@@ -158,3 +158,24 @@ export function changePassword(currentPassword: string, newPassword: string, rem
 export function getPasswordStatus() {
   return rawRequest<{ enabled: boolean; authenticated: boolean }>("/api/auth/session")
 }
+
+export interface NotificationAction {
+  id: number
+  baby_name: string
+  event_type: EventType
+  action: 'created' | 'started' | 'stopped' | 'updated' | 'deleted'
+  created_at: string
+}
+export interface WebhookSettings {
+  enabled: boolean
+  provider: 'ntfy' | 'gotify'
+  url: string
+  hasToken: boolean
+  token?: string
+}
+export const notificationsApi = {
+  list: (since: string) => isDemoMode ? Promise.resolve<NotificationAction[]>([]) : rawRequest<NotificationAction[]>(`/api/notifications?since=${encodeURIComponent(since)}`),
+  settings: () => rawRequest<WebhookSettings>('/api/notifications/settings'),
+  save: (settings: WebhookSettings) => rawRequest<WebhookSettings>('/api/notifications/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+  test: () => rawRequest('/api/notifications/test', { method: 'POST' })
+}
