@@ -135,17 +135,30 @@ export const api = isDemoMode ? demoApi : serverApi
 export function subscribeToServerChanges(onChange: () => void, onConnection?: (connected: boolean) => void) {
   if (isDemoMode || typeof EventSource === "undefined") return () => undefined
   const stream = new EventSource("/api/changes")
-  const reconnect = () => { onConnection?.(true); onChange() }
-  const disconnected = () => onConnection?.(false)
+  let disconnectTimer: ReturnType<typeof window.setTimeout> | null = null
+  const clearDisconnectTimer = () => {
+    if (!disconnectTimer) return
+    window.clearTimeout(disconnectTimer)
+    disconnectTimer = null
+  }
+  const reconnect = () => { clearDisconnectTimer(); onConnection?.(true); onChange() }
+  const disconnected = () => {
+    clearDisconnectTimer()
+    disconnectTimer = window.setTimeout(() => {
+      disconnectTimer = null
+      onConnection?.(false)
+    }, 4_000)
+  }
   const visible = () => { if (document.visibilityState === "visible") onChange() }
   stream.addEventListener("connected", reconnect)
   stream.addEventListener("change", onChange)
   stream.addEventListener("error", disconnected)
-  window.addEventListener("online", onChange)
+  window.addEventListener("online", reconnect)
   document.addEventListener("visibilitychange", visible)
   return () => {
+    clearDisconnectTimer()
     stream.close()
-    window.removeEventListener("online", onChange)
+    window.removeEventListener("online", reconnect)
     document.removeEventListener("visibilitychange", visible)
   }
 }

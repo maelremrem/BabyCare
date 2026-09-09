@@ -1,9 +1,13 @@
 import { afterEach, expect, test, vi } from "vitest"
 import { subscribeToServerChanges } from "./api"
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 test("refreshes after reconnect and returning to the foreground, then cleans up", () => {
+  vi.useFakeTimers()
   const source = Object.assign(new EventTarget(), { close: vi.fn() })
   class Stream { constructor() { return source } }
   vi.stubGlobal("EventSource", Stream)
@@ -11,6 +15,8 @@ test("refreshes after reconnect and returning to the foreground, then cleans up"
   const connection = vi.fn()
   const unsubscribe = subscribeToServerChanges(change, connection)
   source!.dispatchEvent(new Event("error"))
+  expect(connection).not.toHaveBeenCalled()
+  vi.advanceTimersByTime(4_000)
   expect(connection).toHaveBeenLastCalledWith(false)
   source!.dispatchEvent(new Event("connected"))
   expect(connection).toHaveBeenLastCalledWith(true)
@@ -21,6 +27,26 @@ test("refreshes after reconnect and returning to the foreground, then cleans up"
   expect(source!.close).toHaveBeenCalledOnce()
   window.dispatchEvent(new Event("online"))
   expect(change).toHaveBeenCalledTimes(2)
+})
+
+test("keeps transient reconnect attempts from showing as disconnected", () => {
+  vi.useFakeTimers()
+  const source = Object.assign(new EventTarget(), { close: vi.fn() })
+  class Stream { constructor() { return source } }
+  vi.stubGlobal("EventSource", Stream)
+  const change = vi.fn()
+  const connection = vi.fn()
+  const unsubscribe = subscribeToServerChanges(change, connection)
+
+  source!.dispatchEvent(new Event("error"))
+  vi.advanceTimersByTime(3_999)
+  expect(connection).not.toHaveBeenCalled()
+  source!.dispatchEvent(new Event("connected"))
+  vi.advanceTimersByTime(1)
+
+  expect(connection).toHaveBeenCalledOnce()
+  expect(connection).toHaveBeenLastCalledWith(true)
+  unsubscribe()
 })
 
 test("sends the device baby ID and rejects responses for an old selection", async () => {
