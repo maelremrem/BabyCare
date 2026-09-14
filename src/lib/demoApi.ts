@@ -12,6 +12,7 @@ interface DemoState {
 
 const STORAGE_KEY = "babycare-demo-state-v1"
 const UPDATE_STORAGE_KEY = "babycare-demo-update-v1"
+const DEMO_AVAILABLE_VERSION = "0.2.0"
 const DAILY_CARE_TYPES: DailyCare["care_type"][] = ["eyes", "face", "nose", "cord"]
 const TIMER_TYPES = new Set<EventType>(["breast_left", "breast_right", "nap"])
 const DEFAULT_BABY_NAME = "Charlie"
@@ -51,13 +52,19 @@ function writeDemoUpdate(update: DemoUpdateState) {
 function demoUpdateStatus(): UpdateStatus {
   const update = readDemoUpdate()
   let currentStep: (typeof DEMO_UPDATE_STEPS)[number] | undefined
+  if (update.state === "complete") {
+    update.currentVersion = __APP_VERSION__
+    update.canRollback = false
+    update.rollbackVersion = null
+    writeDemoUpdate(update)
+  }
   if (update.startedAt && update.state !== "complete" && update.state !== "error") {
     const elapsed = Date.now() - update.startedAt
     if (elapsed >= 8500) {
       update.state = "complete"
-      update.currentVersion = update.targetVersion || update.currentVersion
-      update.canRollback = true
-      update.rollbackVersion = __APP_VERSION__
+      update.currentVersion = __APP_VERSION__
+      update.canRollback = false
+      update.rollbackVersion = null
       writeDemoUpdate(update)
     } else {
       currentStep = [...DEMO_UPDATE_STEPS].reverse().find((candidate) => elapsed >= candidate.after) || DEMO_UPDATE_STEPS[0]
@@ -462,14 +469,12 @@ export const demoApi = {
   },
 
   async versionInfo(): Promise<VersionInfo> {
-    const update = readDemoUpdate()
     const status = demoUpdateStatus()
-    const availableVersion = update.currentVersion === __APP_VERSION__ ? "0.2.0" : null
     return {
-      currentVersion: update.currentVersion,
+      currentVersion: __APP_VERSION__,
       enabled: true,
-      updateAvailable: Boolean(availableVersion),
-      availableVersion,
+      updateAvailable: true,
+      availableVersion: DEMO_AVAILABLE_VERSION,
       releaseUrl: null,
       supported: true,
       status
@@ -485,8 +490,7 @@ export const demoApi = {
     if (state.state !== "idle" && state.state !== "complete" && state.state !== "error") throw new Error("Une mise à jour est déjà en cours.")
     const runningTimers = readState().events.filter((event) => event.status === "running" && TIMER_TYPES.has(event.type))
     if (runningTimers.length) throw new Error("Arrêtez tous les chronos avant de lancer une mise à jour.")
-    if (state.currentVersion !== __APP_VERSION__) throw new Error("Aucune nouvelle version n’est disponible.")
-    const next = { ...state, state: "queued" as const, startedAt: Date.now(), targetVersion: "0.2.0", canRollback: false, rollbackVersion: null }
+    const next = { ...state, currentVersion: __APP_VERSION__, state: "queued" as const, startedAt: Date.now(), targetVersion: DEMO_AVAILABLE_VERSION, canRollback: false, rollbackVersion: null }
     writeDemoUpdate(next)
     return demoUpdateStatus()
   },

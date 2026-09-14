@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { api } from "@/lib/api"
+import { api, isDemoMode } from "@/lib/api"
 import { reconcileUpdateStatus } from "@/lib/updateStatus"
 import type { UpdateStatus, VersionInfo } from "@/lib/types"
 
@@ -27,7 +27,7 @@ export function useAppUpdate() {
       const info = await api.versionInfo(force)
       setVersionInfo(info)
       setStatus((current) => reconcileUpdateStatus(current, info.status))
-      if (info.currentVersion !== __APP_VERSION__ && !refreshing.current) {
+      if (!isDemoMode && info.currentVersion !== __APP_VERSION__ && !refreshing.current) {
         refreshing.current = true
         await refreshForNewClient(info.currentVersion)
       }
