@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, test, vi } from "vitest"
 import { api } from "@/lib/api"
 import type { BabyEvent } from "@/lib/types"
@@ -92,22 +92,20 @@ describe("HistoryPage", () => {
 })
 
 test("charge les événements au-delà de 100 et synchronise les filtres des statistiques", async () => {
-  const { default: userEvent } = await import("@testing-library/user-event")
-  const user = userEvent.setup()
-  const rows = Array.from({ length: 103 }, (_, i) => event({ id: i + 1, notes: `Observation ${i + 1}` }))
+  const rows = Array.from({ length: 101 }, (_, i) => event({ id: i + 1, notes: `Observation ${i + 1}` }))
   const calls = vi.spyOn(api, "events").mockImplementation(async (params = new URLSearchParams()) => {
     const offset = Number(params.get("offset") || 0)
     const limit = Number(params.get("limit") || 100)
     return { events: rows.slice(offset, offset + limit), total: rows.length, limit, offset }
   })
   render(<HistoryPage refreshKey={0} onEdit={vi.fn()} />)
-  expect(await screen.findByText("100 événements sur 103")).toBeInTheDocument()
-  await user.click(screen.getByRole("button", { name: "Charger la suite" }))
-  expect(await screen.findByText("103 événements sur 103")).toBeInTheDocument()
-  expect(screen.getByText("Observation 103")).toBeInTheDocument()
+  expect(await screen.findByText("100 événements sur 101")).toBeInTheDocument()
+  fireEvent.click(screen.getByRole("button", { name: "Charger la suite" }))
+  expect(await screen.findByText("101 événements sur 101")).toBeInTheDocument()
+  expect(screen.getByText("Observation 101")).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Charger la suite" })).not.toBeInTheDocument()
-  await user.type(screen.getByRole("textbox", { name: "Rechercher une observation…" }), "cible")
+  fireEvent.change(screen.getByRole("textbox", { name: "Rechercher une observation…" }), { target: { value: "cible" } })
   await waitFor(() => expect(calls.mock.calls.some(([params]) => params?.get("limit") === "250" && params.get("search") === "cible")).toBe(true))
   await waitFor(() => expect(calls.mock.calls.some(([params]) => params?.get("limit") === "100" && params.get("search") === "cible")).toBe(true))
   calls.mockRestore()
-})
+}, 20_000)

@@ -15,6 +15,7 @@ export const EVENT_LABELS = {
   face_cord_care: "Visage et cordon",
   clothes_change: "Vêtements",
   irritation: "Irritation",
+  regurgitation: "Régurgitation",
   vitamin: "Vitamine",
   observation: "Observation",
   daily_care: "Soins quotidiens",
@@ -26,6 +27,9 @@ export type EventType = keyof typeof EVENT_LABELS
 
 export const IRRITATION_LOCATIONS = ["face", "neck", "chest", "back", "arms", "legs", "bottom", "other"] as const
 export type IrritationLocation = typeof IRRITATION_LOCATIONS[number]
+
+export const REGURGITATION_AMOUNTS = ["little", "medium", "large"] as const
+export type RegurgitationAmount = typeof REGURGITATION_AMOUNTS[number]
 
 export const BABY_VITAMINS = ["vitamin_d", "vitamin_k", "vitamin_a", "vitamin_b1", "vitamin_b2", "vitamin_b3", "vitamin_b5", "vitamin_b6", "vitamin_b7", "vitamin_b9", "vitamin_b12", "vitamin_c", "vitamin_e", "multivitamins"] as const
 export type BabyVitamin = typeof BABY_VITAMINS[number]

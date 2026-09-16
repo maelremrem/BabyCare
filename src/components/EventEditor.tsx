@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { localizedErrorMessage, useI18n } from "@/lib/i18n"
-import { BABY_VITAMINS, IRRITATION_LOCATIONS, normalizeIrritationLocation, type BabyEvent } from "@/lib/types"
+import { BABY_VITAMINS, IRRITATION_LOCATIONS, REGURGITATION_AMOUNTS, normalizeIrritationLocation, type BabyEvent, type RegurgitationAmount } from "@/lib/types"
 
 interface EventEditorProps {
   event: BabyEvent | null
@@ -47,7 +47,13 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
         : ["bottle", "pump_left", "pump_right"].includes(event.type)
           ? event.value_real.toFixed(0)
         : event.value_real.toFixed(1))
-    setDetail(typeof event.metadata?.diaper_type === "string" ? event.metadata.diaper_type : "")
+    setDetail(event.type === "diaper" && typeof event.metadata?.diaper_type === "string"
+      ? event.metadata.diaper_type
+      : event.type === "regurgitation" && typeof event.metadata?.amount === "string"
+        ? event.metadata.amount
+        : event.type === "regurgitation"
+          ? "medium"
+        : "")
     const duration = event.duration_seconds || 0
     setDurationHours(String(Math.floor(duration / 3600)))
     setDurationMinutes(String(Math.floor((duration % 3600) / 60)))
@@ -80,6 +86,8 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
     const duration = Number(durationHours) * 3600 + Number(durationMinutes) * 60 + Number(durationSeconds)
     const metadata = event.type === "diaper"
       ? { ...event.metadata, diaper_type: detail }
+      : event.type === "regurgitation"
+        ? { ...event.metadata, amount: detail || "medium" }
       : event.type === "irritation"
         ? { locations: irritationLocations }
         : event.type === "vitamin"
@@ -173,6 +181,18 @@ export function EventEditor({ event, onOpenChange, onChanged }: EventEditorProps
                 {Object.entries(t.diaperTypes).map(([option, label]) => (
                   <Button key={option} type="button" variant={detail === option ? "default" : "outline"} onClick={() => setDetail(option)}>
                     {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+          {event.type === "regurgitation" && (
+            <div className="grid gap-2 text-sm font-medium">
+              {t.eventEditor.amount}
+              <div className="grid grid-cols-3 gap-2">
+                {REGURGITATION_AMOUNTS.map((option) => (
+                  <Button key={option} type="button" variant={detail === option ? "default" : "outline"} onClick={() => setDetail(option)}>
+                    {t.regurgitationAmounts[option as RegurgitationAmount]}
                   </Button>
                 ))}
               </div>

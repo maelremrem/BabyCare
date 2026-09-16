@@ -100,4 +100,36 @@ describe("EventEditor", () => {
     expect(screen.queryByText("Durée", { exact: true })).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Minutes")).not.toBeInTheDocument()
   })
+
+  test("permet de corriger la quantité d’une régurgitation", async () => {
+    const user = userEvent.setup()
+    const event: BabyEvent = {
+      id: 14,
+      type: "regurgitation",
+      status: "completed",
+      started_at: "2026-08-30T10:00:00.000Z",
+      ended_at: null,
+      duration_seconds: null,
+      value_real: null,
+      value_text: null,
+      notes: "",
+      metadata: { amount: "little" },
+      created_at: "2026-08-30T10:00:00.000Z",
+      updated_at: "2026-08-30T10:00:00.000Z"
+    }
+    updateEvent.mockResolvedValue(event)
+
+    render(
+      <I18nProvider preference="fr">
+        <EventEditor event={event} onOpenChange={vi.fn()} onChanged={vi.fn(async () => undefined)} />
+      </I18nProvider>
+    )
+
+    await user.click(screen.getByRole("button", { name: "Beaucoup" }))
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }))
+
+    await waitFor(() => expect(updateEvent).toHaveBeenCalledWith(14, expect.objectContaining({
+      metadata: { amount: "large" }
+    })))
+  })
 })

@@ -44,6 +44,7 @@ function displayType(type, locale) {
 
 function displayDetail(metadata, locale) {
   if (metadata?.diaper_type) return EXPORT_MESSAGES[locale].diaperTypes[metadata.diaper_type] || metadata.diaper_type
+  if (metadata?.amount) return EXPORT_MESSAGES[locale].regurgitationAmounts[metadata.amount] || metadata.amount
   if (Array.isArray(metadata?.locations)) {
     return metadata.locations.map((location) => EXPORT_MESSAGES[locale].irritationLocations[location] || location).join(", ")
   }

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import { SortableTiles } from "./SortableTiles"
 import {
-  Bath, CircleDot, HeartPulse, MessageSquarePlus, Milk, Moon, Pill, Shirt, Thermometer, WalletCards
+  Bath, CircleDot, Droplets, HeartPulse, MessageSquarePlus, Milk, Moon, Pill, Shirt, Thermometer, WalletCards
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,7 @@ import { TemperaturePicker } from "@/components/TemperaturePicker"
 import { formatNumber } from "@/lib/numbers"
 import { api } from "@/lib/api"
 import { interpolate, localizedErrorMessage, useI18n } from "@/lib/i18n"
-import { BABY_VITAMINS, hasBottleFeeding, hasBreastFeeding, IRRITATION_LOCATIONS, type EventType, type FeedingType } from "@/lib/types"
+import { BABY_VITAMINS, hasBottleFeeding, hasBreastFeeding, IRRITATION_LOCATIONS, REGURGITATION_AMOUNTS, type EventType, type FeedingType, type RegurgitationAmount } from "@/lib/types"
 
 interface ActionGridProps {
   nextBreast: "breast_left" | "breast_right"
@@ -35,6 +35,7 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
   const [failure, setFailure] = useState<{type: EventType; message: string} | null>(null)
   const [temperatureOpen, setTemperatureOpen] = useState(false)
   const [irritationOpen, setIrritationOpen] = useState(false)
+  const [regurgitationOpen, setRegurgitationOpen] = useState(false)
   const [vitaminOpen, setVitaminOpen] = useState(false)
   const [observationOpen, setObservationOpen] = useState(false)
   const [diaperOpen, setDiaperOpen] = useState(false)
@@ -46,6 +47,8 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
   const [temperature, setTemperature] = useState(37)
   const [temperatureNotes, setTemperatureNotes] = useState("")
   const [irritationNotes, setIrritationNotes] = useState("")
+  const [regurgitationNotes, setRegurgitationNotes] = useState("")
+  const [regurgitationAmount, setRegurgitationAmount] = useState<RegurgitationAmount>("medium")
   const [vitaminNotes, setVitaminNotes] = useState("")
   const [observationNotes, setObservationNotes] = useState("")
   const [locations, setLocations] = useState<string[]>([])
@@ -105,7 +108,7 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
           bottle: t.eventLabels.bottle, diaper: t.eventLabels.diaper, nap: t.eventLabels.nap,
           temperature: t.eventLabels.temperature, care: t.actions.careBath, pump: t.actions.pump,
           clothes_change: t.eventLabels.clothes_change, irritation: t.eventLabels.irritation,
-          vitamin: t.eventLabels.vitamin, observation: t.actions.addObservation
+          regurgitation: t.eventLabels.regurgitation, vitamin: t.eventLabels.vitamin, observation: t.actions.addObservation
         }}
         secondaryLabel={t.ux.otherActions} primary={<>
         {hasBreastFeeding(feedingType) ? (
@@ -166,6 +169,9 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
         <Button key="irritation" variant="outline" className={actionClass} onClick={() => setIrritationOpen(true)}>
           <HeartPulse className="size-6" /> {t.eventLabels.irritation}
         </Button>
+        <Button key="regurgitation" variant="outline" className={actionClass} onClick={() => setRegurgitationOpen(true)}>
+          <Droplets className="size-6" /> {t.eventLabels.regurgitation}
+        </Button>
         <Button key="vitamin" variant="outline" className={actionClass} onClick={() => setVitaminOpen(true)}>
           <Pill className="size-6" /> {t.eventLabels.vitamin}
         </Button>
@@ -174,7 +180,7 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
         </Button>
       </>} />
       </fieldset>
-      {!temperatureOpen && !bottleOpen && !pumpOpen && !irritationOpen && !vitaminOpen && !observationOpen && failure ? <p role="alert" className="text-sm text-destructive">{failure.message}</p> : null}
+      {!temperatureOpen && !bottleOpen && !pumpOpen && !irritationOpen && !regurgitationOpen && !vitaminOpen && !observationOpen && failure ? <p role="alert" className="text-sm text-destructive">{failure.message}</p> : null}
 
       <Dialog open={pumpOpen} onOpenChange={open => { if (!busy.current) setPumpOpen(open) }}>
         <DialogContent className="sm:max-w-md">
@@ -283,6 +289,48 @@ export function ActionGrid({ nextBreast, feedingType, bottleDefaultQuantity = 15
               }, `${t.eventLabels.irritation} · ${locations.map((location) => t.irritationLocations[location as keyof typeof t.irritationLocations]).join(", ")}`)) return
               setIrritationOpen(false)
             }}>{saveLabel("irritation")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={regurgitationOpen} onOpenChange={(open) => {
+        if (busy.current) return
+        setRegurgitationOpen(open)
+        if (!open) {
+          setRegurgitationAmount("medium")
+          setRegurgitationNotes("")
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Droplets className="text-primary" /> {t.eventLabels.regurgitation}</DialogTitle>
+            <DialogDescription>{t.actions.regurgitationDescription}</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-2">
+            {REGURGITATION_AMOUNTS.map((amount) => (
+              <Button
+                key={amount}
+                type="button"
+                aria-pressed={regurgitationAmount === amount}
+                variant={regurgitationAmount === amount ? "default" : "outline"}
+                className="h-11"
+                onClick={() => setRegurgitationAmount(amount)}
+              >
+                {t.regurgitationAmounts[amount]}
+              </Button>
+            ))}
+          </div>
+          <Textarea value={regurgitationNotes} onChange={(event) => setRegurgitationNotes(event.target.value)} placeholder={t.common.optionalObservation} />
+          {errorMessage("regurgitation")}
+          <DialogFooter>
+            <Button className="h-12" disabled={saving} onClick={async () => {
+              if (!await create("regurgitation", {
+                type: "regurgitation",
+                metadata: { amount: regurgitationAmount },
+                notes: regurgitationNotes
+              }, `${t.eventLabels.regurgitation} · ${t.regurgitationAmounts[regurgitationAmount].toLowerCase()}`)) return
+              setRegurgitationOpen(false)
+            }}>{saveLabel("regurgitation")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

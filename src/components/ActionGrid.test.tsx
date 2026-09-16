@@ -15,6 +15,7 @@ describe("ActionGrid recovery", () => {
     ["Température", "temperature"],
     ["Biberon", "bottle"],
     ["Tire-lait", "pump_left"],
+    ["Régurgitation", "regurgitation"],
     ["Ajouter une observation", "observation"]
   ])("conserve %s après un échec et permet de réessayer", async (name, type) => {
     const user = userEvent.setup()
@@ -34,6 +35,25 @@ describe("ActionGrid recovery", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
     expect(api.createEvent).toHaveBeenLastCalledWith(expect.objectContaining({ type }))
     expect(callbacks.onChanged).toHaveBeenCalledOnce()
+  }, 10_000)
+
+  test("enregistre une régurgitation avec sa quantité", async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.createEvent).mockResolvedValue(saved)
+    render(<ActionGrid {...props()} />)
+
+    await user.click(screen.getByText("Autres actions"))
+    await user.click(screen.getByRole("button", { name: "Régurgitation" }))
+    await user.click(screen.getByRole("button", { name: "Beaucoup" }))
+    await user.type(screen.getByRole("textbox"), "Après le biberon")
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }))
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    expect(api.createEvent).toHaveBeenCalledWith({
+      type: "regurgitation",
+      metadata: { amount: "large" },
+      notes: "Après le biberon"
+    })
   })
 
   test("bloque un double enregistrement pendant la requête", async () => {

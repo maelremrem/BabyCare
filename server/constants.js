@@ -15,6 +15,7 @@ export const EVENT_TYPES = new Set([
   "face_cord_care",
   "clothes_change",
   "irritation",
+  "regurgitation",
   "vitamin",
   "observation",
   "daily_care",
@@ -123,6 +124,7 @@ export const EXPORT_MESSAGES = {
       face_cord_care: "Visage et cordon",
       clothes_change: "Vêtements",
       irritation: "Irritation",
+      regurgitation: "Régurgitation",
       vitamin: "Vitamine",
       observation: "Observation",
       daily_care: "Soins quotidiens",
@@ -133,6 +135,11 @@ export const EXPORT_MESSAGES = {
       urine: "Urine",
       stool: "Selles",
       mixed: "Urine + Selles"
+    },
+    regurgitationAmounts: {
+      little: "Peu",
+      medium: "Moyen",
+      large: "Beaucoup"
     },
     irritationLocations: {
       face: "Visage",
@@ -198,6 +205,7 @@ export const EXPORT_MESSAGES = {
       face_cord_care: "Face and cord",
       clothes_change: "Clothes",
       irritation: "Irritation",
+      regurgitation: "Regurgitation",
       vitamin: "Vitamin",
       observation: "Observation",
       daily_care: "Daily care",
@@ -208,6 +216,11 @@ export const EXPORT_MESSAGES = {
       urine: "Urine",
       stool: "Stool",
       mixed: "Urine + Stool"
+    },
+    regurgitationAmounts: {
+      little: "Little",
+      medium: "Medium",
+      large: "A lot"
     },
     irritationLocations: {
       face: "Face",
@@ -261,4 +274,3 @@ export function sendApiError(response, status, code) {
 export function resolveExportLocale(value) {
   return EXPORT_LOCALES.has(value) ? value : "fr"
 }
-

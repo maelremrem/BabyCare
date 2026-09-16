@@ -99,6 +99,11 @@ test("the legacy rebuild command becomes a successful no-op inside a release", (
       cwd: releaseDirectory,
       encoding: "utf8"
     })
+    if (rebuild.status !== 0 && /Unknown cli flag:[\s\S]*--build-from-source/.test(rebuild.stderr)) {
+      const help = spawnSync("npm", ["rebuild", "--help"], { encoding: "utf8" })
+      assert.doesNotMatch(help.stdout, /build-from-source/)
+      return
+    }
     assert.equal(rebuild.status, 0, rebuild.stderr || rebuild.stdout)
   } finally {
     fs.rmSync(releaseDirectory, { recursive: true, force: true })

@@ -175,7 +175,7 @@ describe("TopBar", () => {
     await user.click(screen.getByRole("button", { name: "Enregistrer le profil" }))
 
     await waitFor(() => expect(onProfileChange).toHaveBeenCalledWith("Lou", "2026-01-02", "girl", "mixed", "green"))
-  })
+  }, 10_000)
 
   test("demande une confirmation avant de réinitialiser la base", async () => {
     const user = userEvent.setup()

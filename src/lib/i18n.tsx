@@ -126,6 +126,7 @@ const fr = {
     face_cord_care: "Visage et cordon",
     clothes_change: "Vêtements",
     irritation: "Irritation",
+    regurgitation: "Régurgitation",
     vitamin: "Vitamine",
     observation: "Observation",
     daily_care: "Soins quotidiens",
@@ -136,6 +137,11 @@ const fr = {
     urine: "Urine",
     stool: "Selles",
     mixed: "Urine + Selles"
+  },
+  regurgitationAmounts: {
+    little: "Peu",
+    medium: "Moyen",
+    large: "Beaucoup"
   },
   irritationLocations: {
     face: "Visage",
@@ -295,6 +301,7 @@ const fr = {
     both: "Les deux",
     temperatureDescription: "Sélectionnez la valeur mesurée.",
     irritationDescription: "Sélectionnez une ou plusieurs zones, puis ajoutez une observation.",
+    regurgitationDescription: "Choisissez la quantité observée, puis ajoutez une observation si besoin.",
     vitaminDescription: "Sélectionnez une ou plusieurs vitamines administrées, puis ajoutez une observation.",
     freeObservationDescription: "Enregistrez une information libre dans l’historique.",
     observationPlaceholder: "Votre observation…",
@@ -323,6 +330,7 @@ const fr = {
     hours: "Heures",
     minutes: "Minutes",
     seconds: "Secondes",
+    amount: "Quantité",
     diaperType: "Type de couche",
     locations: "Zones",
     vitamins: "Vitamines",
@@ -594,6 +602,7 @@ const en: Messages = {
     face_cord_care: "Face and cord",
     clothes_change: "Clothes",
     irritation: "Irritation",
+    regurgitation: "Regurgitation",
     vitamin: "Vitamin",
     observation: "Observation",
     daily_care: "Daily care",
@@ -604,6 +613,11 @@ const en: Messages = {
     urine: "Urine",
     stool: "Stool",
     mixed: "Urine + Stool"
+  },
+  regurgitationAmounts: {
+    little: "Little",
+    medium: "Medium",
+    large: "A lot"
   },
   irritationLocations: {
     face: "Face",
@@ -763,6 +777,7 @@ const en: Messages = {
     both: "Both",
     temperatureDescription: "Select the measured value.",
     irritationDescription: "Select one or more areas, then add an observation.",
+    regurgitationDescription: "Choose the observed amount, then add an observation if needed.",
     vitaminDescription: "Select one or more administered vitamins, then add an observation.",
     freeObservationDescription: "Save a free-form note in the history.",
     observationPlaceholder: "Your observation…",
@@ -791,6 +806,7 @@ const en: Messages = {
     hours: "Hours",
     minutes: "Minutes",
     seconds: "Seconds",
+    amount: "Amount",
     diaperType: "Diaper type",
     locations: "Areas",
     vitamins: "Vitamins",

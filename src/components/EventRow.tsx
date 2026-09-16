@@ -3,6 +3,7 @@ import {
   Bath,
   ChevronRight,
   CircleDot,
+  Droplets,
   Eye,
   HeartPulse,
   MessageSquare,
@@ -18,7 +19,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useI18n } from "@/lib/i18n"
-import { type BabyEvent, type BabyVitamin, type EventType, normalizeIrritationLocation } from "@/lib/types"
+import { type BabyEvent, type BabyVitamin, type EventType, normalizeIrritationLocation, type RegurgitationAmount } from "@/lib/types"
 import { formatDuration, formatTime } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 
@@ -45,6 +46,7 @@ const EVENT_ICONS: Record<EventType, LucideIcon> = {
   face_cord_care: HeartPulse,
   clothes_change: Shirt,
   irritation: HeartPulse,
+  regurgitation: Droplets,
   vitamin: Pill,
   observation: MessageSquare,
   daily_care: Bath,
@@ -56,6 +58,7 @@ export function EventRow({ event, onClick, showIcon = false }: EventRowProps) {
   const { locale, t } = useI18n()
   const Icon = EVENT_ICONS[event.type]
   const diaperType = typeof event.metadata?.diaper_type === "string" ? event.metadata.diaper_type : null
+  const regurgitationAmount = typeof event.metadata?.amount === "string" ? event.metadata.amount : null
   const irritationLocations = Array.isArray(event.metadata?.locations)
       ? event.metadata.locations.map(normalizeIrritationLocation)
     : typeof event.metadata?.location === "string"
@@ -82,6 +85,8 @@ export function EventRow({ event, onClick, showIcon = false }: EventRowProps) {
       ? careDetail
     : diaperType
       ? t.diaperTypes[diaperType as keyof typeof t.diaperTypes]
+      : regurgitationAmount
+        ? t.regurgitationAmounts[regurgitationAmount as RegurgitationAmount] || regurgitationAmount
       : irritationLocations.length > 0
         ? irritationLocations.map((location) => t.irritationLocations[location as keyof typeof t.irritationLocations] || location.charAt(0).toUpperCase() + location.slice(1)).join(", ")
       : vitamins.length > 0

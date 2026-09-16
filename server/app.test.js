@@ -346,6 +346,18 @@ test("gère le soin combiné, les irritations multiples et les observations", ()
   }).then((response) => response.json())
   assert.deepEqual(irritation.metadata.locations, ["visage", "cou", "torse"])
 
+  const regurgitation = await fetch(`${baseUrl}/api/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      type: "regurgitation",
+      metadata: { amount: "large" },
+      notes: "Après le biberon"
+    })
+  }).then((response) => response.json())
+  assert.equal(regurgitation.type, "regurgitation")
+  assert.deepEqual(regurgitation.metadata, { amount: "large" })
+
   const observation = await fetch(`${baseUrl}/api/events`, {
     method: "POST",
     headers: { "content-type": "application/json" },
