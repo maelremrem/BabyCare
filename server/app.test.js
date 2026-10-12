@@ -9,6 +9,7 @@ import test from "node:test"
 import { createApp, shouldUseIos15Build } from "./app.js"
 import { createAuth } from "./auth.js"
 import { createDatabase } from "./database.js"
+import { eventFilters } from "./repository.js"
 
 const clients = new Map()
 async function fetch(url, init = {}) {
@@ -152,6 +153,79 @@ test("crée et liste un événement instantané", () => withServer(async (baseUr
   assert.equal(history.total, 1)
   assert.equal(history.events[0].value_real, 37.2)
   assert.equal(history.events[0].notes, "Tout va bien")
+}))
+
+test("filtre plusieurs types dans les pages, le total et l’export Excel", () => withServer(async (baseUrl) => {
+  const created = []
+  for (const [type, value_real] of [["bottle", 120], ["temperature", 37.2], ["diaper", null], ["bottle", 90]]) {
+    const response = await fetch(`${baseUrl}/api/events`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, value_real, started_at: "2026-01-01T12:00:00.000Z" })
+    })
+    assert.equal(response.status, 201)
+    created.push(await response.json())
+  }
+  const query = "types=bottle,temperature,bottle&type=diaper"
+  const first = await fetch(`${baseUrl}/api/events?${query}&limit=2`).then((r) => r.json())
+  const second = await fetch(`${baseUrl}/api/events?${query}&limit=2&offset=2`).then((r) => r.json())
+  assert.equal(first.total, 3)
+  assert.equal(second.total, 3)
+  assert.deepEqual([...first.events, ...second.events].map((event) => event.id), [created[3].id, created[1].id, created[0].id])
+  assert.equal(first.events.length, 2)
+  assert.equal(second.events.length, 1)
+
+  const response = await fetch(`${baseUrl}/api/export/xlsx?${query}&locale=en&limit=1&offset=1`)
+  assert.equal(response.status, 200)
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(Buffer.from(await response.arrayBuffer()))
+  const sheet = workbook.getWorksheet("Events")
+  assert.equal(sheet.rowCount, 4)
+  assert.deepEqual([2, 3, 4].map((row) => sheet.getRow(row).getCell(5).value), ["Bottle", "Temperature", "Bottle"])
+
+  const { where, params } = eventFilters({ types: "bottle,temperature,bottle", type: "diaper" }, 1)
+  assert.equal(where.includes("bottle"), false)
+  assert.deepEqual(Object.values(params), [1, "bottle", "temperature"])
+}))
+
+test("une sélection types vide remplace le filtre type sans restreindre l’historique", () => withServer(async (baseUrl) => {
+  for (const type of ["diaper", "observation"]) {
+    await fetch(`${baseUrl}/api/events`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type })
+    })
+  }
+  for (const types of ["", " , , "]) {
+    const query = new URLSearchParams({ types, type: "diaper" })
+    const history = await fetch(`${baseUrl}/api/events?${query}`).then((r) => r.json())
+    assert.equal(history.total, 2)
+  }
+  const single = await fetch(`${baseUrl}/api/events?type=diaper`).then((r) => r.json())
+  assert.equal(single.total, 1)
+  assert.equal(single.events[0].type, "diaper")
+  assert.equal((await fetch(`${baseUrl}/api/events`).then((r) => r.json())).total, 2)
+}))
+
+test("ignore les noms invalides sans élargir une sélection types non vide", () => withServer(async (baseUrl) => {
+  for (const type of ["diaper", "observation"]) {
+    await fetch(`${baseUrl}/api/events`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type })
+    })
+  }
+  const malicious = "diaper') OR 1=1 --"
+  const mixed = ` diaper,unknown,${malicious},diaper `
+  const { where, params } = eventFilters({ types: mixed }, 1)
+  assert.deepEqual(Object.values(params), [1, "diaper"])
+  assert.equal(where.includes(malicious), false)
+  for (const [types, expected] of [[mixed, 1], ["unknown", 0], [malicious, 0], ["unknown,constructor,__proto__", 0]]) {
+    const query = new URLSearchParams({ types, type: "diaper", locale: "en" })
+    const history = await fetch(`${baseUrl}/api/events?${query}`).then((r) => r.json())
+    assert.equal(history.total, expected, types)
+    assert.equal(history.events.length, expected, types)
+    const response = await fetch(`${baseUrl}/api/export/xlsx?${query}`)
+    assert.equal(response.status, 200)
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(Buffer.from(await response.arrayBuffer()))
+    assert.equal(workbook.getWorksheet("Events").rowCount, expected + 1, types)
+  }
 }))
 
 test("conserve puis termine un chrono", () => withServer(async (baseUrl) => {

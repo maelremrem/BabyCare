@@ -20,6 +20,7 @@ export interface HistoryStatistics {
   bottle: {
     averageIntervalSeconds: number | null
     averageQuantityMl: number | null
+    totalQuantityMl: number
     intervalCount: number
     total: number
   }
@@ -50,7 +51,7 @@ export function calculateHistoryStatistics(events: BabyEvent[]): HistoryStatisti
     .map((event, index) => (Date.parse(event.started_at) - Date.parse(feedings[index].started_at)) / 1000)
     .filter((interval) => Number.isFinite(interval) && interval >= 0)
   const bottles = completed
-    .filter((event) => event.type === "bottle" && Number.isFinite(event.value_real))
+    .filter((event) => event.type === "bottle" && event.value_real != null && Number.isFinite(event.value_real) && event.value_real >= 0)
     .sort((left, right) => Date.parse(left.started_at) - Date.parse(right.started_at))
   const bottleIntervals = bottles.slice(1)
     .map((event, index) => (Date.parse(event.started_at) - Date.parse(bottles[index].started_at)) / 1000)
@@ -82,6 +83,7 @@ export function calculateHistoryStatistics(events: BabyEvent[]): HistoryStatisti
     bottle: {
       averageIntervalSeconds: average(bottleIntervals),
       averageQuantityMl: average(bottles.map((event) => event.value_real as number)),
+      totalQuantityMl: bottles.reduce((sum, event) => sum + (event.value_real ?? 0), 0),
       intervalCount: bottleIntervals.length,
       total: bottles.length
     },

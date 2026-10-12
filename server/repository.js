@@ -73,7 +73,16 @@ export function eventFilters(query, babyId) {
     clauses.push("date(started_at, 'localtime') <= date(@to)")
     params.to = query.to
   }
-  if (query.type && EVENT_TYPES.has(query.type)) {
+  if (Object.hasOwn(query, "types")) {
+    const requestedTypes = String(query.types).split(",").map((type) => type.trim()).filter(Boolean)
+    const types = [...new Set(requestedTypes.filter((type) => EVENT_TYPES.has(type)))]
+    const placeholders = types.map((type, index) => {
+      params[`type_${index}`] = type
+      return `@type_${index}`
+    })
+    if (types.length) clauses.push(`type IN (${placeholders.join(", ")})`)
+    else if (requestedTypes.length) clauses.push("0 = 1")
+  } else if (query.type && EVENT_TYPES.has(query.type)) {
     clauses.push("type = @type")
     params.type = query.type
   }

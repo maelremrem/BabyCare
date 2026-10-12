@@ -1,4 +1,5 @@
 import type { AccentColor, AppSettings, BabyEvent, BabySex, DailyCare, EventList, EventPayload, EventType, FeedingType, StoolAlert, UpdateStatus, VersionInfo } from "@/lib/types"
+import { EVENT_LABELS } from "@/lib/types"
 import type { LanguagePreference } from "@/lib/i18n"
 
 interface DemoState {
@@ -275,7 +276,10 @@ function matchesFilters(event: BabyEvent, params: URLSearchParams) {
   const search = params.get("search")?.toLowerCase()
   if (from && started < from) return false
   if (to && started > to) return false
-  if (type && event.type !== type) return false
+  if (params.has("types")) {
+    const types = new Set(params.get("types")!.split(",").map((type) => type.trim()).filter(Boolean))
+    if (types.size && !types.has(event.type)) return false
+  } else if (type && Object.prototype.hasOwnProperty.call(EVENT_LABELS, type) && event.type !== type) return false
   if (search) {
     const haystack = [event.type, event.value_text, event.notes, JSON.stringify(event.metadata)].filter(Boolean).join(" ").toLowerCase()
     if (!haystack.includes(search)) return false
